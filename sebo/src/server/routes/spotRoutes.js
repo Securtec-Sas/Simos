@@ -6,12 +6,8 @@ const {handleSpotAnalysisRequest, handleSpotExchangePrice}= require('../controll
 const { addExchangesSymbols } = require('../controllers/dbCotroller');
 // const {analyzeSymbols} = require('../controllers/analizerController'); // Comentada para usar el objeto completo
 const analizerController = require('../controllers/analizerController');     // Usar el objeto completo
-<<<<<<< HEAD
-
-=======
-const symbolController = require('../controllers/symbolController'); // Importar controlador de símbolos
->>>>>>> 350081c776023cb3f76d8bf783c2f2baec6c461c
-
+const symbolController = require('../controllers/symbolController');
+const { syncIndexes } = require('../data/dataBase/modelosBD/balance.model');
 // ...otras rutas...
 
 // router.get('/symbol', symbolController.addSymbolsForExchange);
@@ -162,8 +158,6 @@ router.get('/promedios', analizerController.analyzeSymbols); // Usando acceso di
  *         description: Error durante el análisis de spot.
  */
 
-
-
-
+router.get('/spotanalyzer', symbolController.addSymbolsForExchange); // Ruta para agregar símbolos de exchanges
 
 module.exports = router;

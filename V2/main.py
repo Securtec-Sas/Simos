@@ -3,8 +3,9 @@
 import asyncio
 from datetime import datetime, timezone # Añadir timezone
 import websockets # Ensure this is imported for the UI server
-# import websockets.uri # This should remain commented or removed
+import websockets.uri # This should remain commented or removed
 import socketio # Ensure this is imported
+from socketio import ConnectionError
 import json
 import ccxt.async_support as ccxt
 import aiohttp
@@ -57,7 +58,7 @@ class CryptoArbitrageApp:
         # Register the instance method directly for the 'spot-arb' event
         self.sio.on('spot-arb', namespace='/api/spot/arb')(self.on_spot_arb_data_method)
         # Register new handler for 'balances-update' event from Sebo
-        self.sio.on('balances-update', namespace='/api/spot/arb')(self.on_balances_update_from_sebo)
+        self.sio.on('balances-update', namespace='/api/spot/arb')(lambda data: asyncio.create_task(self.on_balances_update_from_sebo(data)))
 
     async def on_balances_update_from_sebo(self, data):
         print(f"V2: Recibido 'balances-update' de Sebo: {data}")
@@ -138,6 +139,10 @@ class CryptoArbitrageApp:
         api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         try:
             await self._ensure_http_session()
+            if self.http_session is None:
+                print("V2: Error - http_session is None before GET request.")
+                self.current_balance_config = None
+                return False
             async with self.http_session.get(api_url) as response: # Use shared session
                     if response.status == 200:
                         self.current_balance_config = await response.json()
@@ -391,15 +396,15 @@ class CryptoArbitrageApp:
         # WEBSOCKET_URL is "ws://localhost:3000/api/spot/arb"
         # For python-socketio, the main URL is ws://localhost:3000
         # The namespace is /api/spot/arb
-        sebo_url = "ws://localhost:3000" # Base URL for Socket.IO connection
+        sebo_url = "ws://localhost:3001" # Base URL for Socket.IO connection (V2 recibe en 3001)
         try:
             # The handlers are already registered in __init__ via _register_sio_handlers
             await self.sio.connect(sebo_url, namespaces=['/api/spot/arb'])
             await self.sio.wait() # Keep the client running and listening for events
-
-        except socketio.exceptions.ConnectionError as e:
+        except ConnectionError as e:
             print(f"Error de conexión Socket.IO con Sebo: {e}")
         except Exception as e: # Catch other potential exceptions
+            print(f"Error en la conexión Socket.IO con Sebo: {e}")
             print(f"Error en la conexión Socket.IO con Sebo: {e}")
         finally:
             if self.sio.connected:
@@ -434,14 +439,14 @@ class CryptoArbitrageApp:
             # Example: "ws://localhost:3031/api/spot/ui" -> 3031
             ui_port = int(UI_WEBSOCKET_URL.split(":")[-1].split("/")[0])
         except ValueError:
-            print(f"Error al parsear puerto de UI_WEBSOCKET_URL: '{UI_WEBSOCKET_URL}'. Usando puerto por defecto 3001.")
-            ui_port = 3001
+            print(f"Error al parsear puerto de UI_WEBSOCKET_URL: '{UI_WEBSOCKET_URL}'. Usando puerto por defecto 3031.")
+            ui_port = 3031
         except Exception as e: # Catch other potential parsing errors
-            print(f"Error inesperado al parsear UI_WEBSOCKET_URL ('{UI_WEBSOCKET_URL}'): {e}. Usando puerto por defecto 3001.")
-            ui_port = 3001
+            print(f"Error inesperado al parsear UI_WEBSOCKET_URL ('{UI_WEBSOCKET_URL}'): {e}. Usando puerto por defecto 3031.")
+            ui_port = 3031
 
-        async def ui_websocket_handler(websocket_client, path):
-            print(f"Cliente UI conectado (path: {path})")
+        async def ui_websocket_handler(websocket_client):
+            print(f"Cliente UI conectado")
             self.ui_clients.add(websocket_client)
             try:
                 # Keep connection alive and handle incoming messages if any
