@@ -5,4 +5,4 @@ ccxt>=2.0.0 # Usar una versión reciente de ccxt para async support
 # numpy>=1.19 # Si se usa numpy explícitamente
 pandas>=1.1.0 # Si se usa pandas explícitamente
 # tensorflow # Si se usa TensorFlow/Keras
-# torch # Si se usa PyTorch
+#socketio>=0.2.1 # Asegurarse de que sea compatible con python-socketio

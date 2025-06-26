@@ -4,8 +4,10 @@ import asyncio
 from datetime import datetime, timezone # Añadir timezone
 import websockets # Ensure this is imported for the UI server
 # import websockets.uri # This should remain commented or removed
-import socketio # Ensure this is imported
-from socketio import ConnectionError
+import socketio # Import socketio for the Socket.IO client
+from socketio.async_client import AsyncClient
+from socketio.exceptions import ConnectionError
+
 from typing import Union, Optional, Dict, Any # Added Union for type hints
 import json
 import ccxt.async_support as ccxt
@@ -23,7 +25,7 @@ class CryptoArbitrageApp:
     def __init__(self):
         self.exchanges = {}
         # self.model = ArbitrageModel() # Assuming model.py and class exist, can be uncommented later
-        self.sio = socketio.AsyncClient(logger=False, engineio_logger=False) # Reduce verbosity
+        self.sio = AsyncClient(logger=False, engineio_logger=False) # Reduce verbosity
         self.ui_clients = set()
         self.ccxt_instances = {} # For caching CCXT instances
         self.current_balance_config = None # Will store Balance config from Sebo
@@ -402,7 +404,7 @@ class CryptoArbitrageApp:
         # WEBSOCKET_URL is "ws://localhost:3000/api/spot/arb"
         # For python-socketio, the main URL is ws://localhost:3000
         # The namespace is /api/spot/arb
-        sebo_url = "ws://localhost:3001" # Base URL for Socket.IO connection (V2 recibe en 3001)
+        sebo_url = "ws://localhost:3031" # Base URL for Socket.IO connection (V2 recibe en 3001)
         try:
             # The handlers are already registered in __init__ via _register_sio_handlers
             await self.sio.connect(sebo_url, namespaces=['/api/spot/arb'])

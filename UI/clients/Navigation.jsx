@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { TrendingUp, BarChart3, Menu, X } from 'lucide-react'
+import React, { useEffect, useState } from 'react';
+// import { Link, useLocation } from 'react-router-dom'
+// // import { Button } from '@/components/ui/button'
+// // import { Card } from '@components/ui/card'
+// import { TrendingUp, BarChart3, Menu, X } from 'lucide-react'
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false)

@@ -1,6 +1,6 @@
 // UI/clients/src/components/Top20DetailedPage/Top20DetailedPage.jsx
 import React, { useState, useEffect } from 'react';
-import io from 'socket.io-client'; // Necesitarás instalar socket.io-client si aún no está: npm install socket.io-client
+import {io} from 'socket.io-client'; // Necesitarás instalar socket.io-client si aún no está: npm install socket.io-client
 
 const SEBO_WEBSOCKET_URL = 'ws://localhost:3031'; // NUEVO VALOR para el servidor Sebo
 const NAMESPACE = '/api/spot/arb'; // Namespace definido en spotSocketController.js

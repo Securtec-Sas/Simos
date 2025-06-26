@@ -34,7 +34,7 @@ const Sidebar = ({ allExchanges, setAllExchanges }) => {
         >
           Top 20 Detallado
         </button>
-        <SpotsMenu />
+        {/* <SpotsMenu /> */}
       </div>
     </div>
   );

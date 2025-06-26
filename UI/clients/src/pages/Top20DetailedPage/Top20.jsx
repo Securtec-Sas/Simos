@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { TrendingUp, TrendingDown, Wallet, Play, Pause, RefreshCw } from 'lucide-react'
-import useWebSocket from '@/hooks/useWebSocket'
+import React, { useEffect, useState } from 'react';
+// import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+// import { Button } from '@/components/ui/button'
+// import { Badge } from '@/components/ui/badge'
+// import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+// import { TrendingUp, TrendingDown, Wallet, Play, Pause, RefreshCw } from 'lucide-react'
+// import useWebSocket from '@/hooks/useWebSocket'
 
 const Top20 = () => {
   const [opportunities, setOpportunities] = useState([])
