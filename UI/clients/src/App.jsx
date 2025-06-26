@@ -4,6 +4,7 @@ import Layout from './components/Layout/Layout.jsx';
 import ActiveExchangesTable from './components/ActiveExchangesTable/ActiveExchangesTable.jsx';
 import SpotsMenu from './components/SpotsMenu/SpotsMenu.jsx';
 import Top20DetailedPage from './components/Top20DetailedPage/Top20DetailedPage'; // Import new page
+import Datos from '../Datos.jsx'; // Importar Datos.jsx desde la raíz de UI/clients
 
 function App() {
   const [allExchanges, setAllExchanges] = useState([]);
@@ -85,7 +86,9 @@ function App() {
               )}
             </div>
           } />
-          <Route path="/top20-detailed" element={<Top20DetailedPage />} /> {/* Add new route */}
+          <Route path="/top20-detailed" element={<Top20DetailedPage />} /> {/* Mantener por si Sidebar aún se usa o por enlaces directos */}
+          <Route path="/top20" element={<Top20DetailedPage />} /> {/* Nueva ruta para Navigation.jsx */}
+          <Route path="/datos" element={<Datos />} /> {/* Nueva ruta para Navigation.jsx */}
         </Route>
       </Routes>
     </Router>

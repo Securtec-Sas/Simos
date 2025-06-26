@@ -3,7 +3,7 @@
 import asyncio
 from datetime import datetime, timezone # Añadir timezone
 import websockets # Ensure this is imported for the UI server
-import websockets.uri # This should remain commented or removed
+# import websockets.uri # This should remain commented or removed
 import socketio # Ensure this is imported
 from socketio import ConnectionError
 import json

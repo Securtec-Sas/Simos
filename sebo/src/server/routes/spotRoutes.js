@@ -158,6 +158,7 @@ router.get('/promedios', analizerController.analyzeSymbols); // Usando acceso di
  *         description: Error durante el análisis de spot.
  */
 
-router.get('/spotanalyzer', symbolController.addSymbolsForExchange); // Ruta para agregar símbolos de exchanges
+// router.get('/spotanalyzer', symbolController.addSymbolsForExchange); // Comentado porque addSymbolsForExchange en symbolController está comentado/roto.
+                                                                    // La funcionalidad de agregar símbolos de exchanges se maneja mejor en dbController.addExchangesSymbols.
 
 module.exports = router;

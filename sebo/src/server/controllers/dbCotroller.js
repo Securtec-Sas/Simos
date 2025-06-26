@@ -112,17 +112,17 @@ const addExchangesSymbols = async (req, res) => {
       Aquí "id del exchange" se refiere al _id del documento Exchange,
       ya que ExchangeSymbol.exchangeId referencia a Exchange._id.
     */
-    // Primero, obtenemos todos los _id de Exchange que ya están en ExchangeSymbol
-    const usedExchangeId  = await ExchangeSymbol.distinct('exchangeId');
-    const  existingExchangeObjectIdsInSymbols = await usedExchangeId.map(es => es.exchangeId);
+    // Considerar si la exclusión de exchanges ya procesados es necesaria o si
+    // la lógica de findOne para ExchangeSymbol individual es suficiente.
+    // Por ahora, se simplificará eliminando esta exclusión previa.
+    // const existingExchangeObjectIdsInSymbols = await ExchangeSymbol.distinct('exchangeId');
+    // console.log(`Found ${existingExchangeObjectIdsInSymbols.length} distinct exchangeIds in ExchangeSymbol.`);
 
-    // Populate para obtener el id_ex del Exchange
-    console.log(`Found ${Object.values(existingExchangeObjectIdsInSymbols).slice(0, 2)}  ...  existing ExchangeSymbol entries.`);
-    // Luego, buscamos Exchanges que cumplan las condiciones y cuyo _id NO esté en la lista obtenida
     const activeExchanges = await Exchange.find({
       isActive: true,
-      connectionType: 'ccxt',
-      _id : { $nin: existingExchangeObjectIdsInSymbols } // $nin significa "not in"
+      connectionType: 'ccxt'
+      // Descomentar si se quiere reintroducir la exclusión:
+      // _id : { $nin: existingExchangeObjectIdsInSymbols }
     });
 
     if (activeExchanges.length === 0) {
@@ -177,22 +177,22 @@ const addExchangesSymbols = async (req, res) => {
         // 3. y 4. Procesar cada símbolo del exchange
         console.log(`Processing exchange: ${exchangeId} with ${Object.keys(markets).length} markets`);
         simbolos = 0;
-        for (const symbol in markets) {
-          console.log(`${simbolos} / ${Object.keys(markets).length}`);
-          const market = markets[symbol];
+        for (const marketSymbolKey in markets) { // Iterate over keys to get symbol string directly
+          // console.log(`${simbolos} / ${Object.keys(markets).length}`); // Reduced verbosity
+          const market = markets[marketSymbolKey];
+
           // Only process spot markets with USDT quote
-          if (market.spot && market.active && market.quote === 'USDT') {
+          // market.symbol should be used for consistency with ccxt structure
+          if (market.spot && market.active && market.quote === 'USDT' && market.symbol) {
             try {
               // Find or create the Symbol in the database
               let symbolDoc = await Symbol.findOne({ id_sy: market.symbol });
-              // console.log(`Processing symbol: ${market} on exchange: ${exchangeId}`);
               if (!symbolDoc) {
                 symbolDoc = new Symbol({
                   id_sy: market.symbol,
-                  name: market.base,
+                  name: market.base, // 'base' is the base currency, e.g., BTC in BTC/USDT
                 });
                 await symbolDoc.save();
-                // console.log(`${market.symbol} - ok s`);
               }
 
               // Check if the ExchangeSymbol combination already exists
@@ -202,27 +202,34 @@ const addExchangesSymbols = async (req, res) => {
               });
 
               if (!exchangeSymbolDoc) {
-                // Fetch ticker to get buy/sell values (ask/bid)
-                let ticker = null;
-                try {
-                  ticker = await ccxtExchange.fetchTicker(market.symbol);
-                } catch (tickerError) {
-                  console.warn(`Could not fetch ticker for ${market.symbol} on ${exchangeId}: ${tickerError.message}`);
-                  // Continue without ticker data, Val_buy and Val_sell will be default 0
-                  continue
+                const tickerForSymbol = allTickers[market.symbol]; // Use data from fetchTickers()
+
+                if (tickerForSymbol) {
+                  exchangeSymbolDoc = new ExchangeSymbol({
+                    symbolId: symbolDoc._id,
+                    exchangeId: exchange._id,
+                    // Corregido:
+                    // Val_buy (precio al que NOSOTROS compramos el activo base) = precio ASK del mercado
+                    // Val_sell (precio al que NOSOTROS vendemos el activo base) = precio BID del mercado
+                    Val_buy: tickerForSymbol.ask,
+                    Val_sell: tickerForSymbol.bid,
+                    timestamp: new Date(),
+                  });
+                  await exchangeSymbolDoc.save();
+                  addedCount++;
+                } else {
+                  console.warn(`No ticker data found in allTickers for ${market.symbol} on ${exchangeId}. Skipping ExchangeSymbol creation.`);
+                  // Optionally create ExchangeSymbol with 0 prices if required
+                  // exchangeSymbolDoc = new ExchangeSymbol({
+                  //   symbolId: symbolDoc._id,
+                  //   exchangeId: exchange._id,
+                  //   Val_buy: 0,
+                  //   Val_sell: 0,
+                  //   timestamp: new Date(),
+                  // });
+                  // await exchangeSymbolDoc.save();
+                  // addedCount++;
                 }
-                // console.log(`Adding new ExchangeSymbol for ${ticker.bid} on ${exchangeId}`);
-                exchangeSymbolDoc = new ExchangeSymbol({
-                  symbolId: symbolDoc._id,
-                  exchangeId: exchange._id, // Usar el ObjectId del documento Exchange
-                  Val_buy: ticker ? ticker.bid : 0, // Use bid for buy value
-                  Val_sell: ticker ? ticker.ask : 0, // Use ask for sell value
-                  timestamp: new Date(),
-                });
-                await exchangeSymbolDoc.save();
-                // console.log(`${ticker.bid} - ok es`);
-                addedCount++;
-                
               } 
             } catch (symbolProcessingError) {
               symbolErrors.push({
