@@ -6,6 +6,7 @@ import websockets # Ensure this is imported for the UI server
 # import websockets.uri # This should remain commented or removed
 import socketio # Ensure this is imported
 from socketio import ConnectionError
+from typing import Union, Optional, Dict, Any # Added Union for type hints
 import json
 import ccxt.async_support as ccxt
 import aiohttp
@@ -55,12 +56,17 @@ class CryptoArbitrageApp:
         async def disconnect():
             print("Socket.IO disconnected from Sebo")
 
-        # Register the instance method directly for the 'spot-arb' event
-        self.sio.on('spot-arb', namespace='/api/spot/arb')(self.on_spot_arb_data_method)
-        # Register new handler for 'balances-update' event from Sebo
-        self.sio.on('balances-update', namespace='/api/spot/arb')(lambda data: asyncio.create_task(self.on_balances_update_from_sebo(data)))
+        # Register event handlers
+        self.sio.on('spot-arb', self.on_spot_arb_data_method, namespace='/api/spot/arb')
 
-    async def on_balances_update_from_sebo(self, data):
+        # For 'balances-update', if we need to launch it as a task directly from the handler
+        # and the handler itself needs to be async with `data`
+        async def balances_update_handler(data):
+            asyncio.create_task(self.on_balances_update_from_sebo(data))
+        self.sio.on('balances-update', balances_update_handler, namespace='/api/spot/arb')
+
+
+    async def on_balances_update_from_sebo(self, data: Dict[str, Any]): # Added type hint for data
         print(f"V2: Recibido 'balances-update' de Sebo: {data}")
         self.latest_balances_from_sebo = data # Store the received balances
 
@@ -191,7 +197,7 @@ class CryptoArbitrageApp:
             print(f"V2_UpdateBalance: Excepción actualizando balance para {exchange_id}: {e}")
             return False
 
-    async def load_balance_config_for_exchange(self, exchange_id: str) -> dict | None:
+    async def load_balance_config_for_exchange(self, exchange_id: str) -> Union[dict, None]: # Changed to Union
         if not exchange_id: return None
         api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         try:
