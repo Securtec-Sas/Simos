@@ -75,26 +75,77 @@ class UICommandHandlers:
         await self.app.broadcast_to_ui({"type": "model_training_update", "payload": {"status": "starting_training", "client_id": client_id, "params": payload}})
         try:
             X_raw_list, y_raw_list = [], []
-            # Currently, model training data loading from CSV is a placeholder in model.py or here.
-            # For now, using simulated data.
-            print("UICommandHandlers: Using simulated data for model training (CSV parsing placeholder).")
-            num_samples = payload.get("num_simulated_samples", SIMULATED_DATA_SAMPLES_TRAIN)
-            # Simplified feature set for example
-            sim_X = [{'gross_percentage_diff_sebo': np.random.uniform(0,5),
-                        'price_ex_min_buy_asset_sebo': np.random.uniform(10000,60000),
-                        # ... (add all features model expects) ...
-                        'ex_min_id_sebo': np.random.choice(['binance','kraken']),
-                        'ex_max_id_sebo': np.random.choice(['binance','gemini']),
-                        'symbol_name': np.random.choice(['BTC','ETH'])} for _ in range(num_samples)]
-            sim_y = np.random.randint(0, 2, num_samples).tolist()
-            X_raw_list, y_raw_list = sim_X, sim_y
+            X_raw_list, y_raw_list = [], []
+            data_source_message = ""
 
-            if not self.app.model: raise Exception("Model not initialized in app.")
-            training_results = self.app.model.train(X_raw_list, y_raw_list) # Call model's train
+            # Nota sobre la carga de datos de entrenamiento:
+            # 1. Se intenta cargar desde OPERATIONS_LOG_CSV_PATH (definido en config.py).
+            #    El CSV debe estar preparado por el usuario con las características (X)
+            #    y una columna 'label' (Y) adecuadas para el modelo de IA.
+            #    La lógica actual de lectura de CSV es un placeholder y asume que todas las
+            #    columnas excepto 'label' son características. Esto DEBE ser adaptado
+            #    en model.py -> _prepare_data_template y aquí si es necesario.
+            # 2. Si la carga del CSV falla (archivo no encontrado, error de formato, falta 'label'),
+            #    se recurre a datos simulados generados internamente.
+            # 3. El modelo (ArbitrageIntelligenceModel en model.py) es una plantilla.
+            #    Su método _prepare_data_template y train deben ser implementados por el usuario
+            #    para manejar correctamente los datos cargados y entrenar el modelo de IA específico.
 
-            status_msg, final_status = (f"Training failed: {training_results.get('error', 'Unknown')}", "failed") if not training_results or "error" in training_results else ("Training completed.", "success")
-            if final_status == "success": self.app.model.save_model()
-            await self.app.broadcast_to_ui({"type": "model_training_update", "payload": {"status": final_status, "message": status_msg, "results": training_results, "client_id": client_id}})
+            try:
+                print(f"UICommandHandlers: Intentando cargar datos de entrenamiento desde {OPERATIONS_LOG_CSV_PATH}")
+                # Asumir que el CSV tiene columnas para características (X) y una columna 'label' para (Y)
+                # Esta parte necesitará una adaptación robusta basada en el formato real del CSV.
+                df = pd.read_csv(OPERATIONS_LOG_CSV_PATH)
+
+                # Placeholder: Asumir que todas las columnas excepto 'label' son características.
+                # El usuario DEBERÁ ajustar esto para que coincida con su CSV y modelo.
+                if 'label' not in df.columns:
+                    raise ValueError("La columna 'label' no se encuentra en el CSV de entrenamiento.")
+
+                y_raw_list = df['label'].tolist()
+                X_raw_list = df.drop(columns=['label']).to_dict(orient='records')
+                data_source_message = f"Datos cargados desde {OPERATIONS_LOG_CSV_PATH} ({len(X_raw_list)} muestras)."
+                print(data_source_message)
+
+            except FileNotFoundError:
+                data_source_message = f"Archivo CSV no encontrado en {OPERATIONS_LOG_CSV_PATH}. Usando datos simulados."
+                print(data_source_message)
+            except Exception as e:
+                data_source_message = f"Error cargando CSV: {e}. Usando datos simulados."
+                print(data_source_message)
+
+            if not X_raw_list: # Si la carga del CSV falló o el archivo estaba vacío, usar datos simulados
+                print("UICommandHandlers: Usando datos simulados para el entrenamiento del modelo.")
+                num_samples = payload.get("num_simulated_samples", SIMULATED_DATA_SAMPLES_TRAIN)
+                # Los datos simulados deben ser genéricos o el modelo debe poder manejarlos.
+                # Para la plantilla, esto es solo un ejemplo.
+                X_raw_list = [{'feature1': np.random.rand(), 'feature2': np.random.rand()} for _ in range(num_samples)]
+                y_raw_list = np.random.randint(0, 2, num_samples).tolist() # Ejemplo de etiquetas binarias
+                data_source_message += " Se usaron datos simulados como fallback."
+
+            if not self.app.model:
+                raise Exception("Modelo no inicializado en la aplicación.")
+
+            # Pasar parámetros específicos del modelo si es necesario (ej. epochs, batch_size para NNs)
+            model_specific_training_params = payload.get("model_training_params", {})
+
+            training_results = self.app.model.train(X_raw_list, y_raw_list, model_specific_params=model_specific_training_params)
+
+            status_msg = training_results.get('message', 'Proceso de entrenamiento finalizado.')
+            final_status = training_results.get('status', 'unknown') # 'success' o 'failed' esperado del modelo
+
+            if final_status == "success":
+                self.app.model.save_model() # Guardar el modelo si el entrenamiento fue exitoso
+
+            await self.app.broadcast_to_ui({
+                "type": "model_training_update",
+                "payload": {
+                    "status": final_status,
+                    "message": f"{data_source_message} {status_msg}",
+                    "results": training_results,
+                    "client_id": client_id
+                }
+            })
         except Exception as e:
             print(f"UICommandHandlers: Error in trigger_model_training: {e}")
             await self.app.broadcast_to_ui({"type": "model_training_update", "payload": {"status": "failed", "error": str(e), "client_id": client_id}})

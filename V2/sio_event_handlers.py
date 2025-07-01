@@ -17,11 +17,11 @@ class SIOEventHandlers:
             }
             await self.app.broadcast_to_ui(ui_message) # Call app's broadcast method
 
-            if not self.app.is_processing_opportunity_batch:
+            # if not self.app.is_processing_opportunity_batch: # Ya no se procesa automáticamente en V2
                 # print("SIOEventHandler: Scheduling new opportunity batch processing.") # Can be verbose
-                self.app.is_processing_opportunity_batch = True
+                # self.app.is_processing_opportunity_batch = True
                 # process_opportunity_batch will be on opp_processor instance
-                asyncio.create_task(self.app.opp_processor.process_opportunity_batch())
+                # asyncio.create_task(self.app.opp_processor.process_opportunity_batch()) # Comentado/Eliminado
             # else:
                 # print("SIOEventHandler: Already processing an opportunity batch.") # Can be verbose
         else:

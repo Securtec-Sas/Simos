@@ -51,11 +51,12 @@ class V2Helpers:
         # or directly import from config if it's globally available and correctly set up.
         # For now, assuming it's accessible via self.app (e.g. self.app.SEBO_API_BASE_URL)
         # This requires SEBO_API_BASE_URL to be an attribute of the app instance or a global in principal.py
-        # Let's assume principal.py defines it globally for now, or we pass it.
-        # For simplicity, re-importing it here if it's not passed via app.
-        from .principal import SEBO_API_BASE_URL # Relative import assuming principal.py sets it globally
+        # Accessing via self.app.SEBO_API_BASE_URL which is set in CryptoArbitrageApp's __init__
+        if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
+            print("V2Helpers: SEBO_API_BASE_URL no está configurado en la instancia de la app para get_usdt_withdrawal_info.")
+            return usdt_withdrawal_info
 
-        api_url = f"{SEBO_API_BASE_URL}/exchanges/{from_exchange_id}/withdrawal-fees/USDT"
+        api_url = f"{self.app.SEBO_API_BASE_URL}/exchanges/{from_exchange_id}/withdrawal-fees/USDT"
         try:
             await self.app._ensure_http_session() # Accessing app's method
             async with self.app.http_session.get(api_url) as response:
@@ -85,9 +86,12 @@ class V2Helpers:
             self.app.current_balance_config = None
             return False
 
-        from .principal import SEBO_API_BASE_URL
+        if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
+            print(f"V2Helpers: SEBO_API_BASE_URL no configurado en app para load_balance_config({exchange_id}).")
+            self.app.current_balance_config = None
+            return False
 
-        api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
+        api_url = f"{self.app.SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         try:
             await self.app._ensure_http_session()
             async with self.app.http_session.get(api_url) as response:
@@ -110,9 +114,11 @@ class V2Helpers:
             print("V2Helpers_UpdateBalance: No exchange_id para actualizar balance en Sebo.")
             return False
 
-        from .principal import SEBO_API_BASE_URL
+        if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
+            print(f"V2Helpers: SEBO_API_BASE_URL no configurado en app para update_balance_on_sebo({exchange_id}).")
+            return False
 
-        api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
+        api_url = f"{self.app.SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         payload = {**full_config_to_upsert}
         payload['balance_usdt'] = new_balance_usdt
         payload['id_exchange'] = exchange_id
@@ -149,8 +155,12 @@ class V2Helpers:
 
     async def load_balance_config_for_exchange(self, exchange_id: str) -> Optional[dict]:
         if not exchange_id: return None
-        from .principal import SEBO_API_BASE_URL
-        api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
+
+        if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
+            print(f"V2Helpers: SEBO_API_BASE_URL no configurado en app para load_balance_config_for_exchange({exchange_id}).")
+            return None
+
+        api_url = f"{self.app.SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         try:
             await self.app._ensure_http_session()
             async with self.app.http_session.get(api_url) as response:
@@ -180,3 +190,6 @@ class V2Helpers:
     # _ensure_http_session could also be here if only helpers use it,
     # but it's fine in app_core if app_core also makes direct http calls.
     # For now, helpers will call self.app._ensure_http_session()
+
+    # La función get_balances_from_sebo ha sido eliminada ya que V2
+    # ahora depende de las actualizaciones de balance por Socket.IO desde Sebo.
