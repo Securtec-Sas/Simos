@@ -21,6 +21,7 @@ class SIOEventHandlers:
                 print("SIOEventHandler: Scheduling new opportunity batch processing.") # Can be verbose
             if  self.app.is_processing_opportunity_batch == True:
                 # process_opportunity_batch will be on opp_processor instance
+                #debe llevar como parametro la lista de top20Analisis
                 asyncio.create_task(self.app.opp_processor.process_opportunity_batch())
             else:
                 print("SIOEventHandler: Already processing an opportunity batch.") # Can be verbose
