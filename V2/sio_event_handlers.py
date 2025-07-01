@@ -17,6 +17,7 @@ class SIOEventHandlers:
             }
             await self.app.broadcast_to_ui(ui_message) # Call app's broadcast method
 
+<<<<<<< HEAD
             # if not self.app.is_processing_opportunity_batch: # Ya no se procesa automáticamente en V2
                 # print("SIOEventHandler: Scheduling new opportunity batch processing.") # Can be verbose
                 # self.app.is_processing_opportunity_batch = True
@@ -24,6 +25,16 @@ class SIOEventHandlers:
                 # asyncio.create_task(self.app.opp_processor.process_opportunity_batch()) # Comentado/Eliminado
             # else:
                 # print("SIOEventHandler: Already processing an opportunity batch.") # Can be verbose
+=======
+            if not self.app.is_processing_opportunity_batch:
+                print("SIOEventHandler: Scheduling new opportunity batch processing.") # Can be verbose
+            if  self.app.is_processing_opportunity_batch == True:
+                # process_opportunity_batch will be on opp_processor instance
+                #debe llevar como parametro la lista de top20Analisis
+                asyncio.create_task(self.app.opp_processor.process_opportunity_batch())
+            else:
+                print("SIOEventHandler: Already processing an opportunity batch.") # Can be verbose
+>>>>>>> origin/feature/sebo-v2-datalinks
         else:
             print(f"SIOEventHandler: Invalid 'top_20_data': {type(data)}")
             self.app.current_top_20_list = []
@@ -34,7 +45,7 @@ class SIOEventHandlers:
             })
 
     async def on_balances_update_from_sebo(self, data):
-        # print(f"SIOEventHandler: Received 'balances-update' from Sebo: {data}") # Can be verbose
+        print(f"SIOEventHandler: Received 'balances-update' from Sebo: {data}") # Can be verbose
         self.app.latest_balances_from_sebo = data
 
         ui_message = {
