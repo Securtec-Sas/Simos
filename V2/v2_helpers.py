@@ -26,20 +26,20 @@ class V2Helpers:
                 return None
         return self.app.ccxt_instances[exchange_id]
 
-    async def get_current_market_prices(self, exchange_id: str, symbol: str):
-        exchange = await self.get_ccxt_exchange_instance(exchange_id) # Uses helper method above
-        if not exchange:
-            return None, None
-        try:
-            ticker = await exchange.fetch_ticker(symbol)
-            return ticker.get('ask'), ticker.get('bid')
-        except ccxt.NetworkError as e:
-            print(f"V2Helpers: CCXT NetworkError Ticker {symbol}@{exchange_id}: {e}")
-        except ccxt.ExchangeError as e:
-            print(f"V2Helpers: CCXT ExchangeError Ticker {symbol}@{exchange_id}: {e}")
-        except Exception as e:
-            print(f"V2Helpers: CCXT Generic Error Ticker {symbol}@{exchange_id}: {e}")
-        return None, None
+    # async def get_current_market_prices(self, exchange_id: str, symbol: str):
+    #     exchange = await self.get_ccxt_exchange_instance(exchange_id) # Uses helper method above
+    #     if not exchange:
+    #         return None, None
+    #     try:
+    #         ticker = await exchange.fetch_ticker(symbol)
+    #         return ticker.get('ask'), ticker.get('bid')
+    #     except ccxt.NetworkError as e:
+    #         print(f"V2Helpers: CCXT NetworkError Ticker {symbol}@{exchange_id}: {e}")
+    #     except ccxt.ExchangeError as e:
+    #         print(f"V2Helpers: CCXT ExchangeError Ticker {symbol}@{exchange_id}: {e}")
+    #     except Exception as e:
+    #         print(f"V2Helpers: CCXT Generic Error Ticker {symbol}@{exchange_id}: {e}")
+    #     return None, None
 
     async def get_usdt_withdrawal_info(self, from_exchange_id: str):
         usdt_withdrawal_info = {
@@ -85,9 +85,9 @@ class V2Helpers:
             self.app.current_balance_config = None
             return False
 
-        from .principal import SEBO_API_BASE_URL
+        from config import SEBO_BASE
 
-        api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
+        api_url = f"{SEBO_BASE}/api/balances/exchange/{exchange_id}"
         try:
             await self.app._ensure_http_session()
             async with self.app.http_session.get(api_url) as response:
@@ -149,7 +149,8 @@ class V2Helpers:
 
     async def load_balance_config_for_exchange(self, exchange_id: str) -> Optional[dict]:
         if not exchange_id: return None
-        from .principal import SEBO_API_BASE_URL
+        from config import SEBO_BASE
+        SEBO_API_BASE_URL = f"{SEBO_BASE}/api"
         api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         try:
             await self.app._ensure_http_session()

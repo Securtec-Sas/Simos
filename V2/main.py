@@ -23,7 +23,8 @@ from model import ArbitrageIntelligenceModel # Modelo de ML
 # --- Importar variables de configuración ---
 from config import (
     WEBSOCKET_URL, UI_WEBSOCKET_URL, # URLs principales
-    DEFAULT_USDT_HOLDER_EXCHANGE_ID, DEFAULT_MODEL_PATH # Defaults para la app
+    DEFAULT_USDT_HOLDER_EXCHANGE_ID, DEFAULT_MODEL_PATH,
+     SEBO_BASE # Defaults para la app
     # Otras configs son usadas directamente por los módulos que las necesitan
 )
 
@@ -32,6 +33,7 @@ from config import (
 parsed_sebo_url = urllib.parse.urlparse(WEBSOCKET_URL)
 SEBO_BASE_HTTP_URL = f"http://{parsed_sebo_url.hostname}:{parsed_sebo_url.port}"
 SEBO_API_BASE_URL = f"{SEBO_BASE_HTTP_URL}/api"
+SEBO_BASE = SEBO_BASE
 
 
 class CryptoArbitrageApp:

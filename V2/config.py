@@ -12,6 +12,7 @@ WEBSOCKET_URL = "ws://localhost:3031/api/spot/arb" # WebSocket de sebo (now on 3
 UI_WEBSOCKET_URL = "ws://localhost:3001/api/spot/ui" # WebSocket para la UI de V2 (now on 3001)
 TOP_OPPORTUNITY_URL = "http://localhost:3031/api/spot/top-opportunit" # Sebo API endpoint (now on 3031)
 OPERATIONS_LOG_CSV_PATH = "logs/v2_operations_log.csv" # Path for CSV logging of operations
+SEBO_BASE = "http://localhost:3031"
 # Parámetros para la lógica de arbitraje
 MIN_PROFIT_PERCENTAGE = 0.6 # Porcentaje mínimo de ganancia para realizar una operación (overall threshold)
 
