@@ -6,6 +6,7 @@ echo "Creando estructura del proyecto '$PROJECT_NAME'..."
 mkdir -p "$PROJECT_NAME"
 cd "$PROJECT_NAME"
 
+
 # Crear directorios src, server, public, js, css
 mkdir -p src/server/controllers src/server/utils src/public/js src/public/css
 
