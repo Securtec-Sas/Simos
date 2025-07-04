@@ -130,7 +130,7 @@ const swaggerOptions = {
         './src/server/routes/*.js',
         './src/server/controllers/dbCotroller.js',
         './src/server/controllers/spotController.js',
-        './src/server/controllers/spotSocketController.js',
+        './src/server/controllers/SpotSocketController.js',
         './src/server/controllers/exchangeController.js',
         './src/server/controllers/analizerController.js',
         './src/server/controllers/symbolController.js',
@@ -369,6 +369,7 @@ app.get('/api/exchange-status/:exchangeId', getExchangeStatusById);
  * cada que acabe de correr vuelva y corra nuevamente
  *
  */
+
 async function loopActualizePricetop20() {
     try {
         await analyzerController.actualizePricetop20();
@@ -379,6 +380,36 @@ async function loopActualizePricetop20() {
     }
 }
 
+/**
+ * @swagger
+ * tags:
+ *   name: Socket
+ *   description: Socket API
+ */
+
+/**
+ * @swagger
+ * /socket.io/:
+ *   get:
+ *     summary: Socket.io endpoint
+ *     tags: [Socket]
+ *     responses:
+ *       '101':
+ *         description: Switching Protocols
+ */
+
+/**
+ * @swagger
+ * /api/spot/arb:
+ *   get:
+ *     summary: WebSocket endpoint for spot arbitrage data.
+ *     tags: [Socket]
+ *     responses:
+ *       '200':
+ *         description: Connected to the WebSocket.
+ *     webSocket:
+ *       $ref: 'localhost:3001/api/spot/arb'
+ */
 
 /**
  * @swagger
