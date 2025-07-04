@@ -122,4 +122,3 @@ const getLastSpotArb = (req, res) => {
 };
 
 module.exports = { emitSpotPricesLoop, getLastSpotArb };
-
