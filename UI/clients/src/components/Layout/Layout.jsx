@@ -56,17 +56,69 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus, v3Data }) => 
       '#6c757d' // gris para desconectado u otros estados
   });
 
-  // Placeholder para el componente de BalanceDisplay
+  // Componente de BalanceDisplay mejorado
   const BalanceDisplay = () => {
-    // Aquí iría la lógica para obtener y mostrar el balance, probablemente de v3Data
-    const balanceToShow = v3Data?.balance_update?.total_usdt || v3Data?.system_status?.total_balance_usdt || 'N/A';
+    const balanceData = v3Data?.balance_update; // Este es el objeto que Sebo envía, que V3 retransmite
+
+    if (!balanceData || Object.keys(balanceData).length === 0) {
+      // También podría intentar leer de v3Data.initial_state.balance_update si se populó allí
+      const initialBalances = v3Data?.initial_state?.balance_update;
+      if (!initialBalances || Object.keys(initialBalances).length === 0) {
+        return <div style={{fontSize: '14px', fontWeight: 'normal', marginRight: '20px'}}>Balance: N/A</div>;
+      }
+      // Si hay balances iniciales, usarlos
+      // Esta parte asume que initialBalances tiene la misma estructura que balance_update de Sebo
+      // (un diccionario donde las claves son IDs de exchange, y los valores son objetos de monedas)
+      // Para simplificar, mostraremos el total USDT del primer exchange que lo tenga, o un resumen.
+      // Una implementación más completa iteraría o buscaría un exchange específico.
+      let totalUsdtFromInitial = 'N/A';
+      for (const exId in initialBalances) {
+        if (initialBalances[exId]?.USDT?.total) {
+          totalUsdtFromInitial = parseFloat(initialBalances[exId].USDT.total).toFixed(2);
+          break;
+        }
+      }
+       return (
+        <div style={{fontSize: '14px', fontWeight: 'normal', marginRight: '20px'}}>
+          Balance (Init): {totalUsdtFromInitial} USDT
+        </div>
+      );
+    }
+
+    // Si balanceData existe, intentamos mostrarlo.
+    // Asumimos que balanceData es un objeto como:
+    // { "binance": { "USDT": { "free": 100, "total": 120 }, "BTC": { ... } }, "kucoin": { ... } }
+    // O podría ser un formato más simple si Sebo lo pre-procesa, ej: { "total_usdt_all_exchanges": 1500 }
+    // Por ahora, buscaremos un total_usdt o un resumen simple.
+
+    let displayBalances = [];
+    // Intentar encontrar un total_usdt global si existe
+    if (typeof balanceData.total_usdt === 'number') {
+        displayBalances.push(`Total: ${balanceData.total_usdt.toFixed(2)} USDT`);
+    } else {
+        // Iterar sobre los exchanges en balanceData
+        for (const exchangeId in balanceData) {
+            const exchangeBalances = balanceData[exchangeId];
+            if (exchangeBalances && typeof exchangeBalances === 'object' && exchangeBalances.USDT) {
+                const usdtBalance = exchangeBalances.USDT;
+                const total = parseFloat(usdtBalance.total || 0).toFixed(2);
+                // const free = parseFloat(usdtBalance.free || 0).toFixed(2); // Podríamos mostrar free también
+                displayBalances.push(`${exchangeId.toUpperCase()}: ${total} USDT`);
+            }
+        }
+    }
+
+    if (displayBalances.length === 0) {
+      // Fallback si la estructura no es la esperada o no hay USDT
+      displayBalances.push("Balance data anómalo");
+    }
+
     return (
-      <div style={{fontSize: '16px', fontWeight: 'bold'}}>
-        Balance: {typeof balanceToShow === 'number' ? balanceToShow.toFixed(2) : balanceToShow} USDT
+      <div style={{fontSize: '12px', fontWeight: 'normal', marginRight: '20px', display: 'flex', gap: '10px'}}>
+        <strong>Balance:</strong> {displayBalances.join(' | ')}
       </div>
     );
   };
-
 
   return (
     <div style={layoutWrapperStyle}>
