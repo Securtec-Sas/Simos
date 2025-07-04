@@ -62,7 +62,7 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus, v3Data }) => 
     const initialBalances = v3Data?.initial_state?.balance_update;
 
     // Log para depuración
-     console.log("BalanceDisplay - v3Data.balance_update:", balanceData);
+    // console.log("BalanceDisplay - v3Data.balance_update:", balanceData);
     // console.log("BalanceDisplay - v3Data.initial_state.balance_update:", initialBalances);
 
     const sourceToUse = (balanceData && Object.keys(balanceData).length > 0) ? balanceData : initialBalances;
