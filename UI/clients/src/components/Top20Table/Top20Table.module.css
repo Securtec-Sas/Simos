@@ -1,0 +1,68 @@
+/* UI/clients/src/components/Top20Table/Top20Table.module.css */
+
+.tableContainer {
+  padding: 15px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+}
+
+.tableTitle {
+  font-size: 1.4em;
+  color: #333;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.th,
+.td {
+  border: 1px solid #ddd;
+  padding: 10px 12px; /* Aumentado padding para más espacio */
+  text-align: left;
+  vertical-align: middle; /* Alineación vertical */
+}
+
+.th {
+  background-color: #f0f2f5; /* Un gris más suave para cabeceras */
+  font-weight: 600; /* Ligeramente más grueso */
+  color: #555;
+  white-space: nowrap; /* Evitar que los títulos largos se rompan */
+}
+
+.tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.tr:hover {
+  background-color: #f1f1f1;
+}
+
+.td {
+  color: #444;
+}
+
+.percentageCell {
+  font-weight: bold;
+  text-align: center;
+}
+
+.tdTimestamp {
+    font-size: 0.85em;
+    color: #777;
+    white-space: nowrap;
+}
+
+.noData {
+  padding: 20px;
+  text-align: center;
+  color: #777;
+  font-style: italic;
+}

@@ -86,18 +86,28 @@ const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
             </tr>
           </thead>
           <tbody>
-            {topOpportunities.map((op, index) => (
-              <tr key={op.id || op.symbol || index} style={index % 2 === 0 ? evenRowStyle : oddRowStyle}>
-                <td style={tableCellStyle}>{op.symbol || 'N/A'}</td>
-                <td style={tableCellStyle}>{op.exchange_buy_name || op.exchange_min_name || 'N/A'}</td>
-                <td style={tableCellStyle}>{op.price_buy?.toFixed(6) || op.price_at_exMin_to_buy_asset?.toFixed(6) || 'N/A'}</td>
-                <td style={tableCellStyle}>{op.exchange_sell_name || op.exchange_max_name || 'N/A'}</td>
-                <td style={tableCellStyle}>{op.price_sell?.toFixed(6) || op.price_at_exMax_to_sell_asset?.toFixed(6) || 'N/A'}</td>
-                <td style={{ ...tableCellStyle, color: op.profit_percentage > 0 ? 'green' : 'red', fontWeight: 'bold', textAlign: 'center' }}>
-                  {op.profit_percentage?.toFixed(3) || op.percentage_difference?.toFixed(3) || 'N/A'}%
-                </td>
-                {/*
-                Si V3 envía datos de fees o IDs de análisis, se pueden añadir aquí:
+            {topOpportunities.map((op, index) => {
+              const percentageValue = op.profit_percentage !== undefined ? op.profit_percentage : op.percentage_difference;
+              let displayPercentage;
+
+              if (typeof percentageValue === 'number' && !isNaN(percentageValue)) {
+                displayPercentage = `${percentageValue.toFixed(3)}%`;
+              } else {
+                displayPercentage = 'N/A';
+              }
+
+              return (
+                <tr key={op.id || op.symbol || index} style={index % 2 === 0 ? evenRowStyle : oddRowStyle}>
+                  <td style={tableCellStyle}>{op.symbol || 'N/A'}</td>
+                  <td style={tableCellStyle}>{op.exchange_buy_name || op.exchange_min_name || 'N/A'}</td>
+                  <td style={tableCellStyle}>{typeof op.price_buy === 'number' ? op.price_buy.toFixed(6) : (typeof op.price_at_exMin_to_buy_asset === 'number' ? op.price_at_exMin_to_buy_asset.toFixed(6) : 'N/A')}</td>
+                  <td style={tableCellStyle}>{op.exchange_sell_name || op.exchange_max_name || 'N/A'}</td>
+                  <td style={tableCellStyle}>{typeof op.price_sell === 'number' ? op.price_sell.toFixed(6) : (typeof op.price_at_exMax_to_sell_asset === 'number' ? op.price_at_exMax_to_sell_asset.toFixed(6) : 'N/A')}</td>
+                  <td style={{ ...tableCellStyle, color: typeof percentageValue === 'number' && percentageValue > 0 ? 'green' : (typeof percentageValue === 'number' && percentageValue < 0 ? 'red' : 'black'), fontWeight: 'bold', textAlign: 'center' }}>
+                    {displayPercentage}
+                  </td>
+                  {/*
+                  Si V3 envía datos de fees o IDs de análisis, se pueden añadir aquí:
                 <td style={tableCellStyle}>{op.analysis_id || 'N/A'}</td>
                 <td style={tableCellStyle}>
                   T: {op.fees_exMin?.taker_fee != null ? (op.fees_exMin.taker_fee * 100).toFixed(3) + '%' : 'N/A'}<br/>

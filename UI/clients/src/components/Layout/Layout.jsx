@@ -58,34 +58,21 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus, v3Data }) => 
 
   // Componente de BalanceDisplay mejorado
   const BalanceDisplay = () => {
-    const balanceData = v3Data?.balance_update; // Este es el objeto que Sebo envía, que V3 retransmite
+    const balanceData = v3Data?.balance_update;
+    const initialBalances = v3Data?.initial_state?.balance_update;
 
-    if (!balanceData || Object.keys(balanceData).length === 0) {
-      // También podría intentar leer de v3Data.initial_state.balance_update si se populó allí
-      const initialBalances = v3Data?.initial_state?.balance_update;
-      if (!initialBalances || Object.keys(initialBalances).length === 0) {
-        return <div style={{fontSize: '14px', fontWeight: 'normal', marginRight: '20px'}}>Balance: N/A</div>;
-      }
-      // Si hay balances iniciales, usarlos
-      // Esta parte asume que initialBalances tiene la misma estructura que balance_update de Sebo
-      // (un diccionario donde las claves son IDs de exchange, y los valores son objetos de monedas)
-      // Para simplificar, mostraremos el total USDT del primer exchange que lo tenga, o un resumen.
-      // Una implementación más completa iteraría o buscaría un exchange específico.
-      let totalUsdtFromInitial = 'N/A';
-      for (const exId in initialBalances) {
-        if (initialBalances[exId]?.USDT?.total) {
-          totalUsdtFromInitial = parseFloat(initialBalances[exId].USDT.total).toFixed(2);
-          break;
-        }
-      }
-       return (
-        <div style={{fontSize: '14px', fontWeight: 'normal', marginRight: '20px'}}>
-          Balance (Init): {totalUsdtFromInitial} USDT
-        </div>
-      );
+    // Log para depuración
+    // console.log("BalanceDisplay - v3Data.balance_update:", balanceData);
+    // console.log("BalanceDisplay - v3Data.initial_state.balance_update:", initialBalances);
+
+    const sourceToUse = (balanceData && Object.keys(balanceData).length > 0) ? balanceData : initialBalances;
+    const sourceLabel = (balanceData && Object.keys(balanceData).length > 0) ? "" : "(Init) ";
+
+    if (!sourceToUse || Object.keys(sourceToUse).length === 0) {
+      return <div style={{fontSize: '14px', fontWeight: 'normal', color: '#aaa', marginRight: '20px'}}>Balance: N/A</div>;
     }
 
-    // Si balanceData existe, intentamos mostrarlo.
+    // Si sourceToUse existe, intentamos mostrarlo.
     // Asumimos que balanceData es un objeto como:
     // { "binance": { "USDT": { "free": 100, "total": 120 }, "BTC": { ... } }, "kucoin": { ... } }
     // O podría ser un formato más simple si Sebo lo pre-procesa, ej: { "total_usdt_all_exchanges": 1500 }
@@ -93,29 +80,30 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus, v3Data }) => 
 
     let displayBalances = [];
     // Intentar encontrar un total_usdt global si existe
-    if (typeof balanceData.total_usdt === 'number') {
-        displayBalances.push(`Total: ${balanceData.total_usdt.toFixed(2)} USDT`);
+    if (typeof sourceToUse.total_usdt === 'number') {
+        displayBalances.push(`Total: ${sourceToUse.total_usdt.toFixed(2)} USDT`);
     } else {
-        // Iterar sobre los exchanges en balanceData
-        for (const exchangeId in balanceData) {
-            const exchangeBalances = balanceData[exchangeId];
+        // Iterar sobre los exchanges en sourceToUse
+        for (const exchangeId in sourceToUse) {
+            const exchangeBalances = sourceToUse[exchangeId];
             if (exchangeBalances && typeof exchangeBalances === 'object' && exchangeBalances.USDT) {
                 const usdtBalance = exchangeBalances.USDT;
-                const total = parseFloat(usdtBalance.total || 0).toFixed(2);
-                // const free = parseFloat(usdtBalance.free || 0).toFixed(2); // Podríamos mostrar free también
-                displayBalances.push(`${exchangeId.toUpperCase()}: ${total} USDT`);
+                // Mostrar 'total' si está disponible, sino 'free'. Si ninguno, 0.
+                const totalToShow = usdtBalance.total !== undefined ? usdtBalance.total : (usdtBalance.free !== undefined ? usdtBalance.free : 0);
+                const totalFormatted = parseFloat(totalToShow || 0).toFixed(2);
+                displayBalances.push(`${exchangeId.toUpperCase()}: ${totalFormatted} USDT`);
             }
         }
     }
 
     if (displayBalances.length === 0) {
       // Fallback si la estructura no es la esperada o no hay USDT
-      displayBalances.push("Balance data anómalo");
+      displayBalances.push("Datos de balance no disponibles en formato esperado");
     }
 
     return (
-      <div style={{fontSize: '12px', fontWeight: 'normal', marginRight: '20px', display: 'flex', gap: '10px'}}>
-        <strong>Balance:</strong> {displayBalances.join(' | ')}
+      <div style={{fontSize: '12px', fontWeight: 'normal', marginRight: '20px', display: 'flex', gap: '10px', alignItems: 'center'}}>
+        <strong>Balance {sourceLabel}:</strong> {displayBalances.join(' | ')}
       </div>
     );
   };
