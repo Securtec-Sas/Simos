@@ -49,10 +49,10 @@ class TradingLogic:
         """Inicializa el módulo de trading logic."""
         self.logger.info("Inicializando TradingLogic...")
         
-        # Cargar estado previo si existe
-        await self._load_trading_state()
+        # Cargar estado previo si existe - Comentado según nuevos requisitos para inicio limpio
+        # await self._load_trading_state()
         
-        self.logger.info("TradingLogic inicializado")
+        self.logger.info("TradingLogic inicializado (sin cargar estado previo).")
     
     async def cleanup(self):
         """Limpia recursos y guarda estado."""
