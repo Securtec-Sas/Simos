@@ -216,12 +216,25 @@ function App() {
               case 'trading_stats':
               case 'operation_result':
               case 'balance_update':
-              case 'top20_data': // Asegúrate de que este case exista si V3 envía este tipo de mensaje
+              case 'top20_data':
                 setV3Data(prev => ({ ...prev, [message.type]: message.payload }));
                 break;
-              case 'log_message': // Ejemplo: para mostrar logs del backend en la UI
+              case 'log_message':
                 console.log(`V3 Log: [${message.payload.level}] ${message.payload.message}`);
-                // Aquí podrías tener un estado para mostrar logs en la UI si es necesario
+                // Podrías tener un estado para mostrar logs en la UI si es necesario
+                break;
+              // Nuevos tipos de mensajes para IA
+              case 'ai_model_details':
+                setV3Data(prev => ({ ...prev, ai_model_details: message.payload }));
+                break;
+              case 'ai_training_update':
+                setV3Data(prev => ({ ...prev, ai_training_update: message.payload }));
+                break;
+              case 'ai_test_results':
+                setV3Data(prev => ({ ...prev, ai_test_results: message.payload }));
+                break;
+              case 'ai_simulation_update':
+                setV3Data(prev => ({ ...prev, ai_simulation_update: message.payload }));
                 break;
               default:
                 console.log('Unknown V3 message type:', message.type);

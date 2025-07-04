@@ -282,12 +282,123 @@ class CryptoArbitrageV3:
                 await self._send_trading_stats()
             elif message_type == 'export_data':
                 await self._handle_data_export(payload)
+            # Manejadores para IA
+            elif message_type == 'get_ai_model_details':
+                await self._handle_get_ai_model_details_request(payload)
+            elif message_type == 'train_ai_model':
+                await self._handle_train_ai_model_request(payload)
+            elif message_type == 'test_ai_model':
+                await self._handle_test_ai_model_request(payload)
+            elif message_type == 'start_ai_simulation':
+                await self._handle_start_ai_simulation_request(payload)
             else:
                 self.logger.warning(f"Tipo de mensaje UI no reconocido: {message_type}")
                 
         except Exception as e:
             self.logger.error(f"Error procesando mensaje UI: {e}")
-    
+
+    # --- Nuevos manejadores para IA ---
+    async def _handle_get_ai_model_details_request(self, payload: Dict):
+        """Maneja la solicitud de detalles/estadísticas del modelo AI."""
+        try:
+            self.logger.info("Solicitud de detalles del modelo AI recibida desde UI.")
+            details = self.ai_model.get_model_info()
+            await self.ui_broadcaster.broadcast_ai_model_details(details)
+        except Exception as e:
+            self.logger.error(f"Error obteniendo detalles del modelo AI: {e}")
+            await self.ui_broadcaster.broadcast_log_message("ERROR", f"Error obteniendo detalles del modelo AI: {e}")
+
+    async def _handle_train_ai_model_request(self, payload: Dict):
+        """Maneja la solicitud de entrenamiento del modelo AI."""
+        try:
+            self.logger.info("Solicitud de entrenamiento del modelo AI recibida desde UI.")
+            await self.ui_broadcaster.broadcast_ai_training_update(status="STARTED", progress=0.0)
+
+            # Parámetros de payload: num_samples, source ('simulation' o 'sebo_api')
+            num_samples = payload.get('num_samples', 1000)
+            data_source = payload.get('data_source', 'simulation') # 'simulation' o 'sebo_api'
+
+            training_data = None
+            if data_source == 'sebo_api':
+                if self.sebo_connector:
+                    await self.ui_broadcaster.broadcast_ai_training_update(status="FETCHING_DATA_SEBO", progress=0.1)
+                    training_data = await self.sebo_connector.get_historical_training_data({'limit': num_samples})
+                else:
+                    await self.ui_broadcaster.broadcast_ai_training_update(status="FAILED", details={"error": "SeboConnector no disponible"})
+                    return
+            elif data_source == 'simulation':
+                await self.ui_broadcaster.broadcast_ai_training_update(status="GENERATING_SIM_DATA", progress=0.1)
+                training_data = await self.simulation_engine.generate_training_data(num_samples, save_to_file=True)
+
+            if not training_data or len(training_data) < 10:
+                self.logger.warning(f"Datos de entrenamiento insuficientes desde {data_source}.")
+                await self.ui_broadcaster.broadcast_ai_training_update(status="FAILED", details={"error": f"Datos insuficientes de {data_source}"})
+                return
+
+            await self.ui_broadcaster.broadcast_ai_training_update(status="TRAINING_IN_PROGRESS", progress=0.3)
+            results = await self.ai_model.train_with_external_data(training_data) # Asume que train_with_external_data puede manejar lista de dicts
+
+            if "error" in results:
+                await self.ui_broadcaster.broadcast_ai_training_update(status="FAILED", details=results)
+            else:
+                await self.ui_broadcaster.broadcast_ai_training_update(status="COMPLETED", progress=1.0, details=results)
+
+            # Actualizar detalles del modelo en UI
+            await self._handle_get_ai_model_details_request({})
+
+        except Exception as e:
+            self.logger.error(f"Error entrenando modelo AI: {e}")
+            await self.ui_broadcaster.broadcast_ai_training_update(status="FAILED", details={"error": str(e)})
+
+    async def _handle_test_ai_model_request(self, payload: Dict):
+        """Maneja la solicitud de prueba del modelo AI."""
+        try:
+            self.logger.info("Solicitud de prueba del modelo AI recibida desde UI.")
+            if not self.ai_model.is_trained:
+                await self.ui_broadcaster.broadcast_log_message("ERROR", "El modelo AI no está entrenado. Entrénelo primero.")
+                await self.ui_broadcaster.broadcast_ai_test_results({"error": "Modelo no entrenado"})
+                return
+
+            num_samples = payload.get('num_samples', 200)
+            # Generar datos de prueba frescos (no usar los de entrenamiento)
+            test_data = await self.simulation_engine.generate_training_data(num_samples, save_to_file=False)
+
+            if not test_data or len(test_data) < 1:
+                await self.ui_broadcaster.broadcast_ai_test_results({"error": "No se pudieron generar datos de prueba"})
+                return
+
+            results = self.ai_model.evaluate(test_data)
+            await self.ui_broadcaster.broadcast_ai_test_results(results)
+
+        except Exception as e:
+            self.logger.error(f"Error probando modelo AI: {e}")
+            await self.ui_broadcaster.broadcast_ai_test_results({"error": str(e)})
+
+    async def _handle_start_ai_simulation_request(self, payload: Dict):
+        """Maneja la solicitud de inicio de simulación de trading con IA."""
+        try:
+            self.logger.info("Solicitud de inicio de simulación AI recibida desde UI.")
+            if self.simulation_engine.is_simulation_running:
+                await self.ui_broadcaster.broadcast_log_message("WARNING", "La simulación AI ya está en ejecución.")
+                return
+
+            duration_minutes = payload.get('duration_minutes', 30)
+            # Aquí podríamos pasar más parámetros de configuración de la simulación desde la UI
+
+            # Ejecutar la simulación en una tarea de fondo para no bloquear
+            async def run_simulation_task():
+                await self.ui_broadcaster.broadcast_ai_simulation_update(status="STARTED")
+                sim_results = await self.simulation_engine.run_live_simulation(duration_minutes=duration_minutes)
+                await self.ui_broadcaster.broadcast_ai_simulation_update(status="COMPLETED", data=sim_results)
+
+            asyncio.create_task(run_simulation_task())
+
+        except Exception as e:
+            self.logger.error(f"Error iniciando simulación AI: {e}")
+            await self.ui_broadcaster.broadcast_ai_simulation_update(status="FAILED", data={"error": str(e)})
+
+    # --- Fin de nuevos manejadores para IA ---
+
     async def _send_system_status(self):
         """Envía el estado del sistema a la UI."""
         try:

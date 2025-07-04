@@ -22,24 +22,24 @@ const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
   }, [v3Data]);
 
   const handleStartV3Processing = () => {
-    console.log("UI: Requesting V3 to START TRADING.");
+    console.log("UI: Requesting V3 to START REAL TRADING.");
     if (sendV3Command) {
-      // El comando exacto y el payload dependerán de la API de V3
-      sendV3Command('start_trading_logic', { strategy: 'top20_based' });
+      // Comando 'start_trading' es manejado explícitamente por UIBroadcaster
+      sendV3Command('start_trading', { strategy: 'top20_based', mode: 'real' });
     } else {
       console.error("sendV3Command function not provided to Top20DetailedPage");
-      alert("Error: Cannot send V3 start command.");
+      alert("Error: Cannot send V3 start real trading command.");
     }
   };
 
   const handleStopV3Processing = () => {
-    console.log("UI: Requesting V3 to STOP TRADING.");
+    console.log("UI: Requesting V3 to STOP REAL TRADING.");
     if (sendV3Command) {
-      // El comando exacto y el payload dependerán de la API de V3
-      sendV3Command('stop_trading_logic');
+      // Comando 'stop_trading' es manejado explícitamente por UIBroadcaster
+      sendV3Command('stop_trading', {}); // Payload vacío o según necesidad
     } else {
-      console.error("sendV3Command function not provided for V3 stop command.");
-      alert("Error: Cannot send V3 stop command.");
+      console.error("sendV3Command function not provided for V3 stop real trading command.");
+      alert("Error: Cannot send V3 stop real trading command.");
     }
   };
 
@@ -59,14 +59,14 @@ const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
             onClick={handleStopV3Processing}
             style={{ padding: '10px 20px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
           >
-            Detener Trading (V3)
+            Detener Trading Real (V3)
           </button>
         ) : (
           <button
             onClick={handleStartV3Processing}
             style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
           >
-            Iniciar Trading (V3)
+            Iniciar Trading Real (V3)
           </button>
         )}
       </div>

@@ -113,6 +113,22 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus }) => {
                 🎯 Top 20 Trading
               </Link>
             </li>
+            <li>
+              <Link
+                to="/data-view"
+                style={isActive('/data-view') ? activeLinkStyle : navLinkStyle}
+              >
+                 ViewData
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/ai-data"
+                style={isActive('/ai-data') ? activeLinkStyle : navLinkStyle}
+              >
+                🤖 AI Data
+              </Link>
+            </li>
             
             {/* Estado de conexiones */}
             {connectionStatus && (
@@ -131,7 +147,7 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus }) => {
           </ul>
         </div>
       </nav>
-      <Sidebar allExchanges={allExchanges} setAllExchanges={setAllExchanges} />
+      {/* Sidebar ya no se renderiza aquí */}
       <div style={containerStyle}>
         <Outlet />
       </div>

@@ -232,6 +232,26 @@ class SeboConnector:
     def get_latest_balances(self) -> Optional[Dict]:
         """Retorna los últimos datos de balances."""
         return self.latest_balances
+
+    async def get_historical_training_data(self, params: Dict = None) -> Optional[List[Dict]]:
+        """Obtiene datos históricos de entrenamiento desde Sebo."""
+        await self.initialize()
+        url = f"{SEBO_API_BASE_URL}/ml/training-data" # Endpoint hipotético
+
+        self.logger.info(f"Solicitando datos de entrenamiento desde Sebo API: {url}")
+        result = await make_http_request(
+            self.http_session, 'GET', url, timeout=REQUEST_TIMEOUT * 3, params=params # Mayor timeout para datos potencialmente grandes
+        )
+
+        if result and isinstance(result, list):
+            self.logger.info(f"Recibidos {len(result)} registros de entrenamiento desde Sebo.")
+            return result
+        elif result:
+            self.logger.warning(f"Datos de entrenamiento recibidos de Sebo en formato inesperado: {type(result)}")
+            return None
+        else:
+            self.logger.warning("No se pudieron obtener datos de entrenamiento desde Sebo API.")
+            return None
     
     async def wait_for_connection(self):
         """Mantiene la conexión Socket.IO activa."""

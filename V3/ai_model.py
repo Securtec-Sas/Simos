@@ -271,7 +271,27 @@ class ArbitrageAIModel:
         except Exception as e:
             self.logger.error(f"Error durante entrenamiento: {e}")
             raise
-    
+
+    async def train_with_external_data(self, external_data: List[Dict]) -> Dict:
+        """
+        Entrena el modelo usando datos externos (ej. de Sebo API).
+        Actualmente, esto es un wrapper para el método train.
+        Podría incluir lógica de transformación específica si es necesario en el futuro.
+        """
+        self.logger.info(f"Iniciando entrenamiento con {len(external_data)} registros de datos externos.")
+        if not external_data:
+            self.logger.warning("No se proporcionaron datos externos para el entrenamiento.")
+            return {"error": "No external data provided"}
+
+        try:
+            # Si los datos externos necesitan alguna transformación antes de pasarlos a `train`,
+            # se haría aquí. Por ahora, asumimos que están en el formato correcto.
+            return self.train(external_data)
+        except Exception as e:
+            self.logger.error(f"Error durante entrenamiento con datos externos: {e}")
+            # Devolver un diccionario con el error para que el llamador pueda manejarlo
+            return {"error": str(e), "details": "Failed during external data training process"}
+
     def _prepare_training_data(self, training_data: List[Dict]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Prepara los datos de entrenamiento."""
         X_list = []
@@ -504,3 +524,73 @@ class ArbitrageAIModel:
             return dict(zip(self.feature_names, self.profitability_classifier.feature_importances_))
         return None
 
+    def evaluate(self, test_data: List[Dict]) -> Dict:
+        """Evalúa el modelo con un conjunto de datos de prueba."""
+        if not self.is_trained:
+            self.logger.warning("El modelo no está entrenado. No se puede evaluar.")
+            return {"error": "Model not trained"}
+
+        if not test_data or len(test_data) < 1:
+            self.logger.warning("No se proporcionaron datos de prueba o son insuficientes.")
+            return {"error": "Insufficient test data"}
+
+        try:
+            self.logger.info(f"Iniciando evaluación con {len(test_data)} registros de prueba.")
+
+            X_test_list = []
+            y_profit_test_list = []
+            y_success_test_list = []
+            y_risk_test_list = []
+
+            # Preparar datos de prueba (sin ajustar los label encoders aquí, deben estar ajustados por el entrenamiento)
+            for data in test_data:
+                try:
+                    features = self.prepare_features(data).flatten()
+                    decision = data.get('decision_outcome', 'NO_EJECUTADA') # Asumimos que los datos de prueba tienen resultados reales
+                    net_profit = safe_float(data.get('net_profit_usdt', 0))
+
+                    success = 1 if 'EJECUTADA' in decision and net_profit > 0 else 0
+                    risk = 1 if net_profit < -1.0 else 0
+
+                    X_test_list.append(features)
+                    y_profit_test_list.append(net_profit)
+                    y_success_test_list.append(success)
+                    y_risk_test_list.append(risk)
+                except Exception as e:
+                    self.logger.warning(f"Error procesando registro de prueba: {e}")
+                    continue
+
+            if not X_test_list:
+                return {"error": "No valid test data could be prepared"}
+
+            X_test_np = np.array(X_test_list)
+            y_profit_test_np = np.array(y_profit_test_list)
+            y_success_test_np = np.array(y_success_test_list)
+            y_risk_test_np = np.array(y_risk_test_list)
+
+            X_test_scaled = self.feature_scaler.transform(X_test_np) # Usar el scaler ajustado
+
+            evaluation_results = {}
+
+            # Evaluar clasificador de rentabilidad
+            y_success_pred = self.profitability_classifier.predict(X_test_scaled)
+            evaluation_results['profitability_accuracy'] = accuracy_score(y_success_test_np, y_success_pred)
+            evaluation_results['profitability_precision'] = precision_score(y_success_test_np, y_success_pred, average='weighted', zero_division=0)
+            evaluation_results['profitability_recall'] = recall_score(y_success_test_np, y_success_pred, average='weighted', zero_division=0)
+            evaluation_results['profitability_f1'] = f1_score(y_success_test_np, y_success_pred, average='weighted', zero_division=0)
+
+            # Evaluar regresor de ganancia
+            y_profit_pred = self.profit_regressor.predict(X_test_scaled)
+            evaluation_results['profit_mse'] = mean_squared_error(y_profit_test_np, y_profit_pred)
+            evaluation_results['profit_rmse'] = np.sqrt(evaluation_results['profit_mse'])
+
+            # Evaluar clasificador de riesgo
+            y_risk_pred = self.risk_classifier.predict(X_test_scaled)
+            evaluation_results['risk_accuracy'] = accuracy_score(y_risk_test_np, y_risk_pred)
+
+            self.logger.info(f"Evaluación completada. Precisión de rentabilidad: {evaluation_results['profitability_accuracy']:.4f}")
+            return evaluation_results
+
+        except Exception as e:
+            self.logger.error(f"Error durante la evaluación del modelo: {e}")
+            return {"error": str(e)}
