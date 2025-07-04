@@ -130,7 +130,7 @@ const swaggerOptions = {
         './src/server/routes/*.js',
         './src/server/controllers/dbCotroller.js',
         './src/server/controllers/spotController.js',
-        './src/server/controllers/SpotSocketController.js',
+        './src/server/controllers/spotSocketController.js',
         './src/server/controllers/exchangeController.js',
         './src/server/controllers/analizerController.js',
         './src/server/controllers/symbolController.js',
