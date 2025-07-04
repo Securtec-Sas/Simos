@@ -260,3 +260,54 @@ class SeboConnector:
         except Exception as e:
             self.logger.error(f"Error en conexión Socket.IO: {e}")
             raise
+
+    # --- Métodos para gestionar el estado de V3 a través de Sebo API ---
+
+    async def get_v3_trading_state(self) -> Optional[Dict]:
+        """Obtiene el estado de trading de V3 desde Sebo API."""
+        await self.initialize()
+        url = f"{SEBO_API_BASE_URL}/v3/state/trading"
+        self.logger.info(f"Solicitando estado de trading de V3 desde Sebo API: {url}")
+
+        try:
+            response_data = await make_http_request(
+                self.http_session, 'GET', url, timeout=REQUEST_TIMEOUT
+            )
+
+            if response_data:
+                # Asumimos que Sebo devuelve directamente el objeto de estado si lo encuentra
+                self.logger.info(f"Estado de trading de V3 recibido de Sebo: {response_data}")
+                return response_data
+            else:
+                # make_http_request devuelve None si hay error de HTTP o la respuesta no es JSON
+                # Podría ser un 404 si el estado no existe aún.
+                self.logger.warning(f"No se pudo obtener el estado de trading de V3 de Sebo, o no existe. URL: {url}")
+                return None
+        except Exception as e:
+            self.logger.error(f"Excepción obteniendo estado de V3 desde Sebo: {e}")
+            return None
+
+    async def update_v3_trading_state(self, state_data: Dict) -> bool:
+        """Actualiza el estado de trading de V3 en Sebo API."""
+        await self.initialize()
+        url = f"{SEBO_API_BASE_URL}/v3/state/trading"
+        self.logger.info(f"Actualizando estado de trading de V3 en Sebo API: {url} con datos: {state_data}")
+
+        try:
+            response_data = await make_http_request(
+                self.http_session, 'PUT', url, json=state_data, timeout=REQUEST_TIMEOUT
+            )
+
+            if response_data and isinstance(response_data, dict) and response_data.get("message") == "V3 trading state updated successfully.":
+                self.logger.info("Estado de trading de V3 actualizado exitosamente en Sebo.")
+                return True
+            elif response_data:
+                self.logger.error(f"Error en la respuesta de Sebo al actualizar estado de V3: {response_data}")
+                return False
+            else:
+                # make_http_request devuelve None en caso de error HTTP o no JSON
+                self.logger.error(f"No se recibió respuesta o hubo un error HTTP al actualizar estado de V3 en Sebo. URL: {url}")
+                return False
+        except Exception as e:
+            self.logger.error(f"Excepción actualizando estado de V3 en Sebo: {e}")
+            return False

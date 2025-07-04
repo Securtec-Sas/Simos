@@ -29,9 +29,15 @@ class CryptoArbitrageV3:
         self.sebo_connector = SeboConnector()
         self.ui_broadcaster = UIBroadcaster()
         self.exchange_manager = ExchangeManager()
-        self.data_persistence = DataPersistence()
-        self.ai_model = ArbitrageAIModel()
-        self.trading_logic = TradingLogic(self.exchange_manager, self.data_persistence, self.ai_model)
+        self.data_persistence = DataPersistence() # Se mantiene para logs CSV y datos de entrenamiento locales
+        self.ai_model = ArbitrageAIModel() # Gestiona su propia ruta de modelo ahora
+        # Pasar SeboConnector a TradingLogic
+        self.trading_logic = TradingLogic(
+            self.exchange_manager,
+            self.data_persistence,
+            self.ai_model,
+            self.sebo_connector
+        )
         self.simulation_engine = SimulationEngine(self.ai_model, self.data_persistence)
         
         # Estado de la aplicación
@@ -227,8 +233,9 @@ class CryptoArbitrageV3:
             # Retransmitir a UI
             await self.ui_broadcaster.broadcast_balance_update(data)
             
-            # Guardar en cache
-            await self.data_persistence.save_balance_cache(data)
+            # Guardar en cache - ELIMINADO según nuevos requisitos
+            # await self.data_persistence.save_balance_cache(data)
+            self.logger.debug("Balance update recibido de Sebo y retransmitido a UI. Cache local de balance desactivado.")
             
         except Exception as e:
             self.logger.error(f"Error procesando balance update: {e}")

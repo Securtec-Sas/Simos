@@ -6,35 +6,51 @@ import csv
 import os
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
-from config_v3 import CSV_LOG_PATH, TRADING_STATE_FILE, BALANCE_CACHE_FILE
+# Importar solo CSV_LOG_PATH si se mantiene. TRADING_STATE_FILE y BALANCE_CACHE_FILE se eliminarán.
+from config_v3 import CSV_LOG_PATH
 from utils import save_json_file, load_json_file, get_current_timestamp, safe_float
 
+# Ruta fija para datos de entrenamiento generados por simulación, si se mantiene esta funcionalidad local
+DEFAULT_TRAINING_DATA_PATH = os.path.join("data", "training_data.json") # Usar os.path.join para compatibilidad
+# Rutas fijas para directorios, si las constantes de config_v3.py se eliminan por completo para rutas
+LOGS_DIR = "logs"
+DATA_DIR = "data"
+
 class DataPersistence:
-    """Maneja la persistencia de datos para V3."""
+    """Maneja la persistencia de datos para V3 (principalmente logs y datos de entrenamiento locales)."""
     
     def __init__(self):
         self.logger = logging.getLogger('V3.DataPersistence')
         self._ensure_directories()
     
     def _ensure_directories(self):
-        """Asegura que los directorios necesarios existan."""
-        directories = [
-            os.path.dirname(CSV_LOG_PATH),
-            os.path.dirname(TRADING_STATE_FILE),
-            os.path.dirname(BALANCE_CACHE_FILE)
-        ]
+        """Asegura que los directorios necesarios para logs y datos locales existan."""
+        directories_to_check = []
         
-        for directory in directories:
-            if directory and not os.path.exists(directory):
+        # Directorio para CSV_LOG_PATH (si se mantiene desde config_v3.py)
+        # o un path de log por defecto si CSV_LOG_PATH se elimina de config_v3.py
+        csv_log_dir = os.path.dirname(CSV_LOG_PATH) if CSV_LOG_PATH and os.path.dirname(CSV_LOG_PATH) else LOGS_DIR
+        if csv_log_dir:
+            directories_to_check.append(csv_log_dir)
+
+        # Directorio para datos de entrenamiento
+        training_data_dir = os.path.dirname(DEFAULT_TRAINING_DATA_PATH)
+        if training_data_dir: # Debería ser "data"
+            directories_to_check.append(training_data_dir)
+        elif DATA_DIR: # Fallback si DEFAULT_TRAINING_DATA_PATH fuera solo un nombre de archivo
+            directories_to_check.append(DATA_DIR)
+
+        # Eliminar duplicados y asegurar creación
+        for directory in list(set(d for d in directories_to_check if d)):
+            if not os.path.exists(directory):
                 os.makedirs(directory, exist_ok=True)
-                self.logger.debug(f"Directorio creado: {directory}")
+                self.logger.info(f"Directorio para persistencia local creado: {directory}")
     
-    # Logging de operaciones en CSV
+    # Logging de operaciones en CSV (Mantenido si se desea auditoría local)
     
     async def log_operation_to_csv(self, operation_data: Dict, csv_path: str = None):
         """Registra una operación en el archivo CSV."""
-        if csv_path is None:
-            csv_path = CSV_LOG_PATH
+        current_csv_path = csv_path or CSV_LOG_PATH # Asume que CSV_LOG_PATH sigue en config_v3.py
         
         try:
             # Preparar datos para CSV
@@ -48,7 +64,6 @@ class DataPersistence:
                 fieldnames = list(csv_data.keys())
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 
-                # Escribir headers si es un archivo nuevo
                 if not file_exists:
                     writer.writeheader()
                 
@@ -109,86 +124,17 @@ class DataPersistence:
             'execution_time_ms': safe_float(operation_data.get('execution_time_ms', 0))
         }
     
-    # Estado del trading
+    # Estado del trading y Cache de balances - MÉTODOS ELIMINADOS
+    # async def save_trading_state(self, state_data: Dict) -> bool: ...
+    # async def load_trading_state(self) -> Optional[Dict]: ...
+    # async def save_balance_cache(self, balance_data: Dict) -> bool: ...
+    # async def load_balance_cache(self) -> Optional[Dict]: ...
     
-    async def save_trading_state(self, state_data: Dict) -> bool:
-        """Guarda el estado actual del trading."""
-        try:
-            state_data['last_updated'] = get_current_timestamp()
-            success = save_json_file(state_data, TRADING_STATE_FILE)
-            
-            if success:
-                self.logger.debug("Estado de trading guardado")
-            else:
-                self.logger.error("Error guardando estado de trading")
-            
-            return success
-            
-        except Exception as e:
-            self.logger.error(f"Error guardando estado de trading: {e}")
-            return False
-    
-    async def load_trading_state(self) -> Optional[Dict]:
-        """Carga el estado del trading."""
-        try:
-            state = load_json_file(TRADING_STATE_FILE)
-            
-            if state:
-                self.logger.debug("Estado de trading cargado")
-            else:
-                self.logger.info("No se encontró estado de trading previo")
-            
-            return state
-            
-        except Exception as e:
-            self.logger.error(f"Error cargando estado de trading: {e}")
-            return None
-    
-    # Cache de balances
-    
-    async def save_balance_cache(self, balance_data: Dict) -> bool:
-        """Guarda el cache de balances."""
-        try:
-            cache_data = {
-                'balances': balance_data,
-                'last_updated': get_current_timestamp()
-            }
-            
-            success = save_json_file(cache_data, BALANCE_CACHE_FILE)
-            
-            if success:
-                self.logger.debug("Cache de balances guardado")
-            else:
-                self.logger.error("Error guardando cache de balances")
-            
-            return success
-            
-        except Exception as e:
-            self.logger.error(f"Error guardando cache de balances: {e}")
-            return False
-    
-    async def load_balance_cache(self) -> Optional[Dict]:
-        """Carga el cache de balances."""
-        try:
-            cache = load_json_file(BALANCE_CACHE_FILE)
-            
-            if cache:
-                self.logger.debug("Cache de balances cargado")
-                return cache.get('balances')
-            else:
-                self.logger.info("No se encontró cache de balances")
-                return None
-            
-        except Exception as e:
-            self.logger.error(f"Error cargando cache de balances: {e}")
-            return None
-    
-    # Datos de entrenamiento
+    # Datos de entrenamiento (Mantenido para datos de simulación local)
     
     async def save_training_data(self, training_data: List[Dict], filepath: str = None) -> bool:
         """Guarda datos de entrenamiento."""
-        if filepath is None:
-            filepath = "data/training_data.json"
+        current_filepath = filepath or DEFAULT_TRAINING_DATA_PATH
         
         try:
             # Asegurar que el directorio existe

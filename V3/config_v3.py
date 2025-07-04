@@ -24,8 +24,8 @@ MIN_PROFIT_USDT = 0.01  # Ganancia mínima absoluta en USDT
 MIN_OPERATIONAL_USDT = 10.0  # Balance mínimo para operar
 
 # Parámetros de la IA
-AI_MODEL_PATH = "models/arbitrage_model.pkl"
-AI_TRAINING_DATA_PATH = "data/training_data.csv"
+# AI_MODEL_PATH = "models/arbitrage_model.pkl"  # Se manejará con ruta fija en ArbitrageAIModel.py
+# AI_TRAINING_DATA_PATH = "data/training_data.csv" # No se usa actualmente, datos de simulación JSON en ruta fija en DataPersistence.py
 AI_CONFIDENCE_THRESHOLD = 0.7  # Umbral de confianza para ejecutar operaciones
 
 # Parámetros de trading

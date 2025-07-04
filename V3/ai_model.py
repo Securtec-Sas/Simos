@@ -12,16 +12,39 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, mean_squared_error
 import os
 
-from config_v3 import AI_MODEL_PATH, AI_CONFIDENCE_THRESHOLD, MIN_PROFIT_PERCENTAGE, MIN_PROFIT_USDT
+# AI_MODEL_PATH ya no se importa de config_v3.py
+from config_v3 import AI_CONFIDENCE_THRESHOLD, MIN_PROFIT_PERCENTAGE, MIN_PROFIT_USDT
 from utils import safe_float, safe_dict_get, get_current_timestamp
+
+# Ruta fija por defecto para el modelo, si no se proporciona una al instanciar.
+DEFAULT_AI_MODEL_DIR = "models"
+DEFAULT_AI_MODEL_FILENAME = "arbitrage_model.pkl"
 
 class ArbitrageAIModel:
     """Modelo de IA para análisis y decisiones de arbitraje."""
     
     def __init__(self, model_path: str = None):
         self.logger = logging.getLogger('V3.ArbitrageAIModel')
-        self.model_path = model_path or AI_MODEL_PATH
         
+        # Usar la ruta proporcionada, o construir una por defecto.
+        # Asegurar que el directorio base 'models/' exista.
+        if model_path:
+            self.model_path = model_path
+        else:
+            # Crear el directorio 'models' si no existe, relativo al script que corre (o CWD)
+            # Esto es importante si el script se ejecuta desde la raíz del proyecto V3.
+            if not os.path.exists(DEFAULT_AI_MODEL_DIR):
+                try:
+                    os.makedirs(DEFAULT_AI_MODEL_DIR, exist_ok=True)
+                    self.logger.info(f"Directorio de modelos creado: {os.path.abspath(DEFAULT_AI_MODEL_DIR)}")
+                except Exception as e:
+                    self.logger.error(f"No se pudo crear el directorio de modelos '{DEFAULT_AI_MODEL_DIR}': {e}")
+                    # Podríamos lanzar una excepción aquí o usar un path temporal/relativo simple.
+                    # Por ahora, continuaremos, y _load_model / save_model manejarán si el path es inválido.
+            self.model_path = os.path.join(DEFAULT_AI_MODEL_DIR, DEFAULT_AI_MODEL_FILENAME)
+
+        self.logger.info(f"ArbitrageAIModel usará la ruta de modelo: {os.path.abspath(self.model_path)}")
+
         # Modelos
         self.profitability_classifier = None  # Clasifica si será rentable
         self.profit_regressor = None  # Predice la ganancia exacta
