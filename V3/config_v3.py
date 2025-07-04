@@ -45,25 +45,8 @@ CSV_LOG_PATH = "logs/v3_operation_logs.csv"
 SIMULATION_MODE = False  # True para modo simulación, False para trading real
 SIMULATION_DELAY = 0.1  # Delay en segundos para simular tiempo de ejecución
 
-# Configuración de persistencia
-TRADING_STATE_FILE = "data/trading_state.json"
-BALANCE_CACHE_FILE = "data/balance_cache.json"
 
 # Configuración de red y timeouts
 REQUEST_TIMEOUT = 30  # Timeout para requests HTTP en segundos
 WEBSOCKET_RECONNECT_DELAY = 5  # Delay para reconexión de WebSocket
 MAX_RECONNECT_ATTEMPTS = 10  # Máximo número de intentos de reconexión
-
-# Configuración de exchanges soportados
-SUPPORTED_EXCHANGES = [
-    "binance", "okx", "kucoin", "bybit", "huobi", "gate", "mexc"
-]
-
-# Configuración de redes de transferencia preferidas (por costo)
-PREFERRED_NETWORKS = {
-    "USDT": ["TRC20", "BSC", "POLYGON", "ERC20"],
-    "BTC": ["BTC", "BSC", "POLYGON"],
-    "ETH": ["BSC", "POLYGON", "ERC20"],
-    "BNB": ["BSC", "BEP2"],
-}
-
