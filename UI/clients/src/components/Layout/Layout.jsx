@@ -1,155 +1,95 @@
-// UI/clients/src/components/Layout/Layout.jsx - VERSIÓN CORREGIDA
+// UI/clients/src/components/Layout/Layout.jsx
 
 import React from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom'; // Link y useLocation ya no son necesarios aquí si el nav se va al Sidebar
 import Sidebar from '../Sidebar/Sidebar.jsx';
-const Layout = ({ allExchanges, setAllExchanges, connectionStatus }) => {
-  const location = useLocation();
 
-  const navStyle = {
-    backgroundColor: '#343a40',
-    padding: '1rem',
-    marginBottom: '2rem',
+// El prop v3Data se añade para pasarlo al Sidebar, que lo usa para el estado de Sebo.
+const Layout = ({ allExchanges, setAllExchanges, connectionStatus, v3Data }) => {
+
+  // Estilos para el contenedor principal que incluye Sidebar y Contenido
+  const layoutWrapperStyle = {
+    display: 'flex',
+    minHeight: '100vh', // Ocupa al menos toda la altura de la vista
+  };
+
+  // Estilos para el contenedor del contenido principal (donde se renderiza el Outlet)
+  const mainContentWrapperStyle = {
+    flexGrow: 1, // Permite que esta área crezca y ocupe el espacio restante
+    padding: '20px', // Un poco de espacio alrededor del contenido
+    // backgroundColor: '#fff', // Opcional: un color de fondo para el área de contenido
+    // overflowY: 'auto' // Si el contenido puede ser más largo que la pantalla
+  };
+
+  // Estilos para la barra superior fija (si se decide mantener algo arriba, como el balance o estados)
+  const topBarStyle = {
+    position: 'fixed', // Fijo en la parte superior
+    top: 0,
+    left: 250, // Debe ser igual al ancho del Sidebar para no superponerse
+    right: 0,
+    height: '60px', // Altura de la barra superior
+    backgroundColor: '#343a40', // Color oscuro como la nav anterior
+    color: 'white',
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0 20px',
+    zIndex: 1000, // Para que esté por encima de otros contenidos
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
   };
 
-  const navListStyle = {
-    listStyle: 'none',
-    display: 'flex',
-    gap: '2rem',
-    margin: 0,
-    padding: 0,
-    alignItems: 'center'
-  };
-
-  const navLinkStyle = {
-    color: '#ffffff',
-    textDecoration: 'none',
-    padding: '0.5rem 1rem',
-    borderRadius: '4px',
-    transition: 'background-color 0.3s',
-    fontSize: '14px',
-    fontWeight: '500'
-  };
-
-  const activeLinkStyle = {
-    ...navLinkStyle,
-    backgroundColor: '#007bff',
-    color: '#ffffff'
-  };
-
   const statusContainerStyle = {
-    marginLeft: 'auto',
+    marginLeft: 'auto', // Empuja los estados a la derecha
     display: 'flex',
-    gap: '10px',
+    gap: '15px',
     alignItems: 'center'
   };
 
   const statusBadgeStyle = (status) => ({
-    padding: '4px 8px',
-    borderRadius: '12px',
-    fontSize: '11px',
+    padding: '5px 10px',
+    borderRadius: '15px',
+    fontSize: '12px',
     fontWeight: 'bold',
     color: 'white',
     backgroundColor: 
-      status === 'connected' ? '#28a745' :
-      status === 'error' ? '#dc3545' : '#6c757d'
+      status === 'connected' ? '#28a745' : // verde
+      status === 'error' ? '#dc3545' : // rojo
+      '#6c757d' // gris para desconectado u otros estados
   });
 
-  const containerStyle = {
-    maxWidth: '1400px',
-    margin: '0 auto',
-    padding: '0 1rem'
+  // Placeholder para el componente de BalanceDisplay
+  const BalanceDisplay = () => {
+    // Aquí iría la lógica para obtener y mostrar el balance, probablemente de v3Data
+    const balanceToShow = v3Data?.balance_update?.total_usdt || v3Data?.system_status?.total_balance_usdt || 'N/A';
+    return (
+      <div style={{fontSize: '16px', fontWeight: 'bold'}}>
+        Balance: {typeof balanceToShow === 'number' ? balanceToShow.toFixed(2) : balanceToShow} USDT
+      </div>
+    );
   };
 
-  const isActive = (path) => {
-    if (path === '/' && location.pathname === '/') return true;
-    if (path !== '/' && location.pathname.startsWith(path)) return true;
-    return false;
-  };
 
   return (
-    <div>
-      <nav style={navStyle}>
-        <div style={containerStyle}>
-          <ul style={navListStyle}>
-            <li>
-              <Link 
-                to="/" 
-                style={isActive('/') && location.pathname === '/' ? activeLinkStyle : navLinkStyle}
-              >
-                🏠 Dashboard
-              </Link>
-            </li>
-            <li>
-              <Link 
-                to="/conexion" 
-                style={isActive('/conexion') ? activeLinkStyle : navLinkStyle}
-              >
-                🔗 Conexiones
-              </Link>
-            </li>
-            <li>
-              <Link 
-                to="/exchange-apis" 
-                style={isActive('/exchange-apis') ? activeLinkStyle : navLinkStyle}
-              >
-                🔑 APIs Exchanges
-              </Link>
-            </li>
-            <li>
-              <Link 
-                to="/spots" 
-                style={isActive('/spots') ? activeLinkStyle : navLinkStyle}
-              >
-                📊 Spots
-              </Link>
-            </li>
-            <li>
-              <Link 
-                to="/top20-detailed" 
-                style={isActive('/top20-detailed') ? activeLinkStyle : navLinkStyle}
-              >
-                🎯 Top 20 Trading
-              </Link>
-            </li>
-            <li>
-              <Link
-                to="/data-view"
-                style={isActive('/data-view') ? activeLinkStyle : navLinkStyle}
-              >
-                 ViewData
-              </Link>
-            </li>
-            <li>
-              <Link
-                to="/ai-data"
-                style={isActive('/ai-data') ? activeLinkStyle : navLinkStyle}
-              >
-                🤖 AI Data
-              </Link>
-            </li>
-            
+    <div style={layoutWrapperStyle}>
+      <Sidebar
+        allExchanges={allExchanges}
+        setAllExchanges={setAllExchanges}
+        v3Data={v3Data} // Pasar v3Data al Sidebar
+      />
+      <div style={{ marginLeft: '250px', width: 'calc(100% - 250px)', position: 'relative' /* Para el posicionamiento de la topBar */ }}>
+        <div style={topBarStyle}> {/* Barra superior fija */}
+            <BalanceDisplay /> {/* Componente de Balance aquí */}
             {/* Estado de conexiones */}
             {connectionStatus && (
-              <div style={statusContainerStyle}>
-                <div style={statusBadgeStyle(connectionStatus.v2)}>
-                  V2
-                </div>
-                <div style={statusBadgeStyle(connectionStatus.v3)}>
-                  V3
-                </div>
-                <div style={statusBadgeStyle(connectionStatus.sebo)}>
-                  Sebo
-                </div>
-              </div>
+            <div style={statusContainerStyle}>
+                <div style={statusBadgeStyle(connectionStatus.v2)}>V2</div>
+                <div style={statusBadgeStyle(connectionStatus.v3)}>V3</div>
+                <div style={statusBadgeStyle(connectionStatus.sebo)}>Sebo</div>
+            </div>
             )}
-          </ul>
         </div>
-      </nav>
-      {/* Sidebar ya no se renderiza aquí */}
-      <div style={containerStyle}>
-        <Outlet />
+        <main style={{ ...mainContentWrapperStyle, paddingTop: '80px' /* Ajuste para dejar espacio a la topBar */ }}>
+          <Outlet />
+        </main>
       </div>
     </div>
   );

@@ -63,3 +63,15 @@ PREFERRED_NETWORKS = {
     'AVAX': ['AVAX']
 }
 
+# Exchanges con los que V3 intentará operar (deben tener API keys configuradas si no es solo lectura)
+# Estos son los IDs de CCXT. Deben coincidir con los IDs usados en API_KEYS si se requiere trading.
+SUPPORTED_EXCHANGES = [
+    "binance",
+    "okx",
+    "kucoin",
+    "bybit",
+    # "huobi", # Ejemplo de otro exchange, añadir según sea necesario
+    # "gateio", # Ejemplo
+    # Asegúrate de que estos exchanges estén soportados por CCXT
+    # y que tengas la configuración de API (si aplica) en API_KEYS.
+]
