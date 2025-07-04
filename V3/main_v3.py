@@ -410,4 +410,3 @@ if __name__ == "__main__":
     # Ejecutar aplicación
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-
