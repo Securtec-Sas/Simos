@@ -2431,3 +2431,41 @@
 2025-07-04 13:00:54,537 - V3.SeboConnector - INFO - Conectando a Sebo Socket.IO: ws://localhost:3031 (namespace: /api/spot/arb)
 2025-07-04 13:00:54,537 - V3.SeboConnector - ERROR - Error conectando a Sebo Socket.IO: Already connected
 2025-07-04 13:00:54,538 - V3 - ERROR - Error en monitoreo de salud: 'bool' object is not callable
+2025-07-04 13:01:00,116 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:01:00,122 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:01:05,756 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:01:05,769 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:01:12,773 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:01:12,785 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:01:18,211 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:01:18,234 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:01:23,754 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:01:23,802 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:01:29,683 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:01:29,713 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:01:35,174 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:01:35,205 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:01:40,720 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:01:40,744 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:01:46,186 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:01:46,200 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:01:51,799 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:01:51,827 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:01:54,568 - V3 - WARNING - Conexión con Sebo perdida, intentando reconectar...
+2025-07-04 13:01:54,590 - V3.SeboConnector - INFO - Conectando a Sebo Socket.IO: ws://localhost:3031 (namespace: /api/spot/arb)
+2025-07-04 13:01:54,684 - V3.SeboConnector - ERROR - Error conectando a Sebo Socket.IO: Already connected
+2025-07-04 13:01:54,693 - V3 - ERROR - Error en monitoreo de salud: 'bool' object is not callable
+2025-07-04 13:01:57,437 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:01:57,458 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:02:03,674 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:02:03,713 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:02:09,260 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:02:09,273 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:02:15,231 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:02:15,236 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:02:20,286 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:02:20,290 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:02:25,637 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:02:25,641 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-04 13:02:30,688 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
+2025-07-04 13:02:30,692 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
