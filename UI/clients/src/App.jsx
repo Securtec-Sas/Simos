@@ -96,81 +96,6 @@ function App() {
     };
   }, []);
 
-  // V3 WebSocket connection
-  useEffect(() => {
-    let v3Socket = null;
-    let reconnectTimeout = null;
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-
-    const connectV3 = () => {
-      try {
-        const wsUrl = 'ws://localhost:3002'; // Puerto para V3
-        v3Socket = new WebSocket(wsUrl);
-
-        v3Socket.onopen = () => {
-          console.log('Connected to V3 WebSocket server');
-          setConnectionStatus(prev => ({ ...prev, v3: 'connected' }));
-          reconnectAttempts = 0;
-          
-          // Solicitar estado inicial
-          v3Socket.send(JSON.stringify({ type: 'get_system_status' }));
-        };
-
-        v3Socket.onmessage = (event) => {
-          try {
-            const message = JSON.parse(event.data);
-            console.log('Message from V3:', message);
-            
-            switch (message.type) {
-              case 'system_status':
-              case 'trading_stats':
-              case 'operation_result':
-              case 'balance_update':
-              case 'top20_data':
-                setV3Data(prev => ({ ...prev, [message.type]: message.payload }));
-                break;
-              default:
-                console.log('Unknown V3 message type:', message.type);
-            }
-          } catch (error) {
-            console.error('Error parsing V3 message:', error);
-          }
-        };
-
-        v3Socket.onerror = (error) => {
-          console.error('V3 WebSocket error:', error);
-          setConnectionStatus(prev => ({ ...prev, v3: 'error' }));
-        };
-
-        v3Socket.onclose = (event) => {
-          console.log('V3 WebSocket disconnected:', event.reason, `Code: ${event.code}`);
-          setConnectionStatus(prev => ({ ...prev, v3: 'disconnected' }));
-          
-          if (event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
-            reconnectAttempts++;
-            console.log(`Attempting to reconnect to V3 (${reconnectAttempts}/${maxReconnectAttempts})...`);
-            reconnectTimeout = setTimeout(connectV3, 3000 * reconnectAttempts);
-          }
-        };
-      } catch (error) {
-        console.error('Error creating V3 WebSocket:', error);
-        setConnectionStatus(prev => ({ ...prev, v3: 'error' }));
-      }
-    };
-
-    connectV3();
-
-    return () => {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
-      if (v3Socket && (v3Socket.readyState === WebSocket.OPEN || v3Socket.readyState === WebSocket.CONNECTING)) {
-        v3Socket.close(1000, 'Component unmounting');
-      }
-    };
-  }, []);
-
   // Función para enviar comandos a V3
   const sendV3Command = (command, payload = {}) => {
     // Esta función será pasada a los componentes que necesiten comunicarse con V3
@@ -193,7 +118,7 @@ function App() {
 
     const connectV3 = () => {
       try {
-        const wsUrl = 'ws://localhost:3002'; // Puerto para V3
+        const wsUrl = 'ws://localhost:3001'; // Puerto para V3 CAMBIADO A 3001
         const currentSocket = new WebSocket(wsUrl);
         window.v3SocketInstance = currentSocket; // Asignar a una variable global/accesible
 
@@ -212,12 +137,34 @@ function App() {
             console.log('Message from V3:', message);
 
             switch (message.type) {
+              case 'initial_state': // Manejar el estado inicial completo
+                console.log('Received initial_state from V3:', message.payload);
+                setV3Data(prev => ({
+                  ...prev,
+                  ...message.payload, // Fusiona todo el payload del estado inicial
+                  // Asegurar que las claves específicas como top20_data y balance_update se manejen bien
+                  // si el payload de initial_state las tiene directamente con esos nombres.
+                  // El backend V3 fue diseñado para usar estas claves en el payload de initial_state.
+                }));
+                // Actualizar también el estado de conexión de Sebo si viene en el initial_state
+                if (typeof message.payload.sebo_connection_status !== 'undefined') {
+                    setConnectionStatus(prev => ({ ...prev, sebo: message.payload.sebo_connection_status ? 'connected' : 'disconnected' }));
+                }
+                break;
               case 'system_status':
               case 'trading_stats':
               case 'operation_result':
+              // 'balance_update' y 'top20_data' se manejarán individualmente para asegurar el reemplazo
+              // y también se incluyen en 'initial_state'.
+              // case 'balance_update':
+              // case 'top20_data':
+              //   setV3Data(prev => ({ ...prev, [message.type]: message.payload }));
+              //   break;
               case 'balance_update':
+                setV3Data(prev => ({ ...prev, balance_update: message.payload }));
+                break;
               case 'top20_data':
-                setV3Data(prev => ({ ...prev, [message.type]: message.payload }));
+                setV3Data(prev => ({ ...prev, top20_data: message.payload }));
                 break;
               case 'log_message':
                 console.log(`V3 Log: [${message.payload.level}] ${message.payload.message}`);

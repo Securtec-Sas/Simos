@@ -63,7 +63,34 @@ class CryptoArbitrageV3:
         # Callbacks de TradingLogic
         self.trading_logic.set_operation_complete_callback(self._on_operation_complete)
         self.trading_logic.set_trading_status_change_callback(self._on_trading_status_change)
+
+        # Callback para UIBroadcaster para obtener estado inicial
+        self.ui_broadcaster.set_get_initial_state_callback(self.get_initial_ui_state)
     
+    async def get_initial_ui_state(self) -> Dict:
+        """Prepara y devuelve el estado inicial completo para la UI."""
+        self.logger.debug("Construyendo estado inicial para la UI...")
+        # Asegurarse de que TradingLogic ya haya intentado cargar su estado desde Sebo
+        # Esto ocurre en self.trading_logic.initialize()
+
+        # Obtener datos cacheados de SeboConnector
+        # Estos podrían estar vacíos si Sebo aún no ha enviado nada o V3 acaba de iniciar
+        latest_top20 = self.sebo_connector.get_latest_top20_data()
+        latest_balances = self.sebo_connector.get_latest_balances()
+        ai_model_info = self.ai_model.get_model_info()
+
+        initial_state_payload = {
+            "trading_active": self.trading_logic.is_trading_active(), # Del estado cargado/default de TradingLogic
+            "trading_stats": self.trading_logic.get_trading_stats(), # De TradingLogic
+            "top20_data": latest_top20 if latest_top20 else [],
+            "balance_update": latest_balances if latest_balances else {},
+            "ai_model_details": ai_model_info,
+            # Podríamos añadir más cosas aquí, como el estado de conexión de Sebo
+            "sebo_connection_status": self.sebo_connector.is_connected,
+        }
+        self.logger.debug(f"Estado inicial para UI: trading_active={initial_state_payload['trading_active']}, top20_items={len(initial_state_payload['top20_data'])}, balances_keys={list(initial_state_payload['balance_update'].keys()) if initial_state_payload['balance_update'] else 'None'}")
+        return initial_state_payload
+
     async def initialize(self):
         """Inicializa todos los componentes."""
         try:

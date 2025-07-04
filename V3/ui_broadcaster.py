@@ -23,8 +23,9 @@ class UIBroadcaster:
         self.on_trading_start_callback: Optional[Callable] = None
         self.on_trading_stop_callback: Optional[Callable] = None
         self.on_ui_message_callback: Optional[Callable] = None
+        self.get_initial_state_callback: Optional[Callable] = None # Nuevo callback
         
-        # Estado del trading
+        # Estado del trading (local a UIBroadcaster, podría sincronizarse con TradingLogic)
         self.trading_active = False
         self.trading_stats = {
             'operations_count': 0,
@@ -88,18 +89,33 @@ class UIBroadcaster:
             self.ui_clients.discard(websocket)
     
     async def _send_initial_state(self, websocket):
-        """Envía el estado inicial a un cliente UI recién conectado."""
-        initial_state = {
-            "type": "initial_state",
-            "payload": {
-                "trading_active": self.trading_active,
-                "trading_stats": self.trading_stats,
-                "timestamp": get_current_timestamp()
-            }
+        """Envía el estado inicial completo a un cliente UI recién conectado."""
+        payload = {
+            "trading_active": self.trading_active, # Estado local de UIBroadcaster
+            "trading_stats": self.trading_stats,   # Estado local de UIBroadcaster
+            # Otros datos se obtendrán del callback
+        }
+
+        if self.get_initial_state_callback:
+            try:
+                # El callback debe ser una corutina y devolver un dict
+                additional_state = await self.get_initial_state_callback()
+                if additional_state and isinstance(additional_state, dict):
+                    payload.update(additional_state)
+                else:
+                    self.logger.warning("get_initial_state_callback no devolvió un diccionario válido.")
+            except Exception as e:
+                self.logger.error(f"Error llamando a get_initial_state_callback: {e}")
+
+        message_to_send = {
+            "type": "initial_state", # La UI espera este tipo de mensaje
+            "payload": payload,
+            "timestamp": get_current_timestamp()
         }
         
         try:
-            await websocket.send(json.dumps(initial_state))
+            await websocket.send(json.dumps(message_to_send))
+            self.logger.info(f"Estado inicial enviado a {websocket.remote_address}. Payload keys: {list(payload.keys())}")
         except Exception as e:
             self.logger.error(f"Error enviando estado inicial: {e}")
     
@@ -298,6 +314,10 @@ class UIBroadcaster:
     def set_ui_message_callback(self, callback: Callable):
         """Establece el callback para mensajes genéricos de la UI."""
         self.on_ui_message_callback = callback
+
+    def set_get_initial_state_callback(self, callback: Callable): # Nuevo setter
+        """Establece el callback para obtener el estado inicial completo."""
+        self.get_initial_state_callback = callback
     
     # Métodos para actualizar estadísticas
     

@@ -56,8 +56,9 @@ class SeboConnector:
             self.logger.warning("Desconectado de Sebo Socket.IO")
             self.is_connected = False
         
-        # Handler para datos de arbitraje spot
-        self.sio.on('spot-arb', namespace='/api/spot/arb')(self._on_spot_arb_data)
+        # Handler para datos de arbitraje spot - Comentado según solicitud
+        # self.sio.on('spot-arb', namespace='/api/spot/arb')(self._on_spot_arb_data)
+        self.logger.info("Manejador para 'spot-arb' desactivado en SeboConnector.")
         
         # Handler para actualizaciones de balance
         self.sio.on('balances-update', namespace='/api/spot/arb')(self._on_balances_update)
