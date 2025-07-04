@@ -451,4 +451,3 @@ serveri.listen(PORT, () => {
     loopActualizePricetop20();
     emitSpotPricesLoop(io);
 });
-
