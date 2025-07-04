@@ -785,4 +785,4 @@ module.exports = {
     depuredExchangeSymbolData,
     analisisExchangeSimbol,
     actualizePricetop20
-};
+}
