@@ -5,3 +5,4 @@ yarn-debug.log*
 yarn-error.log*
 .env
 V3/log/
+V3/logs/v3_operations.log
