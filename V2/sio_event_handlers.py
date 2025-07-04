@@ -20,6 +20,7 @@ class SIOEventHandlers:
                 "error": "Received invalid data type for top_20_data from Sebo"
             })
             return
+<<<<<<< HEAD
 
         self.app.current_top_20_list = data
         ui_message = {"type": "top_20_update", "payload": self.app.current_top_20_list}
@@ -62,6 +63,21 @@ class SIOEventHandlers:
         # else:
             # print("SIOEventHandler: Processing is disabled. Not starting batch.") # Optional: for debugging
 >>>>>>> 28ee198576a3e43b01eaaac38733271a92d54358
+=======
+
+        self.app.current_top_20_list = data
+        ui_message = {"type": "top_20_update", "payload": self.app.current_top_20_list}
+        await self.app.broadcast_to_ui(ui_message)
+
+        if self.app.opp_processor.is_processing_enabled:
+            if not self.app.is_processing_opportunity_batch:
+                self.app.is_processing_opportunity_batch = True
+                asyncio.create_task(self.app.opp_processor.process_opportunity_batch())
+            # else:
+                # print("SIOEventHandler: Batch processing already in progress.") # Optional: for debugging
+        # else:
+            # print("SIOEventHandler: Processing is disabled. Not starting batch.") # Optional: for debugging
+>>>>>>> 28ee198 (cambios para MAnus)
 
     async def on_balances_update_from_sebo(self, data):
         print(f"SIOEventHandler: Received 'balances-update' from Sebo: {data}") # Can be verbose

@@ -7,6 +7,13 @@ import styles from './Sidebar.module.css';
 const Sidebar = ({ allExchanges, setAllExchanges }) => {
   const navigate = useNavigate();
 
+  const navItems = [
+    { path: '/conexion', label: 'Conexión' },
+    { path: '/top20-detailed', label: 'Top 20 Detallado' },
+    { path: '/data-view', label: 'Data View & Model' },
+    { path: '/exchanges/apis', label: 'Apis' },
+  ];
+
   return (
     <div className="sidebar">
       <button id="toggleSidebarButton" title="Toggle Menu">
@@ -20,34 +27,16 @@ const Sidebar = ({ allExchanges, setAllExchanges }) => {
           allExchanges={allExchanges}
           setAllExchanges={setAllExchanges}
         />
-        <button
-          className={styles.menuHeader}
-          style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
-          onClick={() => navigate('/conexion')}
-        >
-          Conexión
-        </button>
-        <button
-          className={styles.menuHeader} // Assuming similar styling is desired
-          style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
-          onClick={() => navigate('/top20-detailed')}
-        >
-          Top 20 Detallado
-        </button>
-        <button
-          className={styles.menuHeader} // Assuming similar styling is desired
-          style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
-          onClick={() => navigate('/data-view')}
-        >
-          Data View & Model
-        </button>
-                <button
-          className={styles.menuHeader} // Assuming similar styling is desired
-          style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
-          onClick={() => navigate('/exchanges/apis')}
-        >
-          Apis
-        </button>
+        {navItems.map((item) => (
+          <button
+            key={item.path}
+            className={styles.menuHeader}
+            style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
+            onClick={() => navigate(item.path)}
+          >
+            {item.label}
+          </button>
+        ))}
         <SpotsMenu />
       </div>
     </div>

@@ -67,16 +67,19 @@ class V2Helpers:
             async with self.app.http_session.get(api_url) as response:
                     if response.status == 200:
                         data = await response.json()
-                        if data and data.get('networks'):
-                            usdt_withdrawal_info["all_networks"] = data['networks']
-                            for net_info in data['networks']:
-                                if net_info.get('active') and net_info.get('withdraw') and net_info.get('fee') is not None:
-                                    fee = float(net_info['fee'])
-                                    if fee < usdt_withdrawal_info["selected_fee"]:
-                                        usdt_withdrawal_info["selected_fee"] = fee
-                                        usdt_withdrawal_info["selected_network"] = net_info['network']
-                            if usdt_withdrawal_info["selected_fee"] == float('inf'):
-                                usdt_withdrawal_info["selected_fee"] = None
+                        networks = data.get('networks', [])
+                        usdt_withdrawal_info["all_networks"] = networks
+
+                        # Find the best network using a generator expression and min()
+                        active_networks = (
+                            net for net in networks
+                            if net.get('active') and net.get('withdraw') and net.get('fee') is not None
+                        )
+                        best_network = min(active_networks, key=lambda net: float(net['fee']), default=None)
+
+                        if best_network:
+                            usdt_withdrawal_info["selected_fee"] = float(best_network['fee'])
+                            usdt_withdrawal_info["selected_network"] = best_network['network']
                         else:
                             print(f"V2Helpers: No network info for USDT@{from_exchange_id} from Sebo.")
                     else:
@@ -91,18 +94,9 @@ class V2Helpers:
             self.app.current_balance_config = None
             return False
 
-<<<<<<< HEAD
-        if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
-            print(f"V2Helpers: SEBO_API_BASE_URL no configurado en app para load_balance_config({exchange_id}).")
-            self.app.current_balance_config = None
-            return False
-
-        api_url = f"{self.app.SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
-=======
         from config import SEBO_BASE
 
         api_url = f"{SEBO_BASE}/api/balances/exchange/{exchange_id}"
->>>>>>> origin/feature/sebo-v2-datalinks
         from main import SEBO_API_BASE_URL
 
         api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
@@ -170,19 +164,10 @@ class V2Helpers:
 
     async def load_balance_config_for_exchange(self, exchange_id: str) -> Optional[dict]:
         if not exchange_id: return None
-<<<<<<< HEAD
-
-        if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
-            print(f"V2Helpers: SEBO_API_BASE_URL no configurado en app para load_balance_config_for_exchange({exchange_id}).")
-            return None
-
-        api_url = f"{self.app.SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
-=======
         from config import SEBO_BASE
         SEBO_API_BASE_URL = f"{SEBO_BASE}/api"
         from main import SEBO_API_BASE_URL
         api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
->>>>>>> origin/feature/sebo-v2-datalinks
         try:
             await self.app._ensure_http_session()
             async with self.app.http_session.get(api_url) as response:
