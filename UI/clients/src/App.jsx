@@ -6,8 +6,9 @@ import Layout from './components/Layout/Layout.jsx';
 import ActiveExchangesTable from './components/ActiveExchangesTable/ActiveExchangesTable.jsx';
 import SpotsMenu from './components/SpotsMenu/SpotsMenu.jsx';
 import Top20DetailedPage from './components/Top20DetailedPage/Top20DetailedPage';
-import ExchangeApis from './pages/exchangesApis/ExchangeAPIsPage.jsx'
-import DataViewPage from './pages/DataViewPage/DataViewPage'; // Import DataViewPage
+import ExchangeApis from './pages/exchangesApis/ExchangeAPIsPage.jsx';
+import DataViewPage from './pages/DataViewPage/DataViewPage.jsx'; // Asegúrate que la importación esté presente
+import AIDataPage from './pages/AIDataPage/AIDataPage.jsx'; // Importar la nueva página
 
 function App() {
   const [allExchanges, setAllExchanges] = useState([]);
@@ -173,12 +174,100 @@ function App() {
   // Función para enviar comandos a V3
   const sendV3Command = (command, payload = {}) => {
     // Esta función será pasada a los componentes que necesiten comunicarse con V3
-    const v3Socket = new WebSocket('ws://localhost:3002');
-    v3Socket.onopen = () => {
-      v3Socket.send(JSON.stringify({ type: command, payload }));
-      v3Socket.close();
-    };
+    // Reutiliza la conexión v3Socket establecida en el useEffect
+    if (window.v3SocketInstance && window.v3SocketInstance.readyState === WebSocket.OPEN) {
+      window.v3SocketInstance.send(JSON.stringify({ type: command, payload }));
+    } else {
+      console.error('V3 WebSocket no está conectado o no está listo. No se pudo enviar el comando:', command);
+      // Podrías intentar reconectar o encolar el mensaje si es necesario
+      // alert('Error: V3 WebSocket no está conectado.');
+    }
   };
+
+  // V3 WebSocket connection
+  useEffect(() => {
+    let v3Socket = null; // Mantener v3Socket local al efecto para la gestión de la conexión
+    let reconnectTimeout = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+
+    const connectV3 = () => {
+      try {
+        const wsUrl = 'ws://localhost:3002'; // Puerto para V3
+        const currentSocket = new WebSocket(wsUrl);
+        window.v3SocketInstance = currentSocket; // Asignar a una variable global/accesible
+
+        currentSocket.onopen = () => {
+          console.log('Connected to V3 WebSocket server');
+          setConnectionStatus(prev => ({ ...prev, v3: 'connected' }));
+          reconnectAttempts = 0;
+
+          // Solicitar estado inicial
+          currentSocket.send(JSON.stringify({ type: 'get_system_status' }));
+        };
+
+        currentSocket.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            console.log('Message from V3:', message);
+
+            switch (message.type) {
+              case 'system_status':
+              case 'trading_stats':
+              case 'operation_result':
+              case 'balance_update':
+              case 'top20_data': // Asegúrate de que este case exista si V3 envía este tipo de mensaje
+                setV3Data(prev => ({ ...prev, [message.type]: message.payload }));
+                break;
+              case 'log_message': // Ejemplo: para mostrar logs del backend en la UI
+                console.log(`V3 Log: [${message.payload.level}] ${message.payload.message}`);
+                // Aquí podrías tener un estado para mostrar logs en la UI si es necesario
+                break;
+              default:
+                console.log('Unknown V3 message type:', message.type);
+            }
+          } catch (error) {
+            console.error('Error parsing V3 message:', error);
+          }
+        };
+
+        currentSocket.onerror = (error) => {
+          console.error('V3 WebSocket error:', error);
+          setConnectionStatus(prev => ({ ...prev, v3: 'error' }));
+        };
+
+        currentSocket.onclose = (event) => {
+          console.log('V3 WebSocket disconnected:', event.reason, `Code: ${event.code}`);
+          setConnectionStatus(prev => ({ ...prev, v3: 'disconnected' }));
+          window.v3SocketInstance = null; // Limpiar la referencia global
+
+          if (event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            console.log(`Attempting to reconnect to V3 (${reconnectAttempts}/${maxReconnectAttempts})...`);
+            reconnectTimeout = setTimeout(connectV3, 3000 * reconnectAttempts);
+          }
+        };
+        // Asignar currentSocket a v3Socket para la lógica de limpieza al desmontar
+        v3Socket = currentSocket;
+      } catch (error) {
+        console.error('Error creating V3 WebSocket:', error);
+        setConnectionStatus(prev => ({ ...prev, v3: 'error' }));
+      }
+    };
+
+    connectV3();
+
+    return () => {
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      if (v3Socket && (v3Socket.readyState === WebSocket.OPEN || v3Socket.readyState === WebSocket.CONNECTING)) {
+        v3Socket.close(1000, 'Component unmounting');
+      }
+      window.v3SocketInstance = null; // Asegurar limpieza al desmontar
+    };
+  }, []);
+
 
   return (
     <Router>
@@ -197,6 +286,13 @@ function App() {
             <Top20DetailedPage 
               sendV3Command={sendV3Command}
               v3Data={v3Data}
+            />
+          } />
+          <Route path="data-view" element={<DataViewPage />} />
+          <Route path="ai-data" element={
+            <AIDataPage
+              v3Data={v3Data}
+              sendV3Command={sendV3Command}
             />
           } />
           <Route index element={
