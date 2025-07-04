@@ -27,6 +27,7 @@ const Sidebar = ({ allExchanges, setAllExchanges }) => {
           allExchanges={allExchanges}
           setAllExchanges={setAllExchanges}
         />
+<<<<<<< HEAD
         {navItems.map((item) => (
           <button
             key={item.path}
@@ -37,6 +38,36 @@ const Sidebar = ({ allExchanges, setAllExchanges }) => {
             {item.label}
           </button>
         ))}
+=======
+        <button
+          className={styles.menuHeader}
+          style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
+          onClick={() => navigate('/conexion')}
+        >
+          Conexión
+        </button>
+        <button
+          className={styles.menuHeader} // Assuming similar styling is desired
+          style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
+          onClick={() => navigate('/top20-detailed')}
+        >
+          Top 20 Detallado
+        </button>
+        <button
+          className={styles.menuHeader} // Assuming similar styling is desired
+          style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
+          onClick={() => navigate('/data-view')}
+        >
+          Data View & Model
+        </button>
+                <button
+          className={styles.menuHeader} // Assuming similar styling is desired
+          style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
+          onClick={() => navigate('/exchanges/apis')}
+        >
+          Apis
+        </button>
+>>>>>>> 28ee198 (cambios para MAnus)
         <SpotsMenu />
       </div>
     </div>

@@ -94,9 +94,12 @@ class V2Helpers:
             self.app.current_balance_config = None
             return False
 
+<<<<<<< HEAD
         from config import SEBO_BASE
 
         api_url = f"{SEBO_BASE}/api/balances/exchange/{exchange_id}"
+=======
+>>>>>>> 28ee198 (cambios para MAnus)
         from main import SEBO_API_BASE_URL
 
         api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
@@ -122,9 +125,12 @@ class V2Helpers:
             print("V2Helpers_UpdateBalance: No exchange_id para actualizar balance en Sebo.")
             return False
 
+<<<<<<< HEAD
         if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
             print(f"V2Helpers: SEBO_API_BASE_URL no configurado en app para update_balance_on_sebo({exchange_id}).")
             return False
+=======
+>>>>>>> 28ee198 (cambios para MAnus)
         from main import SEBO_API_BASE_URL
 
         api_url = f"{self.app.SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
@@ -164,8 +170,11 @@ class V2Helpers:
 
     async def load_balance_config_for_exchange(self, exchange_id: str) -> Optional[dict]:
         if not exchange_id: return None
+<<<<<<< HEAD
         from config import SEBO_BASE
         SEBO_API_BASE_URL = f"{SEBO_BASE}/api"
+=======
+>>>>>>> 28ee198 (cambios para MAnus)
         from main import SEBO_API_BASE_URL
         api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         try:
