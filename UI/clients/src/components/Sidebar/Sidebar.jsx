@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import ExchangeList from '../ExchangeList/ExchangeList.jsx';
 import SpotsMenu from '../SpotsMenu/SpotsMenu.jsx'; // Asumiendo que SpotsMenu también estaba aquí
 import styles from './Sidebar.module.css';
-
+import Balance from  '../BalanceDisplay/BalanceDisplay.jsx';
 const Sidebar = ({ allExchanges, setAllExchanges, v3Data }) => { // Añadido v3Data por si se necesita para balance
   const navigate = useNavigate();
 
@@ -77,7 +77,7 @@ const Sidebar = ({ allExchanges, setAllExchanges, v3Data }) => { // Añadido v3D
         <button style={isActive('/ai-data') ? activeMenuButtonStyle : menuButtonStyle} onClick={() => navigate('/ai-data')}>
           🤖 AI Data (V3)
         </button>
-
+        <Balance v3Data={v3Data}/>
         {/* SpotsMenu también podría estar aquí si es parte de la navegación principal del sidebar */}
         {/* <SpotsMenu /> */}
       </div>
