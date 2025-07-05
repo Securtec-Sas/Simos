@@ -4,6 +4,7 @@ import Layout from './components/Layout/Layout.jsx';
 import ActiveExchangesTable from './components/ActiveExchangesTable/ActiveExchangesTable.jsx';
 import SpotsMenu from './components/SpotsMenu/SpotsMenu.jsx';
 import Top20DetailedPage from './components/Top20DetailedPage/Top20DetailedPage';
+import ExchangeApis from './pages/exchangesApis/exhangeApis'
 import DataViewPage from './pages/DataViewPage/DataViewPage'; // Import DataViewPage
 
 function App() {
@@ -136,6 +137,7 @@ function App() {
                       />}
           />
           <Route path="/data-view" element={<DataViewPage />} /> {/* DataViewPage manages its own socket for now, or could also use sendV2Message */}
+          <Route path="/exchanges/apis" element={<ExchangeApis />} />
         </Route>
       </Routes>
     </Router>

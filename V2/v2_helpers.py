@@ -57,6 +57,11 @@ class V2Helpers:
             return usdt_withdrawal_info
 
         api_url = f"{self.app.SEBO_API_BASE_URL}/exchanges/{from_exchange_id}/withdrawal-fees/USDT"
+        # Let's assume principal.py defines it globally for now, or we pass it.
+        # For simplicity, re-importing it here if it's not passed via app.
+        from main import SEBO_API_BASE_URL # Relative import assuming principal.py sets it globally
+
+        api_url = f"{SEBO_API_BASE_URL}/exchanges/{from_exchange_id}/withdrawal-fees/USDT"
         try:
             await self.app._ensure_http_session() # Accessing app's method
             async with self.app.http_session.get(api_url) as response:
@@ -98,6 +103,9 @@ class V2Helpers:
 
         api_url = f"{SEBO_BASE}/api/balances/exchange/{exchange_id}"
 >>>>>>> origin/feature/sebo-v2-datalinks
+        from main import SEBO_API_BASE_URL
+
+        api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         try:
             await self.app._ensure_http_session()
             async with self.app.http_session.get(api_url) as response:
@@ -123,6 +131,7 @@ class V2Helpers:
         if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
             print(f"V2Helpers: SEBO_API_BASE_URL no configurado en app para update_balance_on_sebo({exchange_id}).")
             return False
+        from main import SEBO_API_BASE_URL
 
         api_url = f"{self.app.SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         payload = {**full_config_to_upsert}
@@ -171,6 +180,7 @@ class V2Helpers:
 =======
         from config import SEBO_BASE
         SEBO_API_BASE_URL = f"{SEBO_BASE}/api"
+        from main import SEBO_API_BASE_URL
         api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
 >>>>>>> origin/feature/sebo-v2-datalinks
         try:

@@ -41,6 +41,13 @@ const Sidebar = ({ allExchanges, setAllExchanges }) => {
         >
           Data View & Model
         </button>
+                <button
+          className={styles.menuHeader} // Assuming similar styling is desired
+          style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
+          onClick={() => navigate('/exchanges/apis')}
+        >
+          Apis
+        </button>
         <SpotsMenu />
       </div>
     </div>
