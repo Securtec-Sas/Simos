@@ -18,6 +18,7 @@ pip-delete-this-directory.txt
 .coverage
 .coverage.*
 .benchmarks/
+*.csv
 # Vite
 .vite/
 dist/
