@@ -23,11 +23,7 @@ let lastSpotArbData = []; // Stays as an array, will store data from DB
  *       $ref: '#/components/webSockets/spot-arb'
  */
 const SPOT_ARB_DATA_NAMESPACE =
-<<<<<<< HEAD
-  process.env.SPOT_ARB_DATA_NAMESPACE || "/api/spot/arb";
-=======
   process.env.SPOT_ARB_DATA_NAMESPACE || "/api/spot/arb"; // CORREGIDO
->>>>>>> jules/multi-fixes-optimizations
 
 // Función para obtener y emitir los datos cada 5 segundos
 async function emitSpotPricesLoop(io) {

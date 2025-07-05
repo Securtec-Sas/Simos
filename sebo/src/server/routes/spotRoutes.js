@@ -8,13 +8,8 @@ const analizerController = require('../controllers/analizerController');
 const symbolController = require('../controllers/symbolController');
 // const {analyzeSymbols} = require('../controllers/analizerController'); // Comentada para usar el objeto completo
 const analizerController = require('../controllers/analizerController');     // Usar el objeto completo
-<<<<<<< HEAD
-
-=======
 const symbolController = require('../controllers/symbolController'); // Importar controlador de símbolos
->>>>>>> 350081c776023cb3f76d8bf783c2f2baec6c461c
 
->>>>>>> main
 // ...otras rutas...
 
 // router.get('/symbol', symbolController.addSymbolsForExchange);

@@ -19,75 +19,8 @@
 const Analysis = require('../data/dataBase/modelosBD/analysis.model')
 const ExchangeSymbol = require('../data/dataBase/modelosBD/exchangeSymbol.model');
 const Symbol = require('../data/dataBase/modelosBD/symbol.model');
-<<<<<<< HEAD
 const Exchange = require('../data/dataBase/modelosBD/exchange.model');
 const ccxt = require('ccxt'); // Added ccxt import
-=======
-const ccxt = require('ccxt');
-
-// Cachés para optimizar llamadas a CCXT
-const ccxtInstances = {};
-const exchangeDataCache = {}; // { exchangeId: { marketsLoaded: false, tradingFees: {}, currencies: {} } }
-
-async function getExchangeInstance(exchangeId) {
-    if (!ccxtInstances[exchangeId]) {
-        try {
-            const exchangeClass = ccxt[exchangeId];
-            if (!exchangeClass) {
-                throw new Error(`Exchange ${exchangeId} no es soportado por CCXT.`);
-            }
-            ccxtInstances[exchangeId] = new exchangeClass({ enableRateLimit: true });
-        } catch (error) {
-            console.error(`Error al instanciar CCXT para ${exchangeId}: ${error.message}`);
-            throw error; // Re-lanzar para que el llamador maneje
-        }
-    }
-    return ccxtInstances[exchangeId];
-}
-
-async function loadExchangeDataOnce(exchangeId) {
-    if (exchangeDataCache[exchangeId] && exchangeDataCache[exchangeId].dataLoaded) {
-        return exchangeDataCache[exchangeId];
-    }
-
-    const instance = await getExchangeInstance(exchangeId);
-    let markets = null;
-    let tradingFees = null;
-    let currencies = null;
-    let marketsLoadedSuccessfully = false;
-
-    try {
-        if (!exchangeDataCache[exchangeId] || !exchangeDataCache[exchangeId].marketsLoaded) {
-            markets = await instance.loadMarkets();
-            marketsLoadedSuccessfully = true;
-        } else {
-            markets = instance.markets; // Usar mercados ya cargados si existen en la instancia
-        }
-    } catch (e) { console.error(`Error loading markets for ${exchangeId}: ${e.message}`); }
-
-    try {
-        if (instance.has['fetchTradingFees']) {
-            tradingFees = await instance.fetchTradingFees();
-        }
-    } catch (e) { console.error(`Error fetching trading fees for ${exchangeId}: ${e.message}`); }
-
-    try {
-        if (instance.has['fetchCurrencies']) {
-            currencies = await instance.fetchCurrencies();
-        }
-    } catch (e) { console.error(`Error fetching currencies for ${exchangeId}: ${e.message}`); }
-
-    exchangeDataCache[exchangeId] = {
-        markets,
-        tradingFees,
-        currencies,
-        marketsLoaded: marketsLoadedSuccessfully, // Indica si loadMarkets fue exitoso en esta carga
-        dataLoaded: true // Indica que se intentó cargar todos los datos
-    };
-    return exchangeDataCache[exchangeId];
-}
-
->>>>>>> jules/multi-fixes-optimizations
 
 /**
  * crea el crud para el modelo de analisis.model.js
@@ -260,7 +193,6 @@ const addAnalyzeSymbols = async (req, res) => {
                     return null; // FIX: Abort if no valid opportunity
                 }
 
-<<<<<<< HEAD
                 console.log(`[${exSym.sy_id}] Selección final -> Comprar en: ${minSellData.id_ex} a ${minSellData.Val_sell}, Vender en: ${maxBuyData.id_ex} a ${maxBuyData.Val_buy}`);
 
                 // 4. Calcular el promedio
@@ -457,107 +389,6 @@ const analisisExchangeSimbol= async (req, res) => {
                     } catch (analysisError) {
                         console.error(`[Async Analysis] Error al procesar o guardar el análisis para ${exSym.sy_id}: ${analysisError.message}`);
                     }
-=======
-                let takerFeeExMin = 0, makerFeeExMin = 0, takerFeeExMax = 0, makerFeeExMax = 0;
-                let withdrawalFeeAssetFromExMin = 0, withdrawalNetworkAssetFromExMin = '';
-
-                let exSymMinDoc = null, exSymMaxDoc = null;
-
-                if (minSellExSyId && maxBuyExSyId) {
-                    try {
-                        exSymMinDoc = await ExchangeSymbol.findById(minSellExSyId)
-                            .populate({ path: 'exchangeId', select: 'id_ex name' }) // Added name for logging
-                            .populate({ path: 'symbolId', select: 'id_sy name' });
-                        exSymMaxDoc = await ExchangeSymbol.findById(maxBuyExSyId)
-                            .populate({ path: 'exchangeId', select: 'id_ex name' }); // Added name for logging
-
-                        if (exSymMinDoc && exSymMinDoc.exchangeId && exSymMinDoc.symbolId && exSymMaxDoc && exSymMaxDoc.exchangeId) {
-                            const symbolStr = exSymMinDoc.symbolId.id_sy;
-                            const baseCurrency = exSymMinDoc.symbolId.name; // Asset to withdraw, e.g., BTC from BTC/USDT
-
-                            const exchangeMinId = exSymMinDoc.exchangeId.id_ex;
-                            const exchangeMaxId = exSymMaxDoc.exchangeId.id_ex;
-
-                            // Load data from cache or fetch if not available
-                            const dataExMin = await loadExchangeDataOnce(exchangeMinId);
-                            const dataExMax = await loadExchangeDataOnce(exchangeMaxId);
-
-                            // Fees for Exchange Min (Buy Asset here, so we pay taker/maker on this exchange)
-                            if (dataExMin.tradingFees && dataExMin.tradingFees[symbolStr]) {
-                                takerFeeExMin = dataExMin.tradingFees[symbolStr].taker;
-                                makerFeeExMin = dataExMin.tradingFees[symbolStr].maker;
-                            } else if (dataExMin.markets && dataExMin.markets[symbolStr]) { // Fallback to markets
-                                takerFeeExMin = dataExMin.markets[symbolStr].taker;
-                                makerFeeExMin = dataExMin.markets[symbolStr].maker;
-                            }
-                            // Ensure fees are numbers
-                            takerFeeExMin = Number(takerFeeExMin) || 0;
-                            makerFeeExMin = Number(makerFeeExMin) || 0;
-
-                            // Withdrawal fees for the ASSET from Exchange Min
-                            if (dataExMin.currencies && dataExMin.currencies[baseCurrency]) {
-                                const currencyInfo = dataExMin.currencies[baseCurrency];
-                                if (currencyInfo.networks) {
-                                    let bestNetworkFee = Infinity;
-                                    let bestNetworkName = '';
-                                    for (const netId in currencyInfo.networks) {
-                                        const network = currencyInfo.networks[netId];
-                                        if (network.active !== false && network.withdraw !== false && network.fee != null && parseFloat(network.fee) < bestNetworkFee) {
-                                            bestNetworkFee = parseFloat(network.fee);
-                                            bestNetworkName = netId.toUpperCase();
-                                        }
-                                    }
-                                    if (bestNetworkFee !== Infinity) {
-                                        withdrawalFeeAssetFromExMin = bestNetworkFee;
-                                        withdrawalNetworkAssetFromExMin = bestNetworkName;
-                                    }
-                                } else if (currencyInfo.fee != null) { // Fallback to general currency fee
-                                    withdrawalFeeAssetFromExMin = parseFloat(currencyInfo.fee);
-                                }
-                            }
-                            withdrawalFeeAssetFromExMin = Number(withdrawalFeeAssetFromExMin) || 0;
-
-
-                            // Fees for Exchange Max (Sell Asset here)
-                            if (dataExMax.tradingFees && dataExMax.tradingFees[symbolStr]) {
-                                takerFeeExMax = dataExMax.tradingFees[symbolStr].taker;
-                                makerFeeExMax = dataExMax.tradingFees[symbolStr].maker;
-                            } else if (dataExMax.markets && dataExMax.markets[symbolStr]) { // Fallback to markets
-                                takerFeeExMax = dataExMax.markets[symbolStr].taker;
-                                makerFeeExMax = dataExMax.markets[symbolStr].maker;
-                            }
-                            takerFeeExMax = Number(takerFeeExMax) || 0;
-                            makerFeeExMax = Number(makerFeeExMax) || 0;
-
-                        } else {
-                            // console.warn(`AnalyzeSymbols: Documentos exSymMinDoc o exSymMaxDoc incompletos para symbol ${symbol.name} (ID: ${symbol._id}). Saltando cálculo de fees.`);
-                        }
-                    } catch (feeError) {
-                        const currentSymbolStr = exSymMinDoc && exSymMinDoc.symbolId ? exSymMinDoc.symbolId.id_sy : (symbol ? symbol.id_sy : 'N/A');
-                        console.error(`AnalyzeSymbols: Error obteniendo fees para ${currentSymbolStr} (SymbolId: ${symbol._id}, ExMin: ${exSymMinDoc?.exchangeId?.name}, ExMax: ${exSymMaxDoc?.exchangeId?.name}): ${feeError.message}`);
-                        // Default fees are already 0, so they remain 0 on error.
-                    }
-
-                    // Proceder a guardar solo si tenemos IDs válidos
-                    const analysisData = {
-                        id_exsyMin: minSellExSyId,
-                        id_exsyMax: maxBuyExSyId,
-                        Val_buy: maxBuy,
-                        Val_sell: minSell,
-                        promedio: promedio,
-                        symbolId: symbol._id,
-                        taker_fee_exMin: takerFeeExMin,
-                        maker_fee_exMin: makerFeeExMin,
-                        taker_fee_exMax: takerFeeExMax,
-                        maker_fee_exMax: makerFeeExMax,
-                        withdrawal_fee_asset_from_exMin: withdrawalFeeAssetFromExMin,
-                        withdrawal_network_asset_from_exMin: withdrawalNetworkAssetFromExMin,
-                        timestamp: new Date()
-                    };
-                    const analysis = new Analysis(analysisData);
-                    await analysis.save();
-                    insertedCount++;
->>>>>>> jules/multi-fixes-optimizations
                 } else {
                     console.log(`   - No se encontró una oportunidad de arbitraje rentable.`);
                 }
@@ -954,4 +785,4 @@ module.exports = {
     depuredExchangeSymbolData,
     analisisExchangeSimbol,
     actualizePricetop20
-}
+};
