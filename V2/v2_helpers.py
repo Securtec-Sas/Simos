@@ -55,7 +55,7 @@ class V2Helpers:
             print("V2Helpers: SEBO_API_BASE_URL no está configurado en la instancia de la app para get_usdt_withdrawal_info.")
             return usdt_withdrawal_info
 
-        api_url = f"{SEBO_API_BASE_URL}/exchanges/{from_exchange_id}/withdrawal-fees/USDT"
+        api_url = f"{self.app.SEBO_API_BASE_URL}/exchanges/{from_exchange_id}/withdrawal-fees/USDT"
         try:
             await self.app._ensure_http_session() # Accessing app's method
             async with self.app.http_session.get(api_url) as response:
@@ -93,7 +93,7 @@ class V2Helpers:
             self.app.current_balance_config = None
             return False
 
-        api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
+        api_url = f"{self.app.SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         try:
             await self.app._ensure_http_session()
             async with self.app.http_session.get(api_url) as response:
@@ -120,9 +120,6 @@ class V2Helpers:
         if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
             print(f"V2Helpers: SEBO_API_BASE_URL no configurado en app para update_balance_on_sebo({exchange_id}).")
             return False
-
-        from main import SEBO_API_BASE_URL
-
 
         api_url = f"{self.app.SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         payload = {**full_config_to_upsert}
@@ -161,10 +158,12 @@ class V2Helpers:
 
     async def load_balance_config_for_exchange(self, exchange_id: str) -> Optional[dict]:
         if not exchange_id: return None
-¿
-        from config import SEBO_BASE
-        SEBO_API_BASE_URL = f"{SEBO_BASE}/api"
-        api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
+
+        if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
+            print(f"V2Helpers: SEBO_API_BASE_URL no configurado en app para load_balance_config_for_exchange({exchange_id}).")
+            return None
+
+        api_url = f"{self.app.SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         try:
             await self.app._ensure_http_session()
             async with self.app.http_session.get(api_url) as response:

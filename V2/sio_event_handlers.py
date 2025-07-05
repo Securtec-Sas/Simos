@@ -12,6 +12,7 @@ class SIOEventHandlers:
         
     async def on_top_20_data_received(self, data):
         # print(f"SIOEventHandler: Received 'top_20_data': {len(data) if isinstance(data, list) else 'Invalid data type'} items")
+        # 1. Validar datos de entrada
         if not isinstance(data, list):
             print(f"SIOEventHandler: Invalid 'top_20_data' type: {type(data)}")
             self.app.current_top_20_list = []
@@ -21,42 +22,24 @@ class SIOEventHandlers:
             })
             return
 
+        # 2. Actualizar el estado y notificar a la UI
         self.app.current_top_20_list = data
         ui_message = {"type": "top_20_update", "payload": self.app.current_top_20_list}
         await self.app.broadcast_to_ui(ui_message)
 
+        # 3. Decidir si se procesa el nuevo lote de oportunidades
+        if not self.app.opp_processor.is_processing_enabled:
+            # print("SIOEventHandler: Processing is disabled. Not starting batch.") # Opcional para depuración
+            return
 
-            # if not self.app.is_processing_opportunity_batch: # Ya no se procesa automáticamente en V2
-                # print("SIOEventHandler: Scheduling new opportunity batch processing.") # Can be verbose
-                # self.app.is_processing_opportunity_batch = True
-                # process_opportunity_batch will be on opp_processor instance
-                # asyncio.create_task(self.app.opp_processor.process_opportunity_batch()) # Comentado/Eliminado
-            # else:
-                # print("SIOEventHandler: Already processing an opportunity batch.") # Can be verbose
-
-        if not self.app.is_processing_opportunity_batch:
-                print("SIOEventHandler: Scheduling new opportunity batch processing.") # Can be verbose
-        if  self.app.is_processing_opportunity_batch == True:
-                # process_opportunity_batch will be on opp_processor instance
-                #debe llevar como parametro la lista de top20Analisis
-                asyncio.create_task(self.app.opp_processor.process_opportunity_batch())
-        else:
-            print(f"SIOEventHandler: Invalid 'top_20_data': {type(data)}")
-            self.app.current_top_20_list = []
-            await self.app.broadcast_to_ui({
-                "type": "top_20_update",
-                "payload": [],
-                "error": "Received invalid data type for top_20_data from Sebo"
-            })
-
-        if self.app.opp_processor.is_processing_enabled:
-            if not self.app.is_processing_opportunity_batch:
-                self.app.is_processing_opportunity_batch = True
-                asyncio.create_task(self.app.opp_processor.process_opportunity_batch())
-            # else:
-                # print("SIOEventHandler: Batch processing already in progress.") # Optional: for debugging
-        # else:
-            # print("SIOEventHandler: Processing is disabled. Not starting batch.") # Optional: for debugging
+        if self.app.is_processing_opportunity_batch:
+            # print("SIOEventHandler: Batch processing already in progress.") # Opcional para depuración
+            return
+        
+        # 4. Iniciar el procesamiento
+        print("SIOEventHandler: Scheduling new opportunity batch processing.")
+        self.app.is_processing_opportunity_batch = True
+        asyncio.create_task(self.app.opp_processor.process_opportunity_batch())
 
     async def on_balances_update_from_sebo(self, data):
         print(f"SIOEventHandler: Received 'balances-update' from Sebo: {data}") # Can be verbose
