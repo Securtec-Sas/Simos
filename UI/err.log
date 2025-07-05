@@ -1,0 +1,28 @@
+8:31:42 p. m. [vite] Internal server error: Failed to resolve import "socket.io-client" from "src/components/Top20DetailedPage/Top20DetailedPage.jsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: D:/ProyectosTrade/simos/Simos/UI/clients/src/components/Top20DetailedPage/Top20DetailedPage.jsx:3:15
+  17 |  var _s = $RefreshSig$();
+  18 |  import React, { useState, useEffect } from "react";
+  19 |  import io from "socket.io-client";
+     |                  ^
+  20 |  const SEBO_WEBSOCKET_URL = "ws://localhost:3031";
+  21 |  const NAMESPACE = "/api/spot/arb";
+      at TransformPluginContext._formatLog (file:///D:/ProyectosTrade/simos/Simos/UI/clients/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:42499:41)
+      at TransformPluginContext.error (file:///D:/ProyectosTrade/simos/Simos/UI/clients/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:42496:16)
+      at normalizeUrl (file:///D:/ProyectosTrade/simos/Simos/UI/clients/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:40475:23)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///D:/ProyectosTrade/simos/Simos/UI/clients/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:40594:37
+      at async Promise.all (index 4)
+      at async TransformPluginContext.transform (file:///D:/ProyectosTrade/simos/Simos/UI/clients/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:40521:7)       
+      at async EnvironmentPluginContainer.transform (file:///D:/ProyectosTrade/simos/Simos/UI/clients/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:42294:18)  
+      at async loadAndTransform (file:///D:/ProyectosTrade/simos/Simos/UI/clients/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:35735:27)
+8:31:42 p. m. [vite] (client) Pre-transform error: Failed to resolve import "socket.io-client" from "src/components/Top20DetailedPage/Top20DetailedPage.jsx". Does the file exist?
+  Plugin: vite:import-analysis
+  Plugin: vite:import-analysis                                        etailedPage/
+  File: D:/ProyectosTrade/simos/Simos/UI/clients/src/components/Top20D0DetailedPage/Top20DetailedPage.jsx:3:15
+  17 |  var _s = $RefreshSig$();
+  18 |  import React, { useState, useEffect } from "react";
+  19 |  import io from "socket.io-client";
+     |                  ^
+  20 |  const SEBO_WEBSOCKET_URL = "ws://localhost:3031";
+  21 |  const NAMESPACE = "/api/spot/arb";
