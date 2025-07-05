@@ -5,7 +5,7 @@ const BalanceDisplay = ({ balanceInfo }) => {
   if (!balanceInfo) {
     return <div className={styles.balanceDisplayContainer}>Loading balance...</div>;
   }
-
+  
   // Assuming balanceInfo structure from Sebo/V2:
   // { id_exchange: 'binance', balance_usdt: 1234.56, exchange_name: 'Binance', ... }
   // Use exchange_name if available, otherwise id_exchange

@@ -3,18 +3,35 @@
 // const { getTopOpportunitiesFromDB } = require('./spotController'); // Removed
 const { getFormattedTopAnalysis } = require('./analizerController'); // Added
 const { getLatestBalanceDocument } = require('./balanceController'); // Importar la función para el último balance
-let ioInstance = null; // Para guardar la instancia de socket.io
+// let ioInstance = null; // No parece ser utilizado, se puede eliminar
 
 let lastSpotArbData = []; // Stays as an array, will store data from DB
 // Define the target namespace based on the Python client's URL path
 // WEBSOCKET_URL from Python config: "ws://localhost:3001/api/spot/arb"
 // The path component /api/spot/arb is treated as a Socket.IO namespace.
+// Swagger docs for the WebSocket
+/**
+ * @swagger
+ * /api/spot/arb:
+ *   get:
+ *     summary: WebSocket endpoint for spot arbitrage data.
+ *     tags: [Spot]
+ *     responses:
+ *       '200':
+ *         description: Connected to the WebSocket.
+ *     webSocket:
+ *       $ref: '#/components/webSockets/spot-arb'
+ */
 const SPOT_ARB_DATA_NAMESPACE =
+<<<<<<< HEAD
   process.env.SPOT_ARB_DATA_NAMESPACE || "/api/spot/arb";
+=======
+  process.env.SPOT_ARB_DATA_NAMESPACE || "/api/spot/arb"; // CORREGIDO
+>>>>>>> jules/multi-fixes-optimizations
 
 // Función para obtener y emitir los datos cada 5 segundos
 async function emitSpotPricesLoop(io) {
-  ioInstance = io; // Store the main io instance if needed by other parts
+  // ioInstance = io; // ioInstance no se utiliza en otras partes de este archivo
 
   // Get a handle to the specific namespace
   const targetNamespace = io.of(SPOT_ARB_DATA_NAMESPACE);

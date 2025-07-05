@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React from 'react';
 
 const Top20DetailedPage = ({ opportunities, activeTrades, sendV2Message }) => {
@@ -164,3 +165,6 @@ const Top20DetailedPage = ({ opportunities, activeTrades, sendV2Message }) => {
 };
 
 export default Top20DetailedPage;
+=======
+// s
+>>>>>>> jules/multi-fixes-optimizations

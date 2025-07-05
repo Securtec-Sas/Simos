@@ -1,4 +1,29 @@
-# V2/principal.py
+<<<<<<< HEAD
+# V2/main.py (anteriormente principal.py)
+#
+# Descripción General de Cambios Recientes (referente a la tarea de refactorización):
+# 1. Flujo de Datos de Oportunidades:
+#    - V2 recibe datos de oportunidades de arbitraje (top_20_data) desde el servicio Sebo vía Socket.IO.
+#    - IMPORTANTE: V2 ya NO procesa estas oportunidades automáticamente para tomar decisiones de trading internas.
+#    - En su lugar, V2 transmite la lista completa de 'top_20_data' directamente a cualquier cliente UI conectado.
+#      La lógica de visualización, selección y posible inicio de operaciones recae ahora en la UI o en el modelo de IA (si es invocado por la UI).
+#
+# 2. Gestión de Balances:
+#    - V2 ahora recibe actualizaciones de balance exclusivamente a través del evento de Socket.IO 'balances-update' emitido por Sebo.
+#    - La solicitud periódica de balances vía HTTP que existía anteriormente ha sido eliminada.
+#    - Los balances recibidos se almacenan en `app.latest_balances_from_sebo` y se transmiten a la UI.
+#    - Es CRUCIAL que Sebo emita estos eventos 'balances-update' con la información completa y en el formato que V2 espera.
+#
+# 3. Modelo de IA (`model.py`):
+#    - La clase `ArbitrageIntelligenceModel` ha sido refactorizada para ser una PLANTILLA o clase base.
+#    - El usuario DEBE implementar la lógica específica de su modelo de IA (arquitectura, entrenamiento, predicción, guardado/carga)
+#      sobrescribiendo los métodos correspondientes en `model.py`.
+#    - El entrenamiento del modelo, iniciado desde la UI, ahora intentará cargar datos desde el archivo CSV
+#      definido en `config.OPERATIONS_LOG_CSV_PATH`.
+#
+# 4. Simulación de Oportunidades:
+#    - La funcionalidad para simular una oportunidad específica (si es activada desde la UI)
+#      aún existe, pero el procesamiento automático de lotes para trading ha sido desactivado.
 
 import asyncio
 from datetime import datetime, timezone
@@ -23,7 +48,8 @@ from model import ArbitrageIntelligenceModel # Modelo de ML
 # --- Importar variables de configuración ---
 from config import (
     WEBSOCKET_URL, UI_WEBSOCKET_URL, # URLs principales
-    DEFAULT_USDT_HOLDER_EXCHANGE_ID, DEFAULT_MODEL_PATH # Defaults para la app
+    DEFAULT_USDT_HOLDER_EXCHANGE_ID, DEFAULT_MODEL_PATH,
+     SEBO_BASE # Defaults para la app
     # Otras configs son usadas directamente por los módulos que las necesitan
 )
 
@@ -32,6 +58,7 @@ from config import (
 parsed_sebo_url = urllib.parse.urlparse(WEBSOCKET_URL)
 SEBO_BASE_HTTP_URL = f"http://{parsed_sebo_url.hostname}:{parsed_sebo_url.port}"
 SEBO_API_BASE_URL = f"{SEBO_BASE_HTTP_URL}/api"
+SEBO_BASE = SEBO_BASE
 
 
 class CryptoArbitrageApp:
@@ -40,6 +67,7 @@ class CryptoArbitrageApp:
         self.sio = AsyncClient(logger=False, engineio_logger=False)
         self.ui_clients = set()
         self.http_session = None # Será inicializado por _ensure_http_session en V2Helpers
+        self.SEBO_API_BASE_URL = SEBO_API_BASE_URL # Hacer accesible a helpers
 
         # --- Configuration & State (accesible por los manejadores/procesadores vía self.app) ---
         self.model = ArbitrageIntelligenceModel(model_path=DEFAULT_MODEL_PATH)
@@ -128,10 +156,21 @@ class CryptoArbitrageApp:
 
     # close_ccxt_instances es ahora parte de V2Helpers, se llamará vía self.helpers.close_ccxt_instances
 
+    # La función request_balances_periodically ha sido eliminada.
+    # V2 ahora dependerá de las actualizaciones de balance enviadas por Sebo
+    # a través del evento de Socket.IO 'balances-update'.
+    # El manejador on_balances_update_from_sebo en sio_event_handlers.py
+    # se encarga de procesar estos eventos.
+
 async def main_entry_point():
     app = CryptoArbitrageApp()
     try:
-        await asyncio.gather(app.connect_and_process(), app.start_ui_websocket_server())
+        # La tarea app.request_balances_periodically() ha sido eliminada.
+        await asyncio.gather(
+            app.connect_and_process(),
+            app.start_ui_websocket_server()
+            # app.request_balances_periodically() # Eliminada
+        )
     except KeyboardInterrupt: print("Aplicación V2 interrumpida.")
     finally:
         await app.close_http_session()
@@ -148,3 +187,5 @@ if __name__ == "__main__":
     # Para ejecución directa (python V2/principal.py), asegúrate de que el directorio V2 esté en PYTHONPATH
     # o ajusta las importaciones para que sean relativas si se ejecuta como `python -m V2.principal`.
     asyncio.run(main_entry_point())
+=======
+>>>>>>> jules/multi-fixes-optimizations

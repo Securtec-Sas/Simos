@@ -27,18 +27,24 @@ class V2Helpers:
         return self.app.ccxt_instances[exchange_id]
 
     async def get_current_market_prices(self, exchange_id: str, symbol: str):
-        exchange = await self.get_ccxt_exchange_instance(exchange_id) # Uses helper method above
+        """
+        Fetches the current ask and bid prices for a symbol from a given exchange.
+        Returns (ask, bid) or (None, None) on failure.
+        """
+        exchange = await self.get_ccxt_exchange_instance(exchange_id)
         if not exchange:
             return None, None
         try:
             ticker = await exchange.fetch_ticker(symbol)
-            return ticker.get('ask'), ticker.get('bid')
-        except ccxt.NetworkError as e:
-            print(f"V2Helpers: CCXT NetworkError Ticker {symbol}@{exchange_id}: {e}")
-        except ccxt.ExchangeError as e:
-            print(f"V2Helpers: CCXT ExchangeError Ticker {symbol}@{exchange_id}: {e}")
+            # Ensure both ask and bid are present and valid.
+            if ticker and ticker.get('ask') is not None and ticker.get('bid') is not None:
+                return ticker['ask'], ticker['bid']
+            print(f"V2Helpers: Ticker for {symbol}@{exchange_id} is missing ask/bid prices.")
+        except (ccxt.NetworkError, ccxt.ExchangeError, ccxt.RequestTimeout) as e:
+            # Catch specific, common CCXT errors together for cleaner logging.
+            print(f"V2Helpers: CCXT Error for {symbol}@{exchange_id}: {type(e).__name__} - {e}")
         except Exception as e:
-            print(f"V2Helpers: CCXT Generic Error Ticker {symbol}@{exchange_id}: {e}")
+            print(f"V2Helpers: A generic error occurred fetching ticker for {symbol}@{exchange_id}: {e}")
         return None, None
 
     async def get_usdt_withdrawal_info(self, from_exchange_id: str):
@@ -50,27 +56,30 @@ class V2Helpers:
         # Access SEBO_API_BASE_URL via the app instance, assuming it's defined there
         # or directly import from config if it's globally available and correctly set up.
         # For now, assuming it's accessible via self.app (e.g. self.app.SEBO_API_BASE_URL)
-        # This requires SEBO_API_BASE_URL to be an attribute of the app instance or a global in principal.py
-        # Let's assume principal.py defines it globally for now, or we pass it.
-        # For simplicity, re-importing it here if it's not passed via app.
-        from main import SEBO_API_BASE_URL # Relative import assuming principal.py sets it globally
+        # Accessing via self.app.SEBO_API_BASE_URL which is set in CryptoArbitrageApp's __init__
+        if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
+            print("V2Helpers: SEBO_API_BASE_URL no está configurado en la instancia de la app para get_usdt_withdrawal_info.")
+            return usdt_withdrawal_info
 
-        api_url = f"{SEBO_API_BASE_URL}/exchanges/{from_exchange_id}/withdrawal-fees/USDT"
+        api_url = f"{self.app.SEBO_API_BASE_URL}/exchanges/{from_exchange_id}/withdrawal-fees/USDT"
         try:
             await self.app._ensure_http_session() # Accessing app's method
             async with self.app.http_session.get(api_url) as response:
                     if response.status == 200:
                         data = await response.json()
-                        if data and data.get('networks'):
-                            usdt_withdrawal_info["all_networks"] = data['networks']
-                            for net_info in data['networks']:
-                                if net_info.get('active') and net_info.get('withdraw') and net_info.get('fee') is not None:
-                                    fee = float(net_info['fee'])
-                                    if fee < usdt_withdrawal_info["selected_fee"]:
-                                        usdt_withdrawal_info["selected_fee"] = fee
-                                        usdt_withdrawal_info["selected_network"] = net_info['network']
-                            if usdt_withdrawal_info["selected_fee"] == float('inf'):
-                                usdt_withdrawal_info["selected_fee"] = None
+                        networks = data.get('networks', [])
+                        usdt_withdrawal_info["all_networks"] = networks
+
+                        # Find the best network using a generator expression and min()
+                        active_networks = (
+                            net for net in networks
+                            if net.get('active') and net.get('withdraw') and net.get('fee') is not None
+                        )
+                        best_network = min(active_networks, key=lambda net: float(net['fee']), default=None)
+
+                        if best_network:
+                            usdt_withdrawal_info["selected_fee"] = float(best_network['fee'])
+                            usdt_withdrawal_info["selected_network"] = best_network['network']
                         else:
                             print(f"V2Helpers: No network info for USDT@{from_exchange_id} from Sebo.")
                     else:
@@ -85,9 +94,12 @@ class V2Helpers:
             self.app.current_balance_config = None
             return False
 
-        from main import SEBO_API_BASE_URL
+        if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
+            print(f"V2Helpers: SEBO_API_BASE_URL no configurado en app para load_balance_config({exchange_id}).")
+            self.app.current_balance_config = None
+            return False
 
-        api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
+        api_url = f"{self.app.SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         try:
             await self.app._ensure_http_session()
             async with self.app.http_session.get(api_url) as response:
@@ -110,9 +122,12 @@ class V2Helpers:
             print("V2Helpers_UpdateBalance: No exchange_id para actualizar balance en Sebo.")
             return False
 
-        from main import SEBO_API_BASE_URL
 
-        api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
+        if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
+            print(f"V2Helpers: SEBO_API_BASE_URL no configurado en app para update_balance_on_sebo({exchange_id}).")
+            return False
+
+        api_url = f"{self.app.SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         payload = {**full_config_to_upsert}
         payload['balance_usdt'] = new_balance_usdt
         payload['id_exchange'] = exchange_id
@@ -149,8 +164,12 @@ class V2Helpers:
 
     async def load_balance_config_for_exchange(self, exchange_id: str) -> Optional[dict]:
         if not exchange_id: return None
-        from main import SEBO_API_BASE_URL
-        api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
+
+        if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
+            print(f"V2Helpers: SEBO_API_BASE_URL no configurado en app para load_balance_config_for_exchange({exchange_id}).")
+            return None
+
+        api_url = f"{self.app.SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         try:
             await self.app._ensure_http_session()
             async with self.app.http_session.get(api_url) as response:
@@ -180,3 +199,6 @@ class V2Helpers:
     # _ensure_http_session could also be here if only helpers use it,
     # but it's fine in app_core if app_core also makes direct http calls.
     # For now, helpers will call self.app._ensure_http_session()
+
+    # La función get_balances_from_sebo ha sido eliminada ya que V2
+    # ahora depende de las actualizaciones de balance por Socket.IO desde Sebo.

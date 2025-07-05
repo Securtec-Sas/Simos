@@ -4,3 +4,5 @@ VITE_UI_PORT=3000
 VITE_SEBO_API_PORT=3031
 VITE_SEBO_WEBSOCKET_URL=ws://localhost:3031
 VITE_PYTHON_WEBSOCKET_URL=ws://localhost:8000/api/spot/ui
+
+git reset --hard HEAD~1
