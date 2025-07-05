@@ -5,9 +5,7 @@ const { getLastSpotArb } = require('../controllers/spotSocketController');
 const { handleSpotAnalysisRequest } = require('../controllers/spotController');
 const { addExchangesSymbols, exchangesymbolsNewAdd } = require('../controllers/dbCotroller');
 const analizerController = require('../controllers/analizerController');
-const symbolController = require('../controllers/symbolController');
 // const {analyzeSymbols} = require('../controllers/analizerController'); // Comentada para usar el objeto completo
-const analizerController = require('../controllers/analizerController');     // Usar el objeto completo
 const symbolController = require('../controllers/symbolController'); // Importar controlador de símbolos
 
 // ...otras rutas...
