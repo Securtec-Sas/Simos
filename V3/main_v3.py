@@ -273,9 +273,73 @@ class CryptoArbitrageV3:
             # Retransmitir a UI
             await self.ui_broadcaster.broadcast_top20_data(data)
             
+            # Después de enviar top20_data, obtener y emitir balances actualizados de V3
+            asyncio.create_task(self._fetch_and_broadcast_balances())
+
         except Exception as e:
             self.logger.error(f"Error procesando top 20 data: {e}")
-    
+
+    async def _fetch_and_broadcast_balances(self):
+        """Obtiene balances de todos los exchanges activos y los emite a la UI."""
+        self.logger.info("Iniciando obtención de balances de exchanges para UI...")
+        all_balances_data = {}
+        total_usdt_all_exchanges = 0.0
+
+        # Usar los exchanges para los que tenemos instancias (activos y posiblemente con keys)
+        # O podríamos usar SUPPORTED_EXCHANGES de config_v3.py si queremos intentar todos los configurados
+        # Por ahora, usaremos los que ExchangeManager tiene activos.
+        active_exchanges = self.exchange_manager.get_active_exchanges() # Lista de IDs de exchange
+
+        if not active_exchanges:
+            self.logger.info("No hay exchanges activos para obtener balances.")
+            # Aún así emitimos un balance_update, podría ser un objeto vacío o con el total en 0
+            await self.ui_broadcaster.broadcast_balance_update({
+                "total_usdt_all_exchanges": 0.0
+                # Podríamos añadir un timestamp o un array vacío de exchanges aquí
+            })
+            return
+
+        for ex_id in active_exchanges:
+            try:
+                self.logger.debug(f"Obteniendo balance para {ex_id}...")
+                balance_info = await self.exchange_manager.get_balance(ex_id)
+                if balance_info and 'total' in balance_info: # CCXT devuelve estructura con 'free', 'used', 'total'
+                    exchange_specific_balances = {}
+                    usdt_balance_for_exchange = 0.0
+                    for currency, amounts in balance_info.items():
+                        if isinstance(amounts, dict) and amounts.get('total') is not None and amounts['total'] > 0:
+                            exchange_specific_balances[currency] = {
+                                "free": amounts.get('free', 0.0),
+                                "total": amounts.get('total', 0.0),
+                                "used": amounts.get('used', 0.0)
+                            }
+                            if currency == 'USDT':
+                                usdt_balance_for_exchange = amounts.get('total', 0.0)
+
+                    if exchange_specific_balances: # Solo añadir si tiene algún balance
+                        all_balances_data[ex_id] = exchange_specific_balances
+                        total_usdt_all_exchanges += usdt_balance_for_exchange
+                    self.logger.debug(f"Balance para {ex_id} obtenido y procesado.")
+
+                elif balance_info: # Si no tiene 'total' pero es un dict, es una estructura inesperada
+                     self.logger.warning(f"Estructura de balance inesperada para {ex_id}: {balance_info}")
+                else:
+                    self.logger.warning(f"No se pudo obtener balance para {ex_id} o está vacío.")
+            except Exception as e:
+                self.logger.error(f"Error obteniendo balance para {ex_id}: {e}")
+
+        all_balances_data["total_usdt_all_exchanges"] = total_usdt_all_exchanges
+
+        if all_balances_data:
+            self.logger.info(f"Balances consolidados obtenidos. Total USDT global: {total_usdt_all_exchanges:.2f}")
+            await self.ui_broadcaster.broadcast_balance_update(all_balances_data)
+        else:
+            self.logger.warning("No se pudieron obtener balances de ningún exchange.")
+            # Emitir un objeto vacío o con el total 0 para que la UI sepa que no hay datos
+            await self.ui_broadcaster.broadcast_balance_update({
+                "total_usdt_all_exchanges": 0.0
+            })
+
     async def _on_trading_start_request(self, payload: Dict):
         """Maneja solicitud de inicio de trading desde UI."""
         try:

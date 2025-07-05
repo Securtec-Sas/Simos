@@ -60,8 +60,9 @@ class SeboConnector:
         # self.sio.on('spot-arb', namespace='/api/spot/arb')(self._on_spot_arb_data)
         self.logger.info("Manejador para 'spot-arb' desactivado en SeboConnector.")
         
-        # Handler para actualizaciones de balance
-        self.sio.on('balances-update', namespace='/api/spot/arb')(self._on_balances_update)
+        # Handler para actualizaciones de balance - Comentado según nuevos requisitos
+        # self.sio.on('balances-update', namespace='/api/spot/arb')(self._on_balances_update)
+        self.logger.info("Manejador para 'balances-update' de Sebo desactivado en SeboConnector. V3 originará sus propios balances.")
         
         # Handler para datos del top 20
         self.sio.on('top_20_data', namespace='/api/spot/arb')(self._on_top20_data)

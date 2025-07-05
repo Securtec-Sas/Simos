@@ -62,7 +62,7 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus, v3Data }) => 
     const initialBalances = v3Data?.initial_state?.balance_update;
 
     // Log para depuración
-     console.log("BalanceDisplay - v3Data.balance_update:", balanceData);
+    // console.log("BalanceDisplay - v3Data.balance_update:", balanceData);
     // console.log("BalanceDisplay - v3Data.initial_state.balance_update:", initialBalances);
 
     const sourceToUse = (balanceData && Object.keys(balanceData).length > 0) ? balanceData : initialBalances;
@@ -78,32 +78,47 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus, v3Data }) => 
     // O podría ser un formato más simple si Sebo lo pre-procesa, ej: { "total_usdt_all_exchanges": 1500 }
     // Por ahora, buscaremos un total_usdt o un resumen simple.
 
-    let displayBalances = [];
-    // Intentar encontrar un total_usdt global si existe
-    if (typeof sourceToUse.total_usdt === 'number') {
-        displayBalances.push(`Total: ${sourceToUse.total_usdt.toFixed(2)} USDT`);
-    } else {
-        // Iterar sobre los exchanges en sourceToUse
+    let displayContent = "N/A";
+
+    if (sourceToUse && typeof sourceToUse.total_usdt_all_exchanges === 'number') {
+      displayContent = `Total Consolidado: ${sourceToUse.total_usdt_all_exchanges.toFixed(2)} USDT`;
+
+      // Opcionalmente, añadir desglose si se desea y si hay más datos que solo el total
+      let individualBalances = [];
+      for (const exchangeId in sourceToUse) {
+        if (exchangeId === 'total_usdt_all_exchanges') continue; // Saltar la clave del total
+
+        const exchangeData = sourceToUse[exchangeId];
+        if (exchangeData && typeof exchangeData === 'object' && exchangeData.USDT && typeof exchangeData.USDT.total === 'number') {
+          individualBalances.push(`${exchangeId.toUpperCase()}: ${exchangeData.USDT.total.toFixed(2)}`);
+        }
+      }
+      if (individualBalances.length > 0) {
+        // Podríamos decidir mostrar el total y luego el desglose, o solo uno de ellos.
+        // Por ahora, si hay total_usdt_all_exchanges, lo priorizamos.
+        // Si se quiere mostrar desglose también:
+        // displayContent += ` (${individualBalances.join(', ')})`;
+      }
+    } else if (sourceToUse && Object.keys(sourceToUse).length > 0) {
+        // Si no hay 'total_usdt_all_exchanges', intentar mostrar desgloses individuales
+        let individualBalances = [];
         for (const exchangeId in sourceToUse) {
-            const exchangeBalances = sourceToUse[exchangeId];
-            if (exchangeBalances && typeof exchangeBalances === 'object' && exchangeBalances.USDT) {
-                const usdtBalance = exchangeBalances.USDT;
-                // Mostrar 'total' si está disponible, sino 'free'. Si ninguno, 0.
-                const totalToShow = usdtBalance.total !== undefined ? usdtBalance.total : (usdtBalance.free !== undefined ? usdtBalance.free : 0);
-                const totalFormatted = parseFloat(totalToShow || 0).toFixed(2);
-                displayBalances.push(`${exchangeId.toUpperCase()}: ${totalFormatted} USDT`);
+            const exchangeData = sourceToUse[exchangeId];
+            if (exchangeData && typeof exchangeData === 'object' && exchangeData.USDT && typeof exchangeData.USDT.total === 'number') {
+                individualBalances.push(`${exchangeId.toUpperCase()}: ${exchangeData.USDT.total.toFixed(2)} USDT`);
             }
+        }
+        if (individualBalances.length > 0) {
+            displayContent = individualBalances.join(' | ');
+        } else {
+            displayContent = "Balance (formato desconocido)";
         }
     }
 
-    if (displayBalances.length === 0) {
-      // Fallback si la estructura no es la esperada o no hay USDT
-      displayBalances.push("Datos de balance no disponibles en formato esperado");
-    }
 
     return (
-      <div style={{fontSize: '12px', fontWeight: 'normal', marginRight: '20px', display: 'flex', gap: '10px', alignItems: 'center'}}>
-        <strong>Balance {sourceLabel}:</strong> {displayBalances.join(' | ')}
+      <div style={{fontSize: '12px', fontWeight: 'normal', marginRight: '20px', display: 'flex', gap: '10px', alignItems: 'center', color: displayContent === "N/A" ? '#aaa' : 'white'}}>
+        <strong>Balance {sourceLabel}:</strong> {displayContent}
       </div>
     );
   };

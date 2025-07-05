@@ -4,5 +4,5 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .env
-V3/log/
-V3/logs/v3_operations.log
+V3/logs/*
+V3/logs/v3_operations.log*

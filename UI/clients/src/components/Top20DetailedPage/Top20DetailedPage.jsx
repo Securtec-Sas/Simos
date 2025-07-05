@@ -115,8 +115,7 @@ const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
                 </td>
                 */}
               </tr>
-                  );
-                })}
+            ))}
           </tbody>
         </table>
       )}
