@@ -1,11 +1,6 @@
 // UI/clients/src/components/Top20DetailedPage/Top20DetailedPage.jsx
-<<<<<<< HEAD
-// Adaptado para V3
-import React, { useEffect, useState } from 'react';
-=======
 import React, { useState, useEffect } from 'react';
-import {io} from 'socket.io-client'; // Necesitarás instalar socket.io-client si aún no está: npm install socket.io-client
->>>>>>> jules/multi-fixes-optimizations
+// import {io} from 'socket.io-client'; // Necesitarás instalar socket.io-client si aún no está: npm install socket.io-client
 
 const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
   const [topOpportunities, setTopOpportunities] = useState([]);
@@ -120,7 +115,8 @@ const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
                 </td>
                 */}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       )}
