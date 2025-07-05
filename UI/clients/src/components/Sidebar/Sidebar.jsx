@@ -7,6 +7,16 @@ import styles from './Sidebar.module.css';
 const Sidebar = ({ allExchanges, setAllExchanges, v3Data }) => { // Añadido v3Data por si se necesita para balance
   const navigate = useNavigate();
 
+  const navItems = [
+    { path: '/', label: '🏠 Dashboard', icon: '🏠' },
+    { path: '/conexion', label: '🔗 Conexiones', icon: '🔗' },
+    { path: '/exchange-apis', label: '🔑 Exchange APIs', icon: '🔑' },
+    { path: '/spots', label: '📊 Spots', icon: '📊' },
+    { path: '/top20-detailed', label: '🎯 Top 20 Trading', icon: '🎯' },
+    { path: '/data-view', label: '💾 ViewData (V2 Model)', icon: '💾' },
+    { path: '/ai-data', label: '🤖 AI Data (V3)', icon: '🤖' },
+  ];
+
   // Estilos para los botones del menú (similares a los que estaban antes)
   const menuButtonStyle = {
     fontWeight: 'bold',
@@ -56,27 +66,15 @@ const Sidebar = ({ allExchanges, setAllExchanges, v3Data }) => { // Añadido v3D
         />
 
         {/* Enlaces de navegación que estaban antes en la barra superior, ahora aquí */}
-        <button style={isActive('/') ? activeMenuButtonStyle : menuButtonStyle} onClick={() => navigate('/')}>
-          🏠 Dashboard
-        </button>
-        <button style={isActive('/conexion') ? activeMenuButtonStyle : menuButtonStyle} onClick={() => navigate('/conexion')}>
-          🔗 Conexiones
-        </button>
-        <button style={isActive('/exchange-apis') ? activeMenuButtonStyle : menuButtonStyle} onClick={() => navigate('/exchange-apis')}>
-          🔑 Exchange APIs
-        </button>
-        <button style={isActive('/spots') ? activeMenuButtonStyle : menuButtonStyle} onClick={() => navigate('/spots')}>
-          📊 Spots
-        </button>
-        <button style={isActive('/top20-detailed') ? activeMenuButtonStyle : menuButtonStyle} onClick={() => navigate('/top20-detailed')}>
-          🎯 Top 20 Trading
-        </button>
-        <button style={isActive('/data-view') ? activeMenuButtonStyle : menuButtonStyle} onClick={() => navigate('/data-view')}>
-          💾 ViewData (V2 Model)
-        </button>
-        <button style={isActive('/ai-data') ? activeMenuButtonStyle : menuButtonStyle} onClick={() => navigate('/ai-data')}>
-          🤖 AI Data (V3)
-        </button>
+        {navItems.map(item => (
+          <button
+            key={item.path}
+            style={isActive(item.path) ? activeMenuButtonStyle : menuButtonStyle}
+            onClick={() => navigate(item.path)}
+          >
+            {item.label}
+          </button>
+        ))}
 
         {/* SpotsMenu también podría estar aquí si es parte de la navegación principal del sidebar */}
         {/* <SpotsMenu /> */}
