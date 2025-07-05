@@ -52,10 +52,12 @@ class V2Helpers:
         # For now, assuming it's accessible via self.app (e.g. self.app.SEBO_API_BASE_URL)
         # This requires SEBO_API_BASE_URL to be an attribute of the app instance or a global in principal.py
 <<<<<<< HEAD
+<<<<<<< HEAD
         # Accessing via self.app.SEBO_API_BASE_URL which is set in CryptoArbitrageApp's __init__
         if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
             print("V2Helpers: SEBO_API_BASE_URL no está configurado en la instancia de la app para get_usdt_withdrawal_info.")
             return usdt_withdrawal_info
+=======
 =======
         # Let's assume principal.py defines it globally for now, or we pass it.
         # For simplicity, re-importing it here if it's not passed via app.
@@ -97,7 +99,9 @@ class V2Helpers:
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         from config import SEBO_BASE
+=======
 =======
         from main import SEBO_API_BASE_URL
 >>>>>>> 28ee198576a3e43b01eaaac38733271a92d54358
@@ -131,9 +135,11 @@ class V2Helpers:
             return False
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
             print(f"V2Helpers: SEBO_API_BASE_URL no configurado en app para update_balance_on_sebo({exchange_id}).")
             return False
+=======
 =======
         from main import SEBO_API_BASE_URL
 >>>>>>> 28ee198576a3e43b01eaaac38733271a92d54358
@@ -177,8 +183,10 @@ class V2Helpers:
         if not exchange_id: return None
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         from config import SEBO_BASE
         SEBO_API_BASE_URL = f"{SEBO_BASE}/api"
+=======
 =======
         from main import SEBO_API_BASE_URL
 >>>>>>> 28ee198576a3e43b01eaaac38733271a92d54358
