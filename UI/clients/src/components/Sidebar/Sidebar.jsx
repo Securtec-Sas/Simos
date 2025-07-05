@@ -78,6 +78,21 @@ const Sidebar = ({ allExchanges, setAllExchanges, v3Data }) => { // Añadido v3D
 
         {/* SpotsMenu también podría estar aquí si es parte de la navegación principal del sidebar */}
         {/* <SpotsMenu /> */}
+        <button
+          className={styles.menuHeader}
+          style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
+          onClick={() => navigate('/conexion')}
+        >
+          Conexión
+        </button>
+        <button
+          className={styles.menuHeader} // Assuming similar styling is desired
+          style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
+          onClick={() => navigate('/top20-detailed')}
+        >
+          Top 20 Detallado
+        </button>
+        {/* <SpotsMenu /> */}
       </div>
     </div>
   );

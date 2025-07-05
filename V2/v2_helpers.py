@@ -26,20 +26,26 @@ class V2Helpers:
                 return None
         return self.app.ccxt_instances[exchange_id]
 
-    # async def get_current_market_prices(self, exchange_id: str, symbol: str):
-    #     exchange = await self.get_ccxt_exchange_instance(exchange_id) # Uses helper method above
-    #     if not exchange:
-    #         return None, None
-    #     try:
-    #         ticker = await exchange.fetch_ticker(symbol)
-    #         return ticker.get('ask'), ticker.get('bid')
-    #     except ccxt.NetworkError as e:
-    #         print(f"V2Helpers: CCXT NetworkError Ticker {symbol}@{exchange_id}: {e}")
-    #     except ccxt.ExchangeError as e:
-    #         print(f"V2Helpers: CCXT ExchangeError Ticker {symbol}@{exchange_id}: {e}")
-    #     except Exception as e:
-    #         print(f"V2Helpers: CCXT Generic Error Ticker {symbol}@{exchange_id}: {e}")
-    #     return None, None
+    async def get_current_market_prices(self, exchange_id: str, symbol: str):
+        """
+        Fetches the current ask and bid prices for a symbol from a given exchange.
+        Returns (ask, bid) or (None, None) on failure.
+        """
+        exchange = await self.get_ccxt_exchange_instance(exchange_id)
+        if not exchange:
+            return None, None
+        try:
+            ticker = await exchange.fetch_ticker(symbol)
+            # Ensure both ask and bid are present and valid.
+            if ticker and ticker.get('ask') is not None and ticker.get('bid') is not None:
+                return ticker['ask'], ticker['bid']
+            print(f"V2Helpers: Ticker for {symbol}@{exchange_id} is missing ask/bid prices.")
+        except (ccxt.NetworkError, ccxt.ExchangeError, ccxt.RequestTimeout) as e:
+            # Catch specific, common CCXT errors together for cleaner logging.
+            print(f"V2Helpers: CCXT Error for {symbol}@{exchange_id}: {type(e).__name__} - {e}")
+        except Exception as e:
+            print(f"V2Helpers: A generic error occurred fetching ticker for {symbol}@{exchange_id}: {e}")
+        return None, None
 
     async def get_usdt_withdrawal_info(self, from_exchange_id: str):
         usdt_withdrawal_info = {

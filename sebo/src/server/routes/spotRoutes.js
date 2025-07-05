@@ -8,8 +8,13 @@ const analizerController = require('../controllers/analizerController');
 const symbolController = require('../controllers/symbolController');
 // const {analyzeSymbols} = require('../controllers/analizerController'); // Comentada para usar el objeto completo
 const analizerController = require('../controllers/analizerController');     // Usar el objeto completo
-const symbolController = require('../controllers/symbolController'); // Importar controlador de símbolos
+<<<<<<< HEAD
 
+=======
+const symbolController = require('../controllers/symbolController'); // Importar controlador de símbolos
+>>>>>>> 350081c776023cb3f76d8bf783c2f2baec6c461c
+
+>>>>>>> main
 // ...otras rutas...
 
 // router.get('/symbol', symbolController.addSymbolsForExchange);
@@ -206,8 +211,7 @@ router.get('/promedios', analizerController.analyzeSymbols); // Usando acceso di
  *         description: Error durante el análisis de spot.
  */
 
-
-
-
+// router.get('/spotanalyzer', symbolController.addSymbolsForExchange); // Comentado porque addSymbolsForExchange en symbolController está comentado/roto.
+                                                                    // La funcionalidad de agregar símbolos de exchanges se maneja mejor en dbController.addExchangesSymbols.
 
 module.exports = router;

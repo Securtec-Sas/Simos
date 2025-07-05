@@ -1,76 +1,98 @@
 const ccxt = require('ccxt');
 const { EXCHANGES } = require('../utils/config'); // This might be unused if EXCHANGES is only for the old file based config
-// const fs = require('fs').promises; // No longer needed for config
-// const path = require('path'); // No longer needed for config paths
 
 // Imports for DB access
-const { readExchangeConfig } = require('./spotController');
+const { readExchangeConfig } = require('./spotController'); // Assuming this is the correct source for readExchangeConfig
 const Exchange = require('../data/dataBase/modelosBD/exchange.model');
 
-// DATA_DIR and CONFIG_FILE_PATH are removed as they are no longer used for exchange config.
-// ensureDataDirExists, local readExchangeConfig, and writeExchangeConfig are removed.
+// CCXT Instance and Data Cache
+const ccxtSharedInstances = {};
+const ccxtSharedDataCache = {}; // { exchangeId: { markets: {}, currencies: {}, lastFetch: 0 } }
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes, ejemplo
 
-// Función para inicializar un exchange con ccxt
-const initializeExchange = (exchangeId) => {
-    try {
-        // Asegúrate de que el ID del exchange es válido para ccxt
-        if (!ccxt.exchanges.includes(exchangeId)) {
-            console.warn(`[${exchangeId}] no es un ID de exchange válido para ccxt.`);
-            return null;
-        }
-
-        // Crear una instancia del exchange. Puedes añadir claves API aquí si las tienes.
-        // Por ejemplo:
-        // const api_key = process.env[\`\${exchangeId.toUpperCase()}_API_KEY\`];
-        // const secret = process.env[\`\${exchangeId.toUpperCase()}_SECRET\`];
-        //
-        // const exchangeConfig = {
-        //     'apiKey': api_key,
-        //     'secret': secret,
-        //     'timeout': 10000, // Tiempo de espera para la respuesta
-        //     'enableRateLimit': true, // Habilitar la gestión de límites de tasa
-        // };
-        //
-        // return new ccxt[exchangeId](exchangeConfig);
-
-        // Para este ejemplo, solo inicializamos sin credenciales para probar conectividad pública
-        return new ccxt[exchangeId]({
-            'timeout': 10000,
-            'enableRateLimit': true,
-        });
-
-    } catch (error) {
-        console.error(`Error inicializando exchange ${exchangeId}: ${error.message}`);
+async function getSharedCcxtInstance(exchangeId) {
+    if (!ccxt.exchanges.includes(exchangeId)) {
+        console.warn(`[${exchangeId}] no es un ID de exchange válido para ccxt.`);
         return null;
     }
-};
+    if (!ccxtSharedInstances[exchangeId]) {
+        try {
+            ccxtSharedInstances[exchangeId] = new ccxt[exchangeId]({
+                timeout: 10000,
+                enableRateLimit: true,
+            });
+        } catch (error) {
+            console.error(`Error inicializando instancia compartida de CCXT para ${exchangeId}: ${error.message}`);
+            return null;
+        }
+    }
+    return ccxtSharedInstances[exchangeId];
+}
 
-// Helper function to get status and price for a single exchange
-// ensureDataDirExists, local readExchangeConfig, and writeExchangeConfig have been removed.
+async function loadSharedExchangeData(exchangeId, forceRefresh = false) {
+    const now = Date.now();
+    if (!forceRefresh && ccxtSharedDataCache[exchangeId] && (now - ccxtSharedDataCache[exchangeId].lastFetch < CACHE_DURATION)) {
+        return ccxtSharedDataCache[exchangeId];
+    }
+
+    const instance = await getSharedCcxtInstance(exchangeId);
+    if (!instance) return null;
+
+    let markets = null;
+    let currencies = null;
+
+    try {
+        markets = await instance.loadMarkets();
+    } catch (e) { console.error(`Error cargando markets para ${exchangeId} (compartido): ${e.message}`); }
+
+    try {
+        if (instance.has['fetchCurrencies']) {
+            currencies = await instance.fetchCurrencies();
+        } else if (instance.currencies) { // Fallback si fetchCurrencies no existe pero currencies sí
+            currencies = instance.currencies;
+        }
+    } catch (e) { console.error(`Error cargando currencies para ${exchangeId} (compartido): ${e.message}`); }
+
+    ccxtSharedDataCache[exchangeId] = { markets, currencies, lastFetch: now };
+    return ccxtSharedDataCache[exchangeId];
+}
+
+
+// Helper function to get status for a single exchange
 const getSingleExchangeStatusAndPrice = async (exchangeId, exchangeNameProvided) => { //NOSONAR
     const result = {
         id: exchangeId,
-        name: exchangeNameProvided || (exchangeId.charAt(0).toUpperCase() + exchangeId.slice(1)), // Use provided name or derive from ID
+        name: exchangeNameProvided || (exchangeId.charAt(0).toUpperCase() + exchangeId.slice(1)),
         connected: false,
         error: null
     };
 
-    const exchange = initializeExchange(exchangeId);
+    const instance = await getSharedCcxtInstance(exchangeId);
 
-    if (!exchange) {
-        result.error = `Failed to initialize ccxt for ${result.name}. Check if ID is correct or if ccxt supports it.`;
+    if (!instance) {
+        result.error = `Failed to initialize shared ccxt for ${result.name}.`;
         return result;
     }
 
     try {
-        // Intentar cargar los mercados para verificar conectividad básica
-        await exchange.loadMarkets();
-        result.connected = true;
+        // Intentar cargar los mercados (usará el caché si es reciente y loadMarkets fue exitoso previamente)
+        const exchangeCacheData = await loadSharedExchangeData(exchangeId); // No forzar refresh aquí
 
+        // La conexión se considera exitosa si `loadMarkets` dentro de `loadSharedExchangeData` tuvo éxito
+        // y devolvió un objeto de mercados (incluso si está vacío).
+        // Si `loadMarkets` falló, `exchangeCacheData.markets` será null o no definido.
+        if (exchangeCacheData && typeof exchangeCacheData.markets === 'object' && exchangeCacheData.markets !== null) {
+            result.connected = true;
+        } else {
+            result.connected = false;
+            result.error = `Failed to load markets for ${result.name} via shared data loader.`;
+            // Si se quiere más detalle del error original de loadMarkets,
+            // loadSharedExchangeData tendría que propagarlo o almacenarlo.
+        }
     } catch (e) {
+        // Este catch es un fallback, la mayoría de los errores de CCXT deberían ser manejados dentro de loadSharedExchangeData
         result.connected = false;
-        result.error = e.message;
-        // console.error(`Error fetching data for ${result.name}: ${e.message}`);
+        result.error = `Unexpected error checking status for ${result.name}: ${e.message}`;
     }
     return result;
 };
@@ -83,25 +105,41 @@ const getExchangeStatusAndPrice = async (exchangeId, exchangeName) => {
 
 // Endpoint para obtener el estado de todos los exchanges
 const getExchangesStatus = async (req, res) => {
-    const statusPromises = EXCHANGES.map(ex => getSingleExchangeStatusAndPrice(ex.id, ex.name));
-    const allExchangesStatus = await Promise.allSettled(statusPromises); //NOSONAR
-
-    const formattedResults = allExchangesStatus.map(promiseResult => {
-        if (promiseResult.status === 'fulfilled') {
-            return promiseResult.value;
-        } else {
-            // Esto debería ser manejado por el catch dentro de getExchangeStatusAndPrice,
-            // pero es un fallback en caso de error Promise.allSettled
-            return {
-                id: 'unknown',
-                name: 'Unknown Exchange',
-                connected: false,
-                error: promiseResult.reason ? promiseResult.reason.message : 'Unknown error'
-            };
+    try {
+        const configuredExchanges = await readExchangeConfig(); // Leer de la BD
+        if (!configuredExchanges || configuredExchanges.length === 0) {
+            return res.json([]); // No hay exchanges configurados para verificar
         }
-    });
 
-    res.json(formattedResults);
+        // Filtrar solo los que son 'ccxt'
+        const ccxtExchangesToTest = configuredExchanges.filter(ex => ex.connectionType === 'ccxt');
+
+        if (ccxtExchangesToTest.length === 0) {
+            return res.json([]); // No hay exchanges CCXT para probar
+        }
+        // Usar ex.id_ex que es el ID de CCXT, y ex.name para el nombre.
+        const statusPromises = ccxtExchangesToTest.map(ex => getSingleExchangeStatusAndPrice(ex.id_ex, ex.name));
+        const allExchangesStatus = await Promise.allSettled(statusPromises);
+
+        const formattedResults = allExchangesStatus.map(promiseResult => {
+            if (promiseResult.status === 'fulfilled') {
+                return promiseResult.value;
+            } else {
+                // Podríamos intentar obtener el ID del exchange del input original si es necesario
+                // const originalInput = statusPromises.find(...)
+                return {
+                    id: 'unknown', // Considerar cómo obtener el ID original aquí si es posible y útil
+                    name: 'Unknown Exchange',
+                    connected: false,
+                    error: promiseResult.reason ? promiseResult.reason.message : 'Unknown error'
+                };
+            }
+        });
+        res.json(formattedResults);
+    } catch (error) {
+        console.error("Error en getExchangesStatus al leer de la BD:", error);
+        res.status(500).json({ error: "Error interno obteniendo estados de exchange." });
+    }
 };
 
 // (Original getAvailableExchanges is replaced by getConfiguredExchanges)
@@ -276,26 +314,24 @@ const getWithdrawalFees = async (req, res) => {
   }
 
   try {
-    const exchange = new ccxt[exchangeId]();
-    // No es estrictamente necesario tener API keys para fetchCurrencies en la mayoría de los exchanges,
-    // pero si se requieren para alguno en particular, esta llamada fallará o devolverá datos limitados.
+    const instance = await getSharedCcxtInstance(exchangeId);
+    if (!instance) {
+      return res.status(500).json({ message: `Failed to get shared CCXT instance for ${exchangeId}.` });
+    }
 
-    await exchange.loadMarkets(); // Es buena práctica para asegurar que todo esté cargado, incluyendo currencies.
+    // Usar datos cacheados. Forzar refresh si es necesario (ej. si los datos son muy viejos o se sospecha que cambiaron)
+    // Por ahora, no forzamos refresh, confiamos en CACHE_DURATION.
+    const exchangeCacheData = await loadSharedExchangeData(exchangeId);
 
-    if (!exchange.currencies || Object.keys(exchange.currencies).length === 0) {
-         // Algunos exchanges podrían necesitar fetchCurrencies() explícitamente si loadMarkets no las llena siempre.
-        if (exchange.has['fetchCurrencies']) {
-            await exchange.fetchCurrencies();
-        } else {
-            return res.status(500).json({ message: `Exchange '${exchangeId}' does not provide currency data through common methods.`});
-        }
+    if (!exchangeCacheData || !exchangeCacheData.currencies) {
+      return res.status(500).json({ message: `Currency data not available for ${exchangeId} via shared loader.` });
     }
 
     const upperCurrencyCode = currencyCode.toUpperCase();
-    const currencyInfo = exchange.currencies[upperCurrencyCode];
+    const currencyInfo = exchangeCacheData.currencies[upperCurrencyCode];
 
     if (!currencyInfo) {
-      return res.status(404).json({ message: `Currency code '${upperCurrencyCode}' not found or not supported by exchange '${exchangeId}'.` });
+      return res.status(404).json({ message: `Currency code '${upperCurrencyCode}' not found or not supported by exchange '${exchangeId}' (cached data).` });
     }
 
     const networks = currencyInfo.networks;

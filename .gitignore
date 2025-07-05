@@ -3,7 +3,6 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-<<<<<<< HEAD
 .env
 # Python
 __pycache__/
@@ -25,5 +24,3 @@ pip-delete-this-directory.txt
 dist/
 # React
 build/
-=======
->>>>>>> fix/sebo-server-startup-and-readme

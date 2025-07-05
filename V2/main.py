@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # V2/main.py (anteriormente principal.py)
 #
 # Descripción General de Cambios Recientes (referente a la tarea de refactorización):
@@ -186,3 +187,5 @@ if __name__ == "__main__":
     # Para ejecución directa (python V2/principal.py), asegúrate de que el directorio V2 esté en PYTHONPATH
     # o ajusta las importaciones para que sean relativas si se ejecuta como `python -m V2.principal`.
     asyncio.run(main_entry_point())
+=======
+>>>>>>> jules/multi-fixes-optimizations

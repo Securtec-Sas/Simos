@@ -5,10 +5,15 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout/Layout.jsx';
 import ActiveExchangesTable from './components/ActiveExchangesTable/ActiveExchangesTable.jsx';
 import SpotsMenu from './components/SpotsMenu/SpotsMenu.jsx';
+<<<<<<< HEAD
 import Top20DetailedPage from './components/Top20DetailedPage/Top20DetailedPage';
 import ExchangeApis from './pages/exchangesApis/ExchangeAPIsPage.jsx';
 import DataViewPage from './pages/DataViewPage/DataViewPage.jsx'; // Asegúrate que la importación esté presente
 import AIDataPage from './pages/AIDataPage/AIDataPage.jsx'; // Importar la nueva página
+=======
+import Top20DetailedPage from './components/Top20DetailedPage/Top20DetailedPage'; // Import new page
+import Datos from '../Datos.jsx'; // Importar Datos.jsx desde la raíz de UI/clients
+>>>>>>> jules/multi-fixes-optimizations
 
 function App() {
   const [allExchanges, setAllExchanges] = useState([]);
@@ -324,6 +329,12 @@ function App() {
               </div>
             </div>
           } />
+<<<<<<< HEAD
+=======
+          <Route path="/top20-detailed" element={<Top20DetailedPage />} /> {/* Mantener por si Sidebar aún se usa o por enlaces directos */}
+          <Route path="/top20" element={<Top20DetailedPage />} /> {/* Nueva ruta para Navigation.jsx */}
+          <Route path="/datos" element={<Datos />} /> {/* Nueva ruta para Navigation.jsx */}
+>>>>>>> jules/multi-fixes-optimizations
         </Route>
       </Routes>
     </Router>

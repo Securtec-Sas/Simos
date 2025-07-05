@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 aiohttp==3.9.1
 asyncio-mqtt==0.16.1
 ccxt==4.3.56
@@ -11,3 +12,13 @@ websockets==12.0
 python-dotenv==1.0.0
 uvloop==0.19.0
 
+=======
+python-socketio[asyncio_client]
+aiohttp>=3.0.0
+scikit-learn>=0.24 # Incluye joblib. Ajustar versión si es necesario.
+ccxt>=2.0.0 # Usar una versión reciente de ccxt para async support
+# numpy>=1.19 # Si se usa numpy explícitamente
+pandas>=1.1.0 # Si se usa pandas explícitamente
+# tensorflow # Si se usa TensorFlow/Keras
+#socketio>=0.2.1 # Asegurarse de que sea compatible con python-socketio
+>>>>>>> jules/multi-fixes-optimizations

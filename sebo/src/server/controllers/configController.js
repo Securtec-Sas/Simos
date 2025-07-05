@@ -14,7 +14,7 @@ exports.createConfig = async (req, res) => {
 // Get all configs
 exports.getConfigs = async (req, res) => {
     try {
-        const configs = await Config.find();
+        const configs = await ConfigE.find(); // Corregido de Config a ConfigE
         res.status(200).json(configs);
     } catch (err) {
         res.status(500).json({ error: err.message });
