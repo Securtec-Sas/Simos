@@ -2,15 +2,17 @@ const express = require('express');
 const router = express.Router();
 
 const { getLastSpotArb } = require('../controllers/spotSocketController');
-const {handleSpotAnalysisRequest, handleSpotExchangePrice}= require('../controllers/spotController'); // handleSpotExchangePrice sigue siendo problemático si no se ha corregido spotController.js
+const { handleSpotAnalysisRequest } = require('../controllers/spotController');
 const { addExchangesSymbols, exchangesymbolsNewAdd } = require('../controllers/dbCotroller');
+const analizerController = require('../controllers/analizerController');
+const symbolController = require('../controllers/symbolController');
 // const {analyzeSymbols} = require('../controllers/analizerController'); // Comentada para usar el objeto completo
-const analizerController = require('../controllers/analizerController');     // Usar el objeto completo
-const symbolController = require('../controllers/symbolController'); // Importar controlador de símbolos
+
 
 // ...otras rutas...
 
 router.get('/symbol', symbolController.addSymbolsForExchange);
+
 /**
  * @swagger
  * /api/spot/arb:
@@ -98,6 +100,7 @@ router.get('/analysis', handleSpotAnalysisRequest);
  *       500:
  *         description: Error crítico durante el análisis de spot.
  */
+    // router.get('/exchange-price', handleSpotExchangePrice);
 // console.log("Debug: typeof handleSpotExchangePrice === 'function':", typeof handleSpotExchangePrice === 'function');
 // router.get('/exchange-price', handleSpotExchangePrice); // Comentando ruta ya que handleSpotExchangePrice no existe en spotController.js
 
@@ -123,8 +126,48 @@ router.get('/analysis', handleSpotAnalysisRequest);
  */
 router.get('/exchange-symbols', addExchangesSymbols);
 
+/**
+ * @swagger
+ * /api/spot/exchangesymbol:
+ *   get:
+ *     summary: Agrega los símbolos de los exchanges activos a la base de datos.
+ *     tags:
+ *       - Spot
+ *     responses:
+ *       200:
+ *         description: Símbolos de exchanges agregados correctamente.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Error al agregar símbolos de exchanges.
+ */
 router.get('/exchangesymbol', exchangesymbolsNewAdd);
 
+/**
+ * @swagger
+ * /api/spot/depure:
+ *   get:
+ *     summary: Depura los datos de símbolos de exchanges.
+ *     tags:
+ *       - Spot
+ *     responses:
+ *       200:
+ *         description: Datos de símbolos de exchanges depurados correctamente.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       500:
+ *         description: Error al depurar datos de símbolos de exchanges.
+ */
 router.get('/depure', analizerController.depuredExchangeSymbolData);
 
 

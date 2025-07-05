@@ -9,6 +9,19 @@ let lastSpotArbData = []; // Stays as an array, will store data from DB
 // Define the target namespace based on the Python client's URL path
 // WEBSOCKET_URL from Python config: "ws://localhost:3001/api/spot/arb"
 // The path component /api/spot/arb is treated as a Socket.IO namespace.
+// Swagger docs for the WebSocket
+/**
+ * @swagger
+ * /api/spot/arb:
+ *   get:
+ *     summary: WebSocket endpoint for spot arbitrage data.
+ *     tags: [Spot]
+ *     responses:
+ *       '200':
+ *         description: Connected to the WebSocket.
+ *     webSocket:
+ *       $ref: '#/components/webSockets/spot-arb'
+ */
 const SPOT_ARB_DATA_NAMESPACE =
   process.env.SPOT_ARB_DATA_NAMESPACE || "/api/spot/arb";
 

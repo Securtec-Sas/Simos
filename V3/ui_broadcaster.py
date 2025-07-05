@@ -23,8 +23,9 @@ class UIBroadcaster:
         self.on_trading_start_callback: Optional[Callable] = None
         self.on_trading_stop_callback: Optional[Callable] = None
         self.on_ui_message_callback: Optional[Callable] = None
+        self.get_initial_state_callback: Optional[Callable] = None # Nuevo callback
         
-        # Estado del trading
+        # Estado del trading (local a UIBroadcaster, podría sincronizarse con TradingLogic)
         self.trading_active = False
         self.trading_stats = {
             'operations_count': 0,
@@ -88,18 +89,33 @@ class UIBroadcaster:
             self.ui_clients.discard(websocket)
     
     async def _send_initial_state(self, websocket):
-        """Envía el estado inicial a un cliente UI recién conectado."""
-        initial_state = {
-            "type": "initial_state",
-            "payload": {
-                "trading_active": self.trading_active,
-                "trading_stats": self.trading_stats,
-                "timestamp": get_current_timestamp()
-            }
+        """Envía el estado inicial completo a un cliente UI recién conectado."""
+        payload = {
+            "trading_active": self.trading_active, # Estado local de UIBroadcaster
+            "trading_stats": self.trading_stats,   # Estado local de UIBroadcaster
+            # Otros datos se obtendrán del callback
+        }
+
+        if self.get_initial_state_callback:
+            try:
+                # El callback debe ser una corutina y devolver un dict
+                additional_state = await self.get_initial_state_callback()
+                if additional_state and isinstance(additional_state, dict):
+                    payload.update(additional_state)
+                else:
+                    self.logger.warning("get_initial_state_callback no devolvió un diccionario válido.")
+            except Exception as e:
+                self.logger.error(f"Error llamando a get_initial_state_callback: {e}")
+
+        message_to_send = {
+            "type": "initial_state", # La UI espera este tipo de mensaje
+            "payload": payload,
+            "timestamp": get_current_timestamp()
         }
         
         try:
-            await websocket.send(json.dumps(initial_state))
+            await websocket.send(json.dumps(message_to_send))
+            self.logger.info(f"Estado inicial enviado a {websocket.remote_address}. Payload keys: {list(payload.keys())}")
         except Exception as e:
             self.logger.error(f"Error enviando estado inicial: {e}")
     
@@ -120,9 +136,23 @@ class UIBroadcaster:
                 await self._send_trading_status(websocket)
             elif message_type == 'ping':
                 await self._send_pong(websocket)
+            # Nuevos manejadores para la página de IA
+            elif message_type == 'train_ai_model':
+                if self.on_ui_message_callback: # Asumiendo que on_ui_message_callback puede enrutar esto
+                    await self.on_ui_message_callback(message_type, payload)
+            elif message_type == 'test_ai_model':
+                if self.on_ui_message_callback:
+                    await self.on_ui_message_callback(message_type, payload)
+            elif message_type == 'start_ai_simulation': # Renombrado para claridad
+                if self.on_ui_message_callback:
+                    await self.on_ui_message_callback(message_type, payload)
+            elif message_type == 'get_ai_model_details': # Ya estaba siendo usado en AIDataPage
+                if self.on_ui_message_callback:
+                    await self.on_ui_message_callback(message_type, payload)
             else:
                 # Callback genérico para otros mensajes
                 if self.on_ui_message_callback:
+                    self.logger.warning(f"Tipo de mensaje UI no directamente manejado por UIBroadcaster, pasando a callback genérico: {message_type}")
                     await self.on_ui_message_callback(message_type, payload)
             
         except json.JSONDecodeError:
@@ -284,6 +314,10 @@ class UIBroadcaster:
     def set_ui_message_callback(self, callback: Callable):
         """Establece el callback para mensajes genéricos de la UI."""
         self.on_ui_message_callback = callback
+
+    def set_get_initial_state_callback(self, callback: Callable): # Nuevo setter
+        """Establece el callback para obtener el estado inicial completo."""
+        self.get_initial_state_callback = callback
     
     # Métodos para actualizar estadísticas
     
@@ -305,3 +339,52 @@ class UIBroadcaster:
         """Retorna si el trading está activo."""
         return self.trading_active
 
+    # Métodos de broadcast para IA
+    async def broadcast_ai_training_update(self, status: str, progress: Optional[float] = None, details: Optional[Dict] = None):
+        """Retransmite actualizaciones del entrenamiento del modelo AI."""
+        message = {
+            "type": "ai_training_update",
+            "payload": {
+                "status": status, # e.g., "STARTED", "IN_PROGRESS", "COMPLETED", "FAILED"
+                "progress": progress, # e.g., 0.0 to 1.0
+                "details": details or {}, # e.g., metrics, error message
+                "timestamp": get_current_timestamp()
+            }
+        }
+        await self.broadcast_message(message)
+        self.logger.info(f"AI Training update: {status} - Progress: {progress if progress is not None else 'N/A'}")
+
+    async def broadcast_ai_test_results(self, results: Dict):
+        """Retransmite los resultados del test del modelo AI."""
+        message = {
+            "type": "ai_test_results",
+            "payload": {
+                "results": results,
+                "timestamp": get_current_timestamp()
+            }
+        }
+        await self.broadcast_message(message)
+        self.logger.info(f"AI Test results broadcasted: {results.get('accuracy', 'N/A')}")
+
+    async def broadcast_ai_simulation_update(self, status: str, data: Optional[Dict] = None):
+        """Retransmite actualizaciones de la simulación de IA."""
+        message = {
+            "type": "ai_simulation_update",
+            "payload": {
+                "status": status, # e.g., "RUNNING", "COMPLETED", "STOPPED"
+                "data": data or {}, # e.g., current profit, trades made
+                "timestamp": get_current_timestamp()
+            }
+        }
+        await self.broadcast_message(message)
+        self.logger.info(f"AI Simulation update: {status}")
+
+    async def broadcast_ai_model_details(self, details: Dict):
+        """Retransmite los detalles/estadísticas del modelo AI."""
+        message = {
+            "type": "ai_model_details", # Este es el tipo que AIDataPage espera
+            "payload": details,
+            "timestamp": get_current_timestamp()
+        }
+        await self.broadcast_message(message)
+        self.logger.info("AI Model details broadcasted.")
