@@ -268,16 +268,7 @@ const updateExchangeConexionStatus = async (exchangeId, status) => {
   }
 };
 
-module.exports = {
-    getExchangesStatus,
-    // getAvailableExchanges, // Replaced
-    getConfiguredExchanges,
-    getExchangeStatusById,
-    updateExchangeActiveStatus,
-    getWithdrawalFees: exports.getWithdrawalFees, // Placeholder, will be defined below
-};
-
-exports.getWithdrawalFees = async (req, res) => {
+const getWithdrawalFees = async (req, res) => {
   const { exchangeId, currencyCode } = req.params;
 
   if (!ccxt.exchanges.includes(exchangeId)) {
@@ -362,5 +353,14 @@ exports.getWithdrawalFees = async (req, res) => {
     }
   }
 };
-// Re-exporting to ensure the function defined above is correctly assigned
-module.exports.getWithdrawalFees = exports.getWithdrawalFees;
+
+module.exports = {
+    getExchangesStatus,
+    // getAvailableExchanges, // Replaced
+    getConfiguredExchanges,
+    getExchangeStatusById,
+    updateExchangeActiveStatus,
+    getWithdrawalFees, // Placeholder, will be defined below
+};
+
+

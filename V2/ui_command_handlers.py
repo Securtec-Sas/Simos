@@ -29,7 +29,15 @@ class UICommandHandlers:
 
             # print(f"UICommandHandlers: Received from UI (ID:{client_id}): Type={msg_type}") # Verbose
 
-            if msg_type == "train_model":
+            if msg_type == "start_processing":
+                print("UICommandHandlers: Comando 'start_processing' recibido.")
+                self.app.opp_processor.enable_processing(True)
+                await self.app.broadcast_to_ui({"type": "processing_status_update", "payload": {"is_processing": True}})
+            elif msg_type == "stop_processing":
+                print("UICommandHandlers: Comando 'stop_processing' recibido.")
+                self.app.opp_processor.enable_processing(False)
+                await self.app.broadcast_to_ui({"type": "processing_status_update", "payload": {"is_processing": False}})
+            elif msg_type == "train_model":
                 asyncio.create_task(self.trigger_model_training(payload, websocket_client))
             elif msg_type == "test_model":
                 asyncio.create_task(self.trigger_model_evaluation(payload, websocket_client))

@@ -68,6 +68,9 @@ async function emitSpotPricesLoop(io) {
       // Call the new function from analizerController.js
       const detailedOpportunities = await getFormattedTopAnalysis();
 
+      // Also get the latest balance document from balanceController
+      const latestBalance = await getLatestBalanceDocument();
+
       if (detailedOpportunities && detailedOpportunities.length > 0) {
         lastSpotArbData = detailedOpportunities; // Update lastSpotArbData with the formatted data
 
@@ -77,11 +80,16 @@ async function emitSpotPricesLoop(io) {
         }
         // Also emit the full list for V2 to have the complete Top 20
         targetNamespace.emit("top_20_data", detailedOpportunities);
-        // console.log(`Emitted ${detailedOpportunities.length} detailed opportunities individually and as 'top_20_data' to ${SPOT_ARB_DATA_NAMESPACE}`);
       } else {
         targetNamespace.emit("top_20_data", []); // Emit empty list if no opportunities
-        // console.log('No detailed opportunities found in DB to emit. Emitted empty top_20_data.');
         lastSpotArbData = []; // Clear if no data found
+      }
+
+      // Emit the latest balance continuously with the top_20_data
+      if (latestBalance) {
+        targetNamespace.emit("balances-update", latestBalance);
+      } else {
+        targetNamespace.emit("balances-update", {}); // Emit empty object if no balance found
       }
 
     } catch (err) {
