@@ -51,15 +51,16 @@ class V2Helpers:
         # or directly import from config if it's globally available and correctly set up.
         # For now, assuming it's accessible via self.app (e.g. self.app.SEBO_API_BASE_URL)
         # This requires SEBO_API_BASE_URL to be an attribute of the app instance or a global in principal.py
+<<<<<<< HEAD
         # Accessing via self.app.SEBO_API_BASE_URL which is set in CryptoArbitrageApp's __init__
         if not hasattr(self.app, 'SEBO_API_BASE_URL') or not self.app.SEBO_API_BASE_URL:
             print("V2Helpers: SEBO_API_BASE_URL no está configurado en la instancia de la app para get_usdt_withdrawal_info.")
             return usdt_withdrawal_info
-
-        api_url = f"{self.app.SEBO_API_BASE_URL}/exchanges/{from_exchange_id}/withdrawal-fees/USDT"
+=======
         # Let's assume principal.py defines it globally for now, or we pass it.
         # For simplicity, re-importing it here if it's not passed via app.
         from main import SEBO_API_BASE_URL # Relative import assuming principal.py sets it globally
+>>>>>>> 28ee198576a3e43b01eaaac38733271a92d54358
 
         api_url = f"{SEBO_API_BASE_URL}/exchanges/{from_exchange_id}/withdrawal-fees/USDT"
         try:
@@ -95,7 +96,11 @@ class V2Helpers:
             return False
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         from config import SEBO_BASE
+=======
+        from main import SEBO_API_BASE_URL
+>>>>>>> 28ee198576a3e43b01eaaac38733271a92d54358
 
         api_url = f"{SEBO_BASE}/api/balances/exchange/{exchange_id}"
 =======
@@ -130,8 +135,8 @@ class V2Helpers:
             print(f"V2Helpers: SEBO_API_BASE_URL no configurado en app para update_balance_on_sebo({exchange_id}).")
             return False
 =======
->>>>>>> 28ee198 (cambios para MAnus)
         from main import SEBO_API_BASE_URL
+>>>>>>> 28ee198576a3e43b01eaaac38733271a92d54358
 
         api_url = f"{self.app.SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         payload = {**full_config_to_upsert}
@@ -171,11 +176,12 @@ class V2Helpers:
     async def load_balance_config_for_exchange(self, exchange_id: str) -> Optional[dict]:
         if not exchange_id: return None
 <<<<<<< HEAD
+<<<<<<< HEAD
         from config import SEBO_BASE
         SEBO_API_BASE_URL = f"{SEBO_BASE}/api"
 =======
->>>>>>> 28ee198 (cambios para MAnus)
         from main import SEBO_API_BASE_URL
+>>>>>>> 28ee198576a3e43b01eaaac38733271a92d54358
         api_url = f"{SEBO_API_BASE_URL}/balances/exchange/{exchange_id}"
         try:
             await self.app._ensure_http_session()
