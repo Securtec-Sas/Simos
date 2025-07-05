@@ -12,7 +12,7 @@ const { Server } = require('socket.io');
 const { emitSpotPricesLoop } = require('./controllers/spotSocketController');
 // const { connectDB } = require('./utils/db'); // Comentado o eliminado si no se usa
 const { connectDB } = require('./data/dataBase/connectio'); // Importar connectDB desde connectio.js
-const {addExchanges} = require('./controllers/dbCotroller');
+const { addExchanges } = require('./controllers/dbCotroller');
 const analyzerController = require('./controllers/analizerController'); // Importar el controlador de análisis
 
 dotenv.config();
@@ -124,11 +124,19 @@ const swaggerOptions = {
             },
         ],
     },
-    // Rutas a los archivos que contienen las definiciones OpenAPI (tus controladores/rutas)
-    apis: ['./src/server/app.js', './src/server/controllers/*.js'], // Ajusta según la ubicación de tus rutas
+    apis: [
+        './src/server/app.js',
+        './src/server/controllers/*.js',
+        './src/server/routes/*.js',
+        './src/server/controllers/dbCotroller.js',
+        './src/server/controllers/spotController.js',
+        './src/server/controllers/spotSocketController.js',
+        './src/server/controllers/exchangeController.js',
+        './src/server/controllers/analizerController.js',
+        './src/server/controllers/symbolController.js',
+    ]
 };
-
-const swaggerSpec = swaggerJsdoc(swaggerOptions);
+    const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 // Ruta para la UI de Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -153,9 +161,34 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  */
 app.get('/api/exchanges-status', getExchangesStatus);
 
+/**
+ * @swagger
+ * /analyser:
+ *   get:
+ *     summary: Realiza el análisis de símbolos de exchange.
+ *     tags: [Analyzer]
+ *     responses:
+ *       '200':
+ *         description: Análisis completado.
+ *       '500':
+ *         description: Error durante el análisis.
+ */
 app.get('/analyser', analyzerController.analisisExchangeSimbol);
 app.get('/depure',analyzerController.depuredExchangeSymbolData)
 
+/**
+ * @swagger
+ * /depure:
+ *   get:
+ *     summary: Depura los datos de símbolos de exchange.
+ *     tags: [Analyzer]
+ *     responses:
+ *       '200':
+ *         description: Depuración completada.
+ *       '500':
+ *         description: Error durante la depuración.
+ */
+app.get('/depure', analyzerController.depuredExchangeSymbolData);
 
 /**
  * @swagger
@@ -336,6 +369,7 @@ app.get('/api/exchange-status/:exchangeId', getExchangeStatusById);
  * cada que acabe de correr vuelva y corra nuevamente
  *
  */
+
 async function loopActualizePricetop20() {
     try {
         await analyzerController.actualizePricetop20();
@@ -346,6 +380,36 @@ async function loopActualizePricetop20() {
     }
 }
 
+/**
+ * @swagger
+ * tags:
+ *   name: Socket
+ *   description: Socket API
+ */
+
+/**
+ * @swagger
+ * /socket.io/:
+ *   get:
+ *     summary: Socket.io endpoint
+ *     tags: [Socket]
+ *     responses:
+ *       '101':
+ *         description: Switching Protocols
+ */
+
+/**
+ * @swagger
+ * /api/spot/arb:
+ *   get:
+ *     summary: WebSocket endpoint for spot arbitrage data.
+ *     tags: [Socket]
+ *     responses:
+ *       '200':
+ *         description: Connected to the WebSocket.
+ *     webSocket:
+ *       $ref: 'localhost:3001/api/spot/arb'
+ */
 
 /**
  * @swagger

@@ -9,7 +9,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "LIP",
   "dependencies": {
     "ccxt": "^4.3.56",
     "cors": "^2.8.5",
@@ -17,7 +17,6 @@
     "express": "^4.19.2",
     "glob": "^11.0.2",
     "mongoose": "^8.16.0",
-    "mongose": "^0.0.2-security",
     "socket.io": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
