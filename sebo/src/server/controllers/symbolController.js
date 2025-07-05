@@ -151,6 +151,7 @@ exports.updateSymbol = async (req, res) => {
   }
 };
 
+
 // Eliminar un símbolo por su id_sy
 exports.deleteSymbol = async (req, res) => {
   const { id_sy } = req.params;
