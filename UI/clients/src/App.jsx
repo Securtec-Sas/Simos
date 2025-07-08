@@ -114,7 +114,7 @@ function App() {
 
     const connectV3 = () => {
       try {
-        const wsUrl = 'ws://localhost:3002'; // Puerto para V3
+        const wsUrl = 'ws://localhost:3001'; // Puerto para V3
         const currentSocket = new WebSocket(wsUrl);
         window.v3SocketInstance = currentSocket;
 
