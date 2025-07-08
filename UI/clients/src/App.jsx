@@ -8,7 +8,7 @@ import SpotsMenu from './components/SpotsMenu/SpotsMenu.jsx';
 import Top20DetailedPage from './components/Top20DetailedPage/Top20DetailedPage.jsx';
 import ExchangeAPIsPage from './pages/exchangesApis/ExchangeAPIsPage.jsx'; // Corregido: Importar desde components
 import DataViewPage from './pages/DataViewPage/DataViewPage.jsx';
-import AIDataPage from './pages/';
+import AIDataPage from './pages/aiDataPage.jsx';
 
 function App() {
   const [allExchanges, setAllExchanges] = useState([]);
