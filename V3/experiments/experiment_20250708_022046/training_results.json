@@ -1,0 +1,116 @@
+{
+  "training_config": {
+    "samples": 1000,
+    "validation_split": 0.2,
+    "model_path": null,
+    "use_existing_data": false,
+    "log_level": "INFO",
+    "export_results": "experiments/experiment_20250708_022046/training_results.json"
+  },
+  "training_results": {
+    "profitability_accuracy": 0.5,
+    "profitability_precision": 0.4980952380952381,
+    "profitability_recall": 0.5,
+    "profitability_f1": 0.4987373737373737,
+    "profit_mse": 1177.848755933896,
+    "profit_rmse": 34.31980122223752,
+    "risk_accuracy": 0.46875,
+    "cv_mean_accuracy": 0.5515625,
+    "cv_std_accuracy": 0.014490028899212037,
+    "feature_importance": {
+      "buy_exchange_encoded": 0.03835768381698252,
+      "buy_price": 0.1098491286552671,
+      "current_balance_usdt": 0.11629994776842396,
+      "day_of_week": 0.0,
+      "estimated_buy_fee_percentage": 0.03569929174136089,
+      "estimated_sell_fee_percentage": 0.0336366804929152,
+      "hour_of_day": 0.0,
+      "investment_to_balance_ratio": 0.09784728369369891,
+      "investment_usdt": 0.10540498483990725,
+      "is_btc": 0.0036378402222455113,
+      "is_eth": 0.006975938227842683,
+      "is_popular_currency": 0.009281713111291851,
+      "price_difference_percentage": 0.1218629622644314,
+      "price_ratio": 0.11574501401775086,
+      "sell_exchange_encoded": 0.040606801641363974,
+      "sell_price": 0.1121880481790109,
+      "total_estimated_fees": 0.05260668132750705
+    },
+    "validation": {
+      "accuracy": 0.535,
+      "total_samples": 200,
+      "correct_predictions": 107,
+      "profit_prediction_error": 340.6033593271798,
+      "predicted_total_profit": 77.8497208857638,
+      "actual_total_profit": -262.753638441416
+    }
+  },
+  "model_info": {
+    "is_trained": true,
+    "feature_count": 17,
+    "feature_names": [
+      "buy_exchange_encoded",
+      "buy_price",
+      "current_balance_usdt",
+      "day_of_week",
+      "estimated_buy_fee_percentage",
+      "estimated_sell_fee_percentage",
+      "hour_of_day",
+      "investment_to_balance_ratio",
+      "investment_usdt",
+      "is_btc",
+      "is_eth",
+      "is_popular_currency",
+      "price_difference_percentage",
+      "price_ratio",
+      "sell_exchange_encoded",
+      "sell_price",
+      "total_estimated_fees"
+    ],
+    "training_history": {
+      "last_training": "2025-07-08T07:22:48.359499+00:00",
+      "training_samples": 800,
+      "results": {
+        "profitability_accuracy": 0.5,
+        "profitability_precision": 0.4980952380952381,
+        "profitability_recall": 0.5,
+        "profitability_f1": 0.4987373737373737,
+        "profit_mse": 1177.848755933896,
+        "profit_rmse": 34.31980122223752,
+        "risk_accuracy": 0.46875,
+        "cv_mean_accuracy": 0.5515625,
+        "cv_std_accuracy": 0.014490028899212037,
+        "feature_importance": {
+          "buy_exchange_encoded": 0.03835768381698252,
+          "buy_price": 0.1098491286552671,
+          "current_balance_usdt": 0.11629994776842396,
+          "day_of_week": 0.0,
+          "estimated_buy_fee_percentage": 0.03569929174136089,
+          "estimated_sell_fee_percentage": 0.0336366804929152,
+          "hour_of_day": 0.0,
+          "investment_to_balance_ratio": 0.09784728369369891,
+          "investment_usdt": 0.10540498483990725,
+          "is_btc": 0.0036378402222455113,
+          "is_eth": 0.006975938227842683,
+          "is_popular_currency": 0.009281713111291851,
+          "price_difference_percentage": 0.1218629622644314,
+          "price_ratio": 0.11574501401775086,
+          "sell_exchange_encoded": 0.040606801641363974,
+          "sell_price": 0.1121880481790109,
+          "total_estimated_fees": 0.05260668132750705
+        },
+        "validation": {
+          "accuracy": 0.535,
+          "total_samples": 200,
+          "correct_predictions": 107,
+          "profit_prediction_error": 340.6033593271798,
+          "predicted_total_profit": 77.8497208857638,
+          "actual_total_profit": -262.753638441416
+        }
+      }
+    },
+    "confidence_threshold": 0.7,
+    "model_path": "models/arbitrage_model.pkl"
+  },
+  "timestamp": "2025-07-08T02:22:52.301845"
+}
