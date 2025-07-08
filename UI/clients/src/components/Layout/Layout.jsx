@@ -1,8 +1,8 @@
-// UI/clients/src/components/Layout/Layout.jsx - VERSIÓN CORREGIDA
+// UI/clients/src/components/Layout/Layout.jsx
 
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import Sidebar from '../Sidebar/Sidebar.jsx';
+
 const Layout = ({ allExchanges, setAllExchanges, connectionStatus }) => {
   const location = useLocation();
 
@@ -107,10 +107,18 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus }) => {
             </li>
             <li>
               <Link 
-                to="/top20-detailed" 
-                style={isActive('/top20-detailed') ? activeLinkStyle : navLinkStyle}
+                to="/top20" 
+                style={isActive('/top20') ? activeLinkStyle : navLinkStyle}
               >
                 🎯 Top 20 Trading
+              </Link>
+            </li>
+            <li>
+              <Link 
+                to="/ai-data" 
+                style={isActive('/ai-data') ? activeLinkStyle : navLinkStyle}
+              >
+                🧠 Datos IA
               </Link>
             </li>
             
@@ -131,7 +139,7 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus }) => {
           </ul>
         </div>
       </nav>
-      <Sidebar allExchanges={allExchanges} setAllExchanges={setAllExchanges} />
+      
       <div style={containerStyle}>
         <Outlet />
       </div>

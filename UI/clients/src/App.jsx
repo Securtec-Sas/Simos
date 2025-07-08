@@ -1,13 +1,14 @@
-// UI/clients/src/App.jsx - VERSIÓN CORREGIDA
+// UI/clients/src/App.jsx
 
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout/Layout.jsx';
 import ActiveExchangesTable from './components/ActiveExchangesTable/ActiveExchangesTable.jsx';
 import SpotsMenu from './components/SpotsMenu/SpotsMenu.jsx';
-import Top20DetailedPage from './components/Top20DetailedPage/Top20DetailedPage';
-import ExchangeApis from './pages/exchangesApis/ExchangeAPIsPage.jsx'
-import DataViewPage from './pages/DataViewPage/DataViewPage'; // Import DataViewPage
+import Top20DetailedPage from './components/Top20DetailedPage/Top20DetailedPage.jsx';
+import ExchangeAPIsPage from './pages/exchangesApis/ExchangeAPIsPage.jsx'; // Corregido: Importar desde components
+import DataViewPage from './pages/DataViewPage/DataViewPage.jsx';
+import AIDataPage from './pages/';
 
 function App() {
   const [allExchanges, setAllExchanges] = useState([]);
@@ -95,6 +96,15 @@ function App() {
     };
   }, []);
 
+  // Función para enviar comandos a V3
+  const sendV3Command = (command, payload = {}) => {
+    if (window.v3SocketInstance && window.v3SocketInstance.readyState === WebSocket.OPEN) {
+      window.v3SocketInstance.send(JSON.stringify({ type: command, payload }));
+    } else {
+      console.error('V3 WebSocket no está conectado o no está listo. No se pudo enviar el comando:', command);
+    }
+  };
+
   // V3 WebSocket connection
   useEffect(() => {
     let v3Socket = null;
@@ -105,28 +115,42 @@ function App() {
     const connectV3 = () => {
       try {
         const wsUrl = 'ws://localhost:3002'; // Puerto para V3
-        v3Socket = new WebSocket(wsUrl);
+        const currentSocket = new WebSocket(wsUrl);
+        window.v3SocketInstance = currentSocket;
 
-        v3Socket.onopen = () => {
+        currentSocket.onopen = () => {
           console.log('Connected to V3 WebSocket server');
           setConnectionStatus(prev => ({ ...prev, v3: 'connected' }));
           reconnectAttempts = 0;
-          
-          // Solicitar estado inicial
-          v3Socket.send(JSON.stringify({ type: 'get_system_status' }));
+          currentSocket.send(JSON.stringify({ type: 'get_system_status' }));
         };
 
-        v3Socket.onmessage = (event) => {
+        currentSocket.onmessage = (event) => {
           try {
             const message = JSON.parse(event.data);
             console.log('Message from V3:', message);
             
             switch (message.type) {
+              case 'initial_state':
+                console.log('Received initial_state from V3:', message.payload);
+                setV3Data(prev => ({
+                  ...prev,
+                  ...message.payload,
+                }));
+                if (typeof message.payload.sebo_connection_status !== 'undefined') {
+                    setConnectionStatus(prev => ({ ...prev, sebo: message.payload.sebo_connection_status ? 'connected' : 'disconnected' }));
+                }
+                break;
               case 'system_status':
               case 'trading_stats':
               case 'operation_result':
               case 'balance_update':
               case 'top20_data':
+              case 'log_message':
+              case 'ai_model_details':
+              case 'ai_training_update':
+              case 'ai_test_results':
+              case 'ai_simulation_update':
                 setV3Data(prev => ({ ...prev, [message.type]: message.payload }));
                 break;
               default:
@@ -137,21 +161,23 @@ function App() {
           }
         };
 
-        v3Socket.onerror = (error) => {
+        currentSocket.onerror = (error) => {
           console.error('V3 WebSocket error:', error);
           setConnectionStatus(prev => ({ ...prev, v3: 'error' }));
         };
 
-        v3Socket.onclose = (event) => {
+        currentSocket.onclose = (event) => {
           console.log('V3 WebSocket disconnected:', event.reason, `Code: ${event.code}`);
           setConnectionStatus(prev => ({ ...prev, v3: 'disconnected' }));
-          
+          window.v3SocketInstance = null;
+
           if (event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
             reconnectAttempts++;
             console.log(`Attempting to reconnect to V3 (${reconnectAttempts}/${maxReconnectAttempts})...`);
             reconnectTimeout = setTimeout(connectV3, 3000 * reconnectAttempts);
           }
         };
+        v3Socket = currentSocket;
       } catch (error) {
         console.error('Error creating V3 WebSocket:', error);
         setConnectionStatus(prev => ({ ...prev, v3: 'error' }));
@@ -167,18 +193,10 @@ function App() {
       if (v3Socket && (v3Socket.readyState === WebSocket.OPEN || v3Socket.readyState === WebSocket.CONNECTING)) {
         v3Socket.close(1000, 'Component unmounting');
       }
+      window.v3SocketInstance = null;
     };
   }, []);
 
-  // Función para enviar comandos a V3
-  const sendV3Command = (command, payload = {}) => {
-    // Esta función será pasada a los componentes que necesiten comunicarse con V3
-    const v3Socket = new WebSocket('ws://localhost:3002');
-    v3Socket.onopen = () => {
-      v3Socket.send(JSON.stringify({ type: command, payload }));
-      v3Socket.close();
-    };
-  };
 
   return (
     <Router>
@@ -192,11 +210,18 @@ function App() {
         }>
           <Route path="conexion" element={<ActiveExchangesTable selectedExchanges={selectedExchanges} />} />
           <Route path="spots" element={<SpotsMenu />} />
-          <Route path="exchange-apis" element={<ExchangeApis />} />
-          <Route path="top20-detailed" element={
+          <Route path="exchange-apis" element={<ExchangeAPIsPage />} />
+          <Route path="top20" element={
             <Top20DetailedPage 
               sendV3Command={sendV3Command}
               v3Data={v3Data}
+            />
+          } />
+          <Route path="datos" element={<DataViewPage />} />
+          <Route path="ai-data" element={
+            <AIDataPage
+              v3Data={v3Data}
+              sendV3Command={sendV3Command}
             />
           } />
           <Route index element={

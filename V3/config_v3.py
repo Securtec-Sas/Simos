@@ -1,4 +1,4 @@
-# # Simos/V3/config_v3.py
+# Simos/V3/config_v3.py
 
 API_KEYS = {
     "BINANCE_API_KEY": "your_binance_api_key",
@@ -16,7 +16,7 @@ API_KEYS = {
 # URLs de conexión
 WEBSOCKET_URL = "ws://localhost:3031/api/spot/arb"  # WebSocket de sebo
 UI_WEBSOCKET_URL = "ws://localhost:3001/api/spot/ui"  # WebSocket para la UI
-SEBO_API_BASE_URL = "http://localhost:3031/api"  # API base de Sebo
+SEBO_API_BASE_URL = "http://localhost:3000/api"  # API base de Sebo
 
 # Parámetros para la lógica de arbitraje
 MIN_PROFIT_PERCENTAGE = 0.6  # Porcentaje mínimo de ganancia para realizar una operación
@@ -45,21 +45,25 @@ CSV_LOG_PATH = "logs/v3_operation_logs.csv"
 SIMULATION_MODE = False  # True para modo simulación, False para trading real
 SIMULATION_DELAY = 0.1  # Delay en segundos para simular tiempo de ejecución
 
+# Configuración de persistencia
+TRADING_STATE_FILE = "data/trading_state.json"
+BALANCE_CACHE_FILE = "data/balance_cache.json"
+
 # Configuración de red y timeouts
 REQUEST_TIMEOUT = 30  # Timeout para requests HTTP en segundos
 WEBSOCKET_RECONNECT_DELAY = 5  # Delay para reconexión de WebSocket
 MAX_RECONNECT_ATTEMPTS = 10  # Máximo número de intentos de reconexión
 
-# Redes preferidas para transferencias
+# Configuración de exchanges soportados
+SUPPORTED_EXCHANGES = [
+    "binance", "okx", "kucoin", "bybit", "huobi", "gate", "mexc"
+]
+
+# Configuración de redes de transferencia preferidas (por costo)
 PREFERRED_NETWORKS = {
-    'BTC': ['BTC'],
-    'ETH': ['ETH', 'ERC20'],
-    'USDT': ['TRC20', 'ERC20', 'BSC'],
-    'BNB': ['BSC', 'BEP20'],
-    'ADA': ['ADA'],
-    'SOL': ['SOL'],
-    'XRP': ['XRP'],
-    'DOT': ['DOT'],
-    'AVAX': ['AVAX']
+    "USDT": ["TRC20", "BSC", "POLYGON", "ERC20"],
+    "BTC": ["BTC", "BSC", "POLYGON"],
+    "ETH": ["BSC", "POLYGON", "ERC20"],
+    "BNB": ["BSC", "BEP2"],
 }
 

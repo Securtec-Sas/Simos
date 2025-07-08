@@ -240,3 +240,4 @@ class SeboConnector:
         except Exception as e:
             self.logger.error(f"Error en conexión Socket.IO: {e}")
             raise
+
