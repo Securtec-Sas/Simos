@@ -45,9 +45,10 @@ class CryptoArbitrageV3:
         """Configura los callbacks entre componentes."""
         
         # Callbacks de SeboConnector
-        self.sebo_connector.set_spot_arb_callback(self._on_spot_arb_data)
+        # self.sebo_connector.set_spot_arb_callback(self._on_spot_arb_data) # Desactivado spot_arb
         self.sebo_connector.set_balances_update_callback(self._on_balances_update)
         self.sebo_connector.set_top20_data_callback(self._on_top20_data)
+        self.sebo_connector.set_exchange_list_callback(self._on_exchange_list_update) # Nuevo callback
         
         # Callbacks de UIBroadcaster
         self.ui_broadcaster.set_trading_start_callback(self._on_trading_start_request)
@@ -70,6 +71,15 @@ class CryptoArbitrageV3:
             
             # Iniciar servidor UI
             await self.ui_broadcaster.start_server()
+
+            # Obtener lista de exchanges y pasarla al UIBroadcaster para el initial_state
+            self.logger.info("Obteniendo lista de exchanges configurados...")
+            exchange_list = await self.sebo_connector.get_configured_exchanges()
+            if exchange_list:
+                await self.ui_broadcaster.set_current_exchange_list(exchange_list)
+            else:
+                self.logger.warning("No se pudo obtener la lista de exchanges durante la inicialización.")
+                await self.ui_broadcaster.set_current_exchange_list([]) # Enviar lista vacía
             
             self.logger.info("Todos los componentes inicializados correctamente")
             
@@ -193,33 +203,33 @@ class CryptoArbitrageV3:
     
     # Callbacks de eventos
     
-    async def _on_spot_arb_data(self, data: Dict):
-        """Maneja datos de arbitraje spot recibidos de Sebo."""
-        try:
-            # Si el trading está activo, procesar la oportunidad
-            if self.trading_logic.is_trading_active():
-                # Procesar en background para no bloquear
-                asyncio.create_task(self._process_arbitrage_opportunity(data))
-            
-            # Enviar datos a UI para visualización
-            await self.ui_broadcaster.broadcast_message({
-                "type": "spot_arb_data",
-                "payload": data
-            })
-            
-        except Exception as e:
-            self.logger.error(f"Error procesando spot-arb data: {e}")
+    # async def _on_spot_arb_data(self, data: Dict): # Desactivado spot_arb
+    #     """Maneja datos de arbitraje spot recibidos de Sebo."""
+    #     try:
+    #         # Si el trading está activo, procesar la oportunidad
+    #         if self.trading_logic.is_trading_active():
+    #             # Procesar en background para no bloquear
+    #             asyncio.create_task(self._process_arbitrage_opportunity(data))
+
+    #         # Enviar datos a UI para visualización
+    #         await self.ui_broadcaster.broadcast_message({
+    #             "type": "spot_arb_data",
+    #             "payload": data
+    #         })
+
+    #     except Exception as e:
+    #         self.logger.error(f"Error procesando spot-arb data: {e}")
     
-    async def _process_arbitrage_opportunity(self, data: Dict):
-        """Procesa una oportunidad de arbitraje en background."""
-        try:
-            result = await self.trading_logic.process_arbitrage_opportunity(data)
+    # async def _process_arbitrage_opportunity(self, data: Dict): # Desactivado spot_arb (llamado desde _on_spot_arb_data)
+    #     """Procesa una oportunidad de arbitraje en background."""
+    #     try:
+    #         result = await self.trading_logic.process_arbitrage_opportunity(data) # Esto llamaría a TradingLogic
             
-            # Enviar resultado a UI
-            await self.ui_broadcaster.broadcast_operation_result(result)
+    #         # Enviar resultado a UI
+    #         await self.ui_broadcaster.broadcast_operation_result(result)
             
-        except Exception as e:
-            self.logger.error(f"Error procesando oportunidad de arbitraje: {e}")
+    #     except Exception as e:
+    #         self.logger.error(f"Error procesando oportunidad de arbitraje: {e}")
     
     async def _on_balances_update(self, data: Dict):
         """Maneja actualizaciones de balance de Sebo."""
@@ -236,11 +246,65 @@ class CryptoArbitrageV3:
     async def _on_top20_data(self, data: list):
         """Maneja datos del top 20 de Sebo."""
         try:
-            # Retransmitir a UI
-            await self.ui_broadcaster.broadcast_top20_data(data)
+            processed_data = data
+            if self.trading_logic.is_trading_active():
+                main_exchange_id = self._get_main_exchange_id()
+
+                if main_exchange_id:
+                    self.logger.info(f"Trading automático activo. Filtrando Top20 para excluir el exchange principal: {main_exchange_id}")
+                    filtered_data = [
+                        opportunity for opportunity in data
+                        if opportunity.get('exchange_min_id') != main_exchange_id and \
+                           opportunity.get('exchange_max_id') != main_exchange_id
+                    ]
+                    # Log cuántos se filtraron
+                    if len(data) != len(filtered_data):
+                        self.logger.debug(f"Top20 filtrado: {len(data) - len(filtered_data)} oportunidades eliminadas que involucraban a {main_exchange_id}.")
+                    processed_data = filtered_data
+                else:
+                    self.logger.warning("Trading automático activo, pero no se pudo determinar el exchange principal para filtrar el Top20. Se enviará sin filtrar.")
+
+            # Retransmitir a UI (datos originales o filtrados)
+            await self.ui_broadcaster.broadcast_top20_data(processed_data)
             
         except Exception as e:
             self.logger.error(f"Error procesando top 20 data: {e}")
+
+    async def _on_exchange_list_update(self, exchange_list_data: Optional[List[Dict]]):
+        """Maneja la actualización de la lista de exchanges de Sebo."""
+        try:
+            if exchange_list_data is not None:
+                self.logger.info(f"Recibida actualización de lista de exchanges con {len(exchange_list_data)} items.")
+                # Actualizar en UIBroadcaster para futuros initial_state y también hacer broadcast
+                await self.ui_broadcaster.set_current_exchange_list(exchange_list_data)
+                await self.ui_broadcaster.broadcast_exchange_list(exchange_list_data)
+            else:
+                self.logger.warning("Recibida actualización de lista de exchanges vacía (None) de Sebo.")
+                await self.ui_broadcaster.set_current_exchange_list([])
+                await self.ui_broadcaster.broadcast_exchange_list([])
+                # Actualizar también la copia local en CryptoArbitrageV3 si la tuviéramos
+                # self.current_exchange_list = []
+
+        except Exception as e:
+            self.logger.error(f"Error procesando actualización de lista de exchanges: {e}")
+
+    def _get_main_exchange_id(self) -> Optional[str]:
+        """Obtiene el ID del exchange marcado como 'isCoreExchange'."""
+        # Acceder a la lista de exchanges cacheados por SeboConnector
+        exchange_list = self.sebo_connector.get_latest_exchange_list()
+        if not exchange_list:
+            self.logger.warning("No hay lista de exchanges disponible para determinar el exchange principal.")
+            return None
+
+        for ex_info in exchange_list:
+            if ex_info.get('isCoreExchange', False):
+                main_id = ex_info.get('id')
+                if main_id:
+                    self.logger.debug(f"Exchange principal determinado: {main_id}")
+                    return main_id
+
+        self.logger.warning("No se encontró ningún exchange marcado como 'isCoreExchange'.")
+        return None
     
     async def _on_trading_start_request(self, payload: Dict):
         """Maneja solicitud de inicio de trading desde UI."""

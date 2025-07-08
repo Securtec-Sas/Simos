@@ -108,6 +108,12 @@ app.use("/api/balances", balanceRoutes);
 const exchangeRoutes = require("./routes/exchangeRoutes");
 app.use("/api/exchanges", exchangeRoutes);
 
+// Middleware para adjuntar io a cada request
+app.use((req, res, next) => {
+    req.io = io;
+    next();
+});
+
 serveri.listen(PORT, () => {
     console.log(`Servidor Express corriendo en http://localhost:${PORT}`);
     console.log(`Documentación Swagger disponible en http://localhost:${PORT}/api-docs`);

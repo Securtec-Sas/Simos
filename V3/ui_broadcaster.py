@@ -24,6 +24,9 @@ class UIBroadcaster:
         self.on_trading_stop_callback: Optional[Callable] = None
         self.on_ui_message_callback: Optional[Callable] = None
         
+        # Datos a enviar
+        self.exchange_list_data: List[Dict] = []
+
         # Estado del trading
         self.trading_active = False
         self.trading_stats = {
@@ -95,6 +98,7 @@ class UIBroadcaster:
             "payload": {
                 "trading_active": self.trading_active,
                 "trading_stats": self.trading_stats,
+                "exchange_list": self.exchange_list_data, # Incluir lista de exchanges
                 "timestamp": get_current_timestamp()
             }
         }
@@ -221,7 +225,27 @@ class UIBroadcaster:
         
         await self.broadcast_message(message)
         self.logger.debug(f"Top 20 data retransmitido a {len(self.ui_clients)} clientes UI")
-    
+
+    async def broadcast_exchange_list(self, exchange_list: List[Dict]):
+        """Retransmite la lista de exchanges a la UI."""
+        self.exchange_list_data = exchange_list # Actualizar cache local
+        message = {
+            "type": "exchange_list_update", # Nuevo tipo de mensaje
+            "payload": exchange_list,
+            "timestamp": get_current_timestamp()
+        }
+        await self.broadcast_message(message)
+        self.logger.info(f"Lista de exchanges ({len(exchange_list)} items) retransmitida a {len(self.ui_clients)} clientes UI")
+
+    async def set_current_exchange_list(self, exchange_list: List[Dict]):
+        """Establece la lista de exchanges actual para incluir en el initial_state."""
+        if exchange_list is not None:
+            self.exchange_list_data = exchange_list
+            self.logger.info(f"UIBroadcaster: Lista de exchanges actualizada con {len(exchange_list)} items.")
+        else:
+            self.exchange_list_data = []
+            self.logger.warning("UIBroadcaster: Se intentó actualizar la lista de exchanges con None.")
+
     async def broadcast_balance_update(self, balance_data: Dict):
         """Retransmite actualizaciones de balance a la UI."""
         message = {

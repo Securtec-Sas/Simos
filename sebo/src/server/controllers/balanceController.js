@@ -85,6 +85,22 @@ exports.updateBalanceById = async (req, res) => {
     if (!updatedBalance) {
       return res.status(404).json({ message: "Balance record not found." });
     }
+
+    if (updatedBalance) {
+      const io = req.io;
+      if (io) {
+        const allBalances = await getBalancesData();
+        const balancesMap = {};
+        allBalances.forEach(balance => {
+          if (balance.id_exchange) {
+            balancesMap[String(balance.id_exchange)] = balance.toObject ? balance.toObject() : balance;
+          }
+        });
+        const V3SeboNamespace = io.of('/api/spot/arb');
+        V3SeboNamespace.emit('balances-update', balancesMap);
+        console.log(`Socket event 'balances-update' emitted to /api/spot/arb after updateBalanceById`);
+      }
+    }
     res.status(200).json(updatedBalance);
   } catch (error) {
     res.status(400).json({ message: "Error updating balance record", error: error.message });
@@ -111,6 +127,22 @@ exports.updateBalanceByExchange = async (req, res) => {
       { $set: updateData }, // Usar $set para actualizar solo los campos proporcionados en req.body
       { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
     );
+
+    if (updatedBalance) {
+      const io = req.io;
+      if (io) {
+        const allBalances = await getBalancesData(); // Reutiliza la función existente
+        const balancesMap = {};
+        allBalances.forEach(balance => {
+          if (balance.id_exchange) {
+            balancesMap[String(balance.id_exchange)] = balance.toObject ? balance.toObject() : balance;
+          }
+        });
+        const V3SeboNamespace = io.of('/api/spot/arb');
+        V3SeboNamespace.emit('balances-update', balancesMap);
+        console.log(`Socket event 'balances-update' emitted to /api/spot/arb after updateByExchange`);
+      }
+    }
     res.status(200).json(updatedBalance);
   } catch (error) {
     // Capturar errores de validación de Mongoose

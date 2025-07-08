@@ -20,13 +20,15 @@ class SeboConnector:
         self.is_connected = False
         
         # Callbacks para eventos
-        self.on_spot_arb_callback: Optional[Callable] = None
+        # self.on_spot_arb_callback: Optional[Callable] = None # Desactivado spot_arb
         self.on_balances_update_callback: Optional[Callable] = None
         self.on_top20_data_callback: Optional[Callable] = None
+        self.on_exchange_list_callback: Optional[Callable] = None # Callback para lista de exchanges
         
         # Cache de datos
         self.latest_top20_data: List[Dict] = []
         self.latest_balances: Optional[Dict] = None
+        self.latest_exchange_list: List[Dict] = [] # Cache para la lista de exchanges
         
         self._register_sio_handlers()
     
@@ -57,7 +59,7 @@ class SeboConnector:
             self.is_connected = False
         
         # Handler para datos de arbitraje spot
-        self.sio.on('spot-arb', namespace='/api/spot/arb')(self._on_spot_arb_data)
+        # self.sio.on('spot-arb', namespace='/api/spot/arb')(self._on_spot_arb_data) # Desactivado spot_arb
         
         # Handler para actualizaciones de balance
         self.sio.on('balances-update', namespace='/api/spot/arb')(self._on_balances_update)
@@ -65,16 +67,16 @@ class SeboConnector:
         # Handler para datos del top 20
         self.sio.on('top_20_data', namespace='/api/spot/arb')(self._on_top20_data)
     
-    async def _on_spot_arb_data(self, data: Dict):
-        """Maneja datos de arbitraje spot recibidos de Sebo."""
-        try:
-            symbol = safe_dict_get(data, 'symbol', 'N/A')
-            self.logger.debug(f"Recibido spot-arb para {symbol}")
+    # async def _on_spot_arb_data(self, data: Dict): # Desactivado spot_arb
+    #     """Maneja datos de arbitraje spot recibidos de Sebo."""
+    #     try:
+    #         symbol = safe_dict_get(data, 'symbol', 'N/A')
+    #         self.logger.debug(f"Recibido spot-arb para {symbol}")
             
-            if self.on_spot_arb_callback:
-                await self.on_spot_arb_callback(data)
-        except Exception as e:
-            self.logger.error(f"Error procesando spot-arb data: {e}")
+    #         if self.on_spot_arb_callback:
+    #             await self.on_spot_arb_callback(data)
+    #     except Exception as e:
+    #         self.logger.error(f"Error procesando spot-arb data: {e}")
     
     async def _on_balances_update(self, data: Dict):
         """Maneja actualizaciones de balance recibidas de Sebo."""
@@ -208,12 +210,33 @@ class SeboConnector:
         else:
             self.logger.warning("No se pudieron obtener oportunidades principales")
             return None
+
+    async def get_configured_exchanges(self) -> Optional[List[Dict]]:
+        """Obtiene la lista de exchanges configurados desde Sebo."""
+        await self.initialize()
+        url = f"{SEBO_API_BASE_URL}/configured-exchanges"
+
+        result = await make_http_request(
+            self.http_session, 'GET', url, timeout=REQUEST_TIMEOUT
+        )
+
+        if result and isinstance(result, list):
+            self.logger.info(f"Obtenida lista de {len(result)} exchanges configurados")
+            self.latest_exchange_list = result # Cachear la lista
+            if self.on_exchange_list_callback:
+                await self.on_exchange_list_callback(result)
+            return result
+        else:
+            self.logger.warning("No se pudo obtener la lista de exchanges configurados")
+            if self.on_exchange_list_callback: # Notificar incluso si hay error (lista vacía o None)
+                await self.on_exchange_list_callback(None if not result else result)
+            return None
     
     # Callback setters
     
-    def set_spot_arb_callback(self, callback: Callable):
-        """Establece el callback para datos de arbitraje spot."""
-        self.on_spot_arb_callback = callback
+    # def set_spot_arb_callback(self, callback: Callable): # Desactivado spot_arb
+    #     """Establece el callback para datos de arbitraje spot."""
+    #     self.on_spot_arb_callback = callback
     
     def set_balances_update_callback(self, callback: Callable):
         """Establece el callback para actualizaciones de balance."""
@@ -222,12 +245,20 @@ class SeboConnector:
     def set_top20_data_callback(self, callback: Callable):
         """Establece el callback para datos del top 20."""
         self.on_top20_data_callback = callback
+
+    def set_exchange_list_callback(self, callback: Callable):
+        """Establece el callback para la lista de exchanges."""
+        self.on_exchange_list_callback = callback
     
     # Getters para datos cacheados
     
     def get_latest_top20_data(self) -> List[Dict]:
         """Retorna los últimos datos del top 20."""
         return self.latest_top20_data.copy()
+
+    def get_latest_exchange_list(self) -> List[Dict]:
+        """Retorna la última lista de exchanges cacheada."""
+        return self.latest_exchange_list.copy()
     
     def get_latest_balances(self) -> Optional[Dict]:
         """Retorna los últimos datos de balances."""
