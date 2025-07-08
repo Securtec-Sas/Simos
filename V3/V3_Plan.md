@@ -3,12 +3,15 @@
 ### Objetivo General:
 Desarrollar una aplicación V3 que reemplace a V2, conectándose al socket de Sebo, retransmitiendo datos a la UI, implementando una lógica de trading avanzada basada en IA para arbitraje, resolviendo errores de UI, y permitiendo entrenamiento, simulación y trading real persistente.
 
+
 ### Estructura Propuesta para V3:
 Se mantendrá una estructura modular similar a V2, pero con una clara separación de responsabilidades y una mayor robustez para el trading real y la IA.
 
 -   **`main_v3.py`**: Punto de entrada principal de la aplicación. Orquestará los componentes, gestionará las conexiones Socket.IO y WebSocket, y el ciclo de vida de la aplicación.
 -   **`sebo_connector.py`**: Módulo dedicado a la conexión con el servidor Sebo (Socket.IO y API REST). Encargado de recibir datos de `spot-arb`, `balances-update`, `top_20_data` y realizar consultas a la API de Sebo (ej. tarifas de retiro, balances).
 -   **`ui_broadcaster.py`**: Módulo para gestionar la conexión WebSocket con la UI y retransmitir datos relevantes (top 20, balances, estado de operaciones, logs) a los clientes de la UI.
+-   **`sebo_connector.py`**: Módulo dedicado a la conexión con el servidor Sebo (Socket.IO y API REST). Encargado de recibir datos de `balances-update`, `top_20_data` y realizar consultas a la API de Sebo (ej. tarifas de retiro, balances).
+-   **`ui_broadcaster.py`**: Módulo para gestionar la conexión WebSocket con la UI y retransmitir datos relevantes (como top 20, balances, estado de operaciones, logs) a los clientes de la UI.
 -   **`trading_logic.py`**: Contendrá la lógica central de trading. Recibirá el diccionario de símbolos del `sebo_connector`, interactuará con el `ai_model` para la toma de decisiones, y coordinará las operaciones de trading (transferencias, compra, venta) a través del `exchange_manager`.
 -   **`ai_model.py`**: Módulo que contendrá la implementación real del modelo de IA (`ArbitrageIntelligenceModel`). Será responsable de procesar los datos de entrada (símbolos, precios, fees, balances), calcular la rentabilidad, y emitir una decisión sobre la ejecución de la operación. Incluirá métodos para entrenamiento, predicción y evaluación.
 -   **`exchange_manager.py`**: Abstracción para interactuar con los exchanges (usando CCXT). Manejará la obtención de precios, la ejecución de órdenes (compra/venta), y las transferencias de fondos entre exchanges. Deberá gestionar las credenciales de API de forma segura.
@@ -19,7 +22,7 @@ Se mantendrá una estructura modular similar a V2, pero con una clara separació
 
 ### Flujo de Operación de V3:
 1.  **Inicio:** `main_v3.py` inicia `sebo_connector` y `ui_broadcaster`.
-2.  **Recepción de Datos de Sebo:** `sebo_connector` recibe `spot-arb`, `balances-update` y `top_20_data` del socket de Sebo.
+2.  **Recepción de Datos de Sebo:** `sebo_connector` recibe `balances-update` y `top_20_data` del socket de Sebo.
 3.  **Retransmisión a UI:** `ui_broadcaster` retransmite `balances-update` y `top_20_data` a la UI.
 4.  **Activación de Trading (desde UI):** Cuando la UI activa el trading (ej. botón en Top20), `ui_broadcaster` envía una señal a `trading_logic`.
 5.  **Procesamiento de Oportunidad (Trading Logic):**
@@ -50,4 +53,3 @@ Se mantendrá una estructura modular similar a V2, pero con una clara separació
 -   **Resolver errores de UI:** Analizar los errores existentes en la UI de V2 y corregirlos. Completar la vista de APIs de exchanges y la funcionalidad de actualización.
 -   **Entrenamiento, Test y Trading Simulado:** Implementar un entorno para entrenar el modelo de IA con datos históricos, probar su rendimiento y simular operaciones de trading sin riesgo real. Esto implicará la generación de datos de entrenamiento y la definición de métricas de evaluación.
 -   **Conexión Trading Real:** Conectar el botón de 
-

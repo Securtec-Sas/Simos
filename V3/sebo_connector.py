@@ -20,7 +20,7 @@ class SeboConnector:
         self.is_connected = False
         
         # Callbacks para eventos
-        self.on_spot_arb_callback: Optional[Callable] = None
+        # self.on_spot_arb_callback: Optional[Callable] = None
         self.on_balances_update_callback: Optional[Callable] = None
         self.on_top20_data_callback: Optional[Callable] = None
         
@@ -57,7 +57,7 @@ class SeboConnector:
             self.is_connected = False
         
         # Handler para datos de arbitraje spot
-        self.sio.on('spot-arb', namespace='/api/spot/arb')(self._on_spot_arb_data)
+        # self.sio.on('spot-arb', namespace='/api/spot/arb')(self._on_spot_arb_data)
         
         # Handler para actualizaciones de balance
         self.sio.on('balances-update', namespace='/api/spot/arb')(self._on_balances_update)
@@ -65,16 +65,16 @@ class SeboConnector:
         # Handler para datos del top 20
         self.sio.on('top_20_data', namespace='/api/spot/arb')(self._on_top20_data)
     
-    async def _on_spot_arb_data(self, data: Dict):
-        """Maneja datos de arbitraje spot recibidos de Sebo."""
-        try:
-            symbol = safe_dict_get(data, 'symbol', 'N/A')
-            self.logger.debug(f"Recibido spot-arb para {symbol}")
+    # async def _on_spot_arb_data(self, data: Dict):
+    #     """Maneja datos de arbitraje spot recibidos de Sebo."""
+    #     try:
+    #         symbol = safe_dict_get(data, 'symbol', 'N/A')
+    #         self.logger.debug(f"Recibido spot-arb para {symbol}")
             
-            if self.on_spot_arb_callback:
-                await self.on_spot_arb_callback(data)
-        except Exception as e:
-            self.logger.error(f"Error procesando spot-arb data: {e}")
+    #         if self.on_spot_arb_callback:
+    #             await self.on_spot_arb_callback(data)
+    #     except Exception as e:
+    #         self.logger.error(f"Error procesando spot-arb data: {e}")
     
     async def _on_balances_update(self, data: Dict):
         """Maneja actualizaciones de balance recibidas de Sebo."""

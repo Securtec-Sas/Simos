@@ -45,7 +45,6 @@ class CryptoArbitrageV3:
         """Configura los callbacks entre componentes."""
         
         # Callbacks de SeboConnector
-        self.sebo_connector.set_spot_arb_callback(self._on_spot_arb_data)
         self.sebo_connector.set_balances_update_callback(self._on_balances_update)
         self.sebo_connector.set_top20_data_callback(self._on_top20_data)
         
@@ -53,6 +52,7 @@ class CryptoArbitrageV3:
         self.ui_broadcaster.set_trading_start_callback(self._on_trading_start_request)
         self.ui_broadcaster.set_trading_stop_callback(self._on_trading_stop_request)
         self.ui_broadcaster.set_ui_message_callback(self._on_ui_message)
+        self.ui_broadcaster.set_get_ai_model_details_callback(self._on_get_ai_model_details_request)
         
         # Callbacks de TradingLogic
         self.trading_logic.set_operation_complete_callback(self._on_operation_complete)
@@ -193,34 +193,6 @@ class CryptoArbitrageV3:
     
     # Callbacks de eventos
     
-    async def _on_spot_arb_data(self, data: Dict):
-        """Maneja datos de arbitraje spot recibidos de Sebo."""
-        try:
-            # Si el trading está activo, procesar la oportunidad
-            if self.trading_logic.is_trading_active():
-                # Procesar en background para no bloquear
-                asyncio.create_task(self._process_arbitrage_opportunity(data))
-            
-            # Enviar datos a UI para visualización
-            await self.ui_broadcaster.broadcast_message({
-                "type": "spot_arb_data",
-                "payload": data
-            })
-            
-        except Exception as e:
-            self.logger.error(f"Error procesando spot-arb data: {e}")
-    
-    async def _process_arbitrage_opportunity(self, data: Dict):
-        """Procesa una oportunidad de arbitraje en background."""
-        try:
-            result = await self.trading_logic.process_arbitrage_opportunity(data)
-            
-            # Enviar resultado a UI
-            await self.ui_broadcaster.broadcast_operation_result(result)
-            
-        except Exception as e:
-            self.logger.error(f"Error procesando oportunidad de arbitraje: {e}")
-    
     async def _on_balances_update(self, data: Dict):
         """Maneja actualizaciones de balance de Sebo."""
         try:
@@ -241,6 +213,23 @@ class CryptoArbitrageV3:
             
         except Exception as e:
             self.logger.error(f"Error procesando top 20 data: {e}")
+    
+    async def _on_get_ai_model_details_request(self):
+        """Maneja la solicitud de detalles del modelo de IA desde la UI."""
+        try:
+            self.logger.info("Solicitud de detalles del modelo de IA recibida desde UI")
+            model_info = self.ai_model.get_model_info()
+            
+            await self.ui_broadcaster.broadcast_message({
+                "type": "ai_model_details",
+                "payload": model_info
+            })
+            
+        except Exception as e:
+            self.logger.error(f"Error obteniendo detalles del modelo de IA: {e}")
+            await self.ui_broadcaster.broadcast_log_message(
+                "ERROR", f"Error obteniendo detalles del modelo: {e}"
+            )
     
     async def _on_trading_start_request(self, payload: Dict):
         """Maneja solicitud de inicio de trading desde UI."""
@@ -410,4 +399,3 @@ if __name__ == "__main__":
     # Ejecutar aplicación
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-
