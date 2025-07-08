@@ -34,6 +34,7 @@ class UIBroadcaster:
             'last_operation_time': None
         }
     
+    
     async def start_server(self):
         """Inicia el servidor WebSocket para la UI."""
         try:
