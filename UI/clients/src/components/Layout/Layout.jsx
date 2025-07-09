@@ -1,11 +1,14 @@
 // UI/clients/src/components/Layout/Layout.jsx
 
-import React from 'react';
+import React, { useState } from 'react'; // Importar useState
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import Sidebar from '../Sidebar/Sidebar.jsx'; // Importar Sidebar
 
-const Layout = ({ allExchanges, setAllExchanges, connectionStatus }) => {
+const Layout = ({ allExchanges, setAllExchanges, connectionStatus, balances }) => { // Recibir balances
   const location = useLocation();
+  const [showBalanceDetails, setShowBalanceDetails] = useState(false); // Estado para detalles del balance
 
+  // Estilos del Navbar (existentes)
   const navStyle = {
     backgroundColor: '#343a40',
     padding: '1rem',
@@ -68,10 +71,32 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus }) => {
     return false;
   };
 
+  // Nuevos estilos para el layout con Sidebar
+  const mainLayoutStyle = {
+    display: 'flex',
+    minHeight: 'calc(100vh - 70px)', // Ajustar según la altura del navbar
+  };
+
+  const sidebarContainerStyle = {
+    flex: '0 0 15%', // Sidebar ocupa 15%
+    backgroundColor: '#343a40', // Color de fondo igual al Navbar
+    color: '#ffffff', // Color de texto general para el Sidebar
+    padding: '1rem',
+    boxShadow: '2px 0 5px rgba(0,0,0,0.1)',
+    overflowY: 'auto', // Para scroll si el contenido del sidebar es largo
+  };
+
+  const contentContainerStyle = {
+    flex: '1', // Contenido principal ocupa el resto
+    padding: '1rem',
+    overflowY: 'auto', // Para scroll del contenido principal
+  };
+
+
   return (
     <div>
       <nav style={navStyle}>
-        <div style={containerStyle}>
+        <div style={containerStyle}> {/* Manteniendo el containerStyle para el contenido del navbar */}
           <ul style={navListStyle}>
             <li>
               <Link 
@@ -136,12 +161,64 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus }) => {
                 </div>
               </div>
             )}
+
+            {/* Sección de Balance */}
+            <div
+              style={{ marginLeft: 'auto', cursor: 'pointer', color: '#ffffff', display: 'flex', alignItems: 'center', position: 'relative' }}
+              onClick={() => setShowBalanceDetails(!showBalanceDetails)}
+            >
+              <span style={{ marginRight: '10px', fontSize: '12px', fontWeight: 'bold' }}>
+                USDT: {balances?.USDT?.total?.toFixed(2) || '0.00'}
+              </span>
+              {/* Indicador de dropdown (opcional) */}
+              <span style={{ fontSize: '10px' }}>▼</span>
+
+              {showBalanceDetails && balances && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%', // Debajo del texto del balance
+                  right: 0,
+                  backgroundColor: '#495057', // Un poco más claro que el navbar
+                  color: '#ffffff',
+                  border: '1px solid #343a40',
+                  borderRadius: '4px',
+                  padding: '15px',
+                  zIndex: 100,
+                  minWidth: '250px',
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
+                }}>
+                  <h5 style={{ marginTop: 0, marginBottom: '10px', borderBottom: '1px solid #5a6268', paddingBottom: '5px' }}>Detalles del Balance</h5>
+                  {Object.entries(balances).map(([currency, details]) => (
+                    <div key={currency} style={{ marginBottom: '8px', fontSize: '12px' }}>
+                      <strong>{currency}:</strong>
+                      <div style={{ paddingLeft: '10px' }}>
+                        <div>Total: {details.total?.toFixed(4) || 'N/A'}</div>
+                        <div>Libre: {details.free?.toFixed(4) || 'N/A'}</div>
+                        <div>Usado: {details.used?.toFixed(4) || 'N/A'}</div>
+                        {details.value_usdt && currency !== "USDT" && (
+                           <div>Valor USDT: {details.value_usdt?.toFixed(2) || 'N/A'}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </ul>
         </div>
       </nav>
       
-      <div style={containerStyle}>
-        <Outlet />
+      {/* Contenedor principal para Sidebar y Outlet */}
+      <div style={mainLayoutStyle}>
+        <div style={sidebarContainerStyle}>
+          <Sidebar allExchanges={allExchanges} setAllExchanges={setAllExchanges} />
+        </div>
+        <div style={contentContainerStyle}>
+          {/* El containerStyle original se aplica aquí dentro para el contenido del Outlet */}
+          <div style={{ ...containerStyle, margin: 0, maxWidth: '100%'}}>
+            <Outlet />
+          </div>
+        </div>
       </div>
     </div>
   );

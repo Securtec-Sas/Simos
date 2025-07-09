@@ -20,6 +20,7 @@ function App() {
     v3: 'disconnected',
     sebo: 'disconnected'
   });
+  const [balances, setBalances] = useState(null); // Estado para los balances
 
   useEffect(() => {
     fetch('/api/configured-exchanges')
@@ -144,7 +145,7 @@ function App() {
               case 'system_status':
               case 'trading_stats':
               case 'operation_result':
-              case 'balance_update':
+              // case 'balance_update': // Ya está aquí, se usará para actualizar v3Data y balances
               case 'top20_data':
               case 'log_message':
               case 'ai_model_details':
@@ -152,6 +153,10 @@ function App() {
               case 'ai_test_results':
               case 'ai_simulation_update':
                 setV3Data(prev => ({ ...prev, [message.type]: message.payload }));
+                break;
+              case 'balance_update': // Específicamente para el estado de balances
+                setBalances(message.payload); // Actualizar el estado de balances
+                setV3Data(prev => ({ ...prev, balance_update: message.payload })); // Mantener también en v3Data si es necesario
                 break;
               default:
                 console.log('Unknown V3 message type:', message.type);
@@ -206,6 +211,7 @@ function App() {
             allExchanges={allExchanges}
             setAllExchanges={setAllExchanges}
             connectionStatus={connectionStatus}
+            balances={balances} // Pasar el estado de balances
           />
         }>
           <Route path="conexion" element={<ActiveExchangesTable selectedExchanges={selectedExchanges} />} />
