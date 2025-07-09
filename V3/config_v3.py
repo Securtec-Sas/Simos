@@ -13,6 +13,26 @@ API_KEYS = {
     # Agrega aquí las claves de API para otros exchanges que vayas a usar
 }
 
+# --- MODO SANDBOX ---
+# Poner a True para operar contra los testnets/sandboxes de los exchanges.
+# Se deben configurar las SANDBOX_API_KEYS correspondientes.
+EXCHANGE_SANDBOX_MODE = False # O True para pruebas en sandbox
+
+SANDBOX_API_KEYS = {
+    "BINANCE_API_KEY": "your_binance_testnet_api_key", # Binance Testnet
+    "BINANCE_SECRET_KEY": "your_binance_testnet_secret_key",
+    "OKX_API_KEY": "your_okx_testnet_api_key", # OKX Demo Trading
+    "OKX_SECRET_KEY": "your_okx_testnet_secret_key",
+    "OKX_PASSPHRASE": "your_okx_testnet_passphrase", # OKX Demo Trading (requiere passphrase)
+    "KUCOIN_API_KEY": "your_kucoin_sandbox_api_key", # KuCoin Sandbox
+    "KUCOIN_SECRET_KEY": "your_kucoin_sandbox_secret_key",
+    "KUCOIN_PASSPHRASE": "your_kucoin_sandbox_passphrase", # KuCoin Sandbox
+    "BYBIT_API_KEY": "your_bybit_testnet_api_key", # Bybit Testnet
+    "BYBIT_SECRET_KEY": "your_bybit_testnet_secret_key",
+    # ... añadir otros exchanges según sea necesario
+}
+# --- FIN MODO SANDBOX ---
+
 # URLs de conexión
 WEBSOCKET_URL = "ws://localhost:3031/api/spot/arb"  # WebSocket de sebo
 UI_WEBSOCKET_URL = "ws://localhost:3001/api/spot/ui"  # WebSocket para la UI

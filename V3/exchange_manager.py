@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional, Tuple, List
 import ccxt.async_support as ccxt
-from config_v3 import API_KEYS, SUPPORTED_EXCHANGES, PREFERRED_NETWORKS, REQUEST_TIMEOUT
+from config_v3 import API_KEYS, SUPPORTED_EXCHANGES, PREFERRED_NETWORKS, REQUEST_TIMEOUT, EXCHANGE_SANDBOX_MODE, SANDBOX_API_KEYS
 from utils import safe_float, find_cheapest_network, validate_exchange_id
 
 class ExchangeManager:
@@ -56,25 +56,41 @@ class ExchangeManager:
             config = {
                 'enableRateLimit': True,
                 'timeout': REQUEST_TIMEOUT * 1000,  # CCXT usa milisegundos
-                'sandbox': False,  # Cambiar a True para testing
+                'sandbox': EXCHANGE_SANDBOX_MODE, # Usar la variable global de config_v3
             }
             
-            # Agregar API keys si están disponibles
-            api_key = API_KEYS.get(f"{exchange_id.upper()}_API_KEY")
-            secret_key = API_KEYS.get(f"{exchange_id.upper()}_SECRET_KEY")
+            # Seleccionar el diccionario de API keys apropiado
+            current_api_keys = SANDBOX_API_KEYS if EXCHANGE_SANDBOX_MODE else API_KEYS
+            key_type_log = "SANDBOX" if EXCHANGE_SANDBOX_MODE else "PRODUCTION"
+
+            # Nombres de las keys (asumiendo que son consistentes en ambos diccionarios)
+            api_key_name = f"{exchange_id.upper()}_API_KEY"
+            secret_key_name = f"{exchange_id.upper()}_SECRET_KEY"
+            passphrase_name = f"{exchange_id.upper()}_PASSPHRASE"
+
+            api_key = current_api_keys.get(api_key_name)
+            secret_key = current_api_keys.get(secret_key_name)
             
-            if api_key and secret_key and api_key != f"your_{exchange_id}_api_key":
+            # Placeholder para evitar usar keys de ejemplo
+            # Para sandbox, el placeholder podría ser "your_exchange_testnet_api_key"
+            # Para producción, es "your_exchange_api_key"
+            api_key_placeholder = f"your_{exchange_id.lower()}{'_testnet' if EXCHANGE_SANDBOX_MODE else ''}_api_key"
+            secret_key_placeholder = f"your_{exchange_id.lower()}{'_testnet' if EXCHANGE_SANDBOX_MODE else ''}_secret_key" # No usado directamente en check pero bueno tenerlo
+            passphrase_placeholder = f"your_{exchange_id.lower()}{'_testnet' if EXCHANGE_SANDBOX_MODE else ''}_passphrase"
+
+
+            if api_key and secret_key and api_key != api_key_placeholder:
                 config['apiKey'] = api_key
                 config['secret'] = secret_key
                 
-                # Algunos exchanges requieren passphrase
-                passphrase = API_KEYS.get(f"{exchange_id.upper()}_PASSPHRASE")
-                if passphrase and passphrase != f"your_{exchange_id}_passphrase":
+                # Algunos exchanges requieren passphrase (e.g., KuCoin, OKX sandbox)
+                passphrase = current_api_keys.get(passphrase_name)
+                if passphrase and passphrase != passphrase_placeholder:
                     config['password'] = passphrase
                 
-                self.logger.debug(f"API keys configuradas para {exchange_id}")
+                self.logger.info(f"{key_type_log} API keys configuradas para {exchange_id}")
             else:
-                self.logger.warning(f"API keys no configuradas para {exchange_id} - solo lectura")
+                self.logger.warning(f"{key_type_log} API keys no configuradas o son placeholders para {exchange_id} - solo lectura")
             
             # Crear instancia
             instance = exchange_class(config)

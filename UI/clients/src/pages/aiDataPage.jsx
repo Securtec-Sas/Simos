@@ -12,7 +12,7 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
 
   // Parámetros para entrenamiento/prueba
   const [numSamplesTrain, setNumSamplesTrain] = useState(1000);
-  const [trainDataSource, setTrainDataSource] = useState('simulation'); // 'simulation' o 'sebo_api'
+  const [trainDataSource, setTrainDataSource] = useState('simulation'); // 'simulation', 'sebo_api' o 'csv_upload'
   const [numSamplesTest, setNumSamplesTest] = useState(200);
   const [simulationDuration, setSimulationDuration] = useState(30); // en minutos
 
@@ -21,6 +21,11 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [numSymbols, setNumSymbols] = useState(20);
   const [numOperations, setNumOperations] = useState(10000);
+  const [trainingFile, setTrainingFile] = useState(null);
+  const [trainingFileError, setTrainingFileError] = useState('');
+  const [testFile, setTestFile] = useState(null);
+  const [testFileError, setTestFileError] = useState('');
+  const [apiKeyMissingPopup, setApiKeyMissingPopup] = useState({ isOpen: false, exchangeId: '', message: '' });
 
   useEffect(() => {
     if (v3Data) {
@@ -37,6 +42,15 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
       }
       if (v3Data.ai_simulation_update) {
         setSimulationStatus(v3Data.ai_simulation_update);
+      }
+      // Check for API key missing error
+      if (v3Data.error_api_key_missing) {
+        setApiKeyMissingPopup({
+          isOpen: true,
+          exchangeId: v3Data.error_api_key_missing.exchange_id,
+          message: v3Data.error_api_key_missing.message || `Faltan API keys para ${v3Data.error_api_key_missing.exchange_id} o son incorrectas.`
+        });
+        // Optionally, reset the error in v3Data or have V3 send it only once
       }
     }
   }, [v3Data, isLoading]); // Añadir isLoading a las dependencias de useEffect
@@ -74,6 +88,20 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
     }
   };
 
+  const handleTestFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      if (file.type === "text/csv" || file.name.endsWith(".csv")) {
+        setTestFile(file);
+        setTestFileError('');
+      } else {
+        setTestFile(null);
+        setTestFileError('Por favor, selecciona un archivo CSV válido para probar.');
+        alert('Por favor, selecciona un archivo CSV válido para probar.');
+      }
+    }
+  };
+
   const handleTrainClick = () => {
     let payload = {
       data_source: trainDataSource,
@@ -86,9 +114,37 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
       payload.end_date = endDate;
       payload.num_symbols = numSymbols;
       payload.num_operations = numOperations;
+    } else if (trainDataSource === 'csv_upload') {
+      if (!trainingFile) {
+        setTrainingFileError('Por favor, selecciona un archivo CSV para entrenar.');
+        alert('Por favor, selecciona un archivo CSV para entrenar.');
+        return;
+      }
+      // Aquí leeríamos el archivo. Por ahora, simularemos que el backend lo maneja.
+      // En una implementación real, podríamos enviar el archivo vía FormData
+      // o leer su contenido y enviarlo como string si es pequeño.
+      // Por simplicidad en este paso, solo enviaremos el nombre del archivo
+      // y asumiremos que el backend tiene acceso a él o se implementará la subida.
+      payload.file_name = trainingFile.name;
+      // payload.file_content = await trainingFile.text(); // Ejemplo si se envía contenido
+      setTrainingFileError('');
     }
 
     handleRequest('train_ai_model', payload);
+  };
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      if (file.type === "text/csv" || file.name.endsWith(".csv")) {
+        setTrainingFile(file);
+        setTrainingFileError('');
+      } else {
+        setTrainingFile(null);
+        setTrainingFileError('Por favor, selecciona un archivo CSV válido.');
+        alert('Por favor, selecciona un archivo CSV válido.');
+      }
+    }
   };
 
   // Estilos básicos
@@ -108,9 +164,56 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
   });
   const controlGroupStyle = { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' };
 
+  // Estilos para el Popup Modal
+  const modalOverlayStyle = {
+    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex',
+    alignItems: 'center', justifyContent: 'center', zIndex: 1000
+  };
+  const modalContentStyle = {
+    backgroundColor: 'white', padding: '30px', borderRadius: '8px',
+    boxShadow: '0 4px 8px rgba(0,0,0,0.2)', textAlign: 'center',
+    maxWidth: '400px', width: '90%'
+  };
+  const modalCloseButtonStyle = {
+    padding: '8px 15px', backgroundColor: '#007bff', color: 'white',
+    border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '20px'
+  };
+
+  const chartPlaceholderStyle = {
+    width: '100%',
+    height: '200px',
+    backgroundColor: '#e0e0e0',
+    border: '1px solid #ccc',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
+    color: '#666',
+    fontSize: '16px',
+    marginTop: '15px',
+    borderRadius: '4px',
+  };
 
   return (
     <div style={pageStyle}>
+      {apiKeyMissingPopup.isOpen && (
+        <div style={modalOverlayStyle}>
+          <div style={modalContentStyle}>
+            <h3>API Key Requerida</h3>
+            <p>{apiKeyMissingPopup.message}</p>
+            <p>Exchange: <strong>{apiKeyMissingPopup.exchangeId.toUpperCase()}</strong></p>
+            <p>Por favor, configura las API keys en la página de <a href="/exchange-apis" style={{color: '#007bff'}}>Configuración de APIs</a>.</p>
+            <button
+              onClick={() => setApiKeyMissingPopup({ isOpen: false, exchangeId: '', message: '' })}
+              style={modalCloseButtonStyle}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
       <h1 style={headerStyle}>Gestión y Simulación del Modelo de IA (V3)</h1>
 
       {/* Sección de Detalles del Modelo */}
@@ -135,18 +238,26 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
             <select value={trainDataSource} onChange={e => setTrainDataSource(e.target.value)} style={selectStyle}>
               <option value="simulation">Simulación (Interna V3)</option>
               <option value="sebo_api">Sebo API (Histórico)</option>
-              {/* <option value="csv_upload">Subir CSV</option>  // Opción futura */}
+              <option value="csv_upload">Subir CSV</option>
             </select>
           </label>
-          {trainDataSource === 'simulation' ? (
+          {trainDataSource === 'simulation' && (
             <label>Muestras: <input type="number" value={numSamplesTrain} onChange={e => setNumSamplesTrain(parseInt(e.target.value))} style={inputStyle} /></label>
-          ) : (
+          )}
+          {trainDataSource === 'sebo_api' && (
             <>
               <label>Fecha Inicial: <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} /></label>
               <label>Fecha Final: <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} /></label>
               <label>Cant. Símbolos: <input type="number" value={numSymbols} onChange={e => setNumSymbols(parseInt(e.target.value))} style={inputStyle} /></label>
               <label>Cant. Operaciones: <input type="number" value={numOperations} onChange={e => setNumOperations(parseInt(e.target.value))} style={inputStyle} /></label>
             </>
+          )}
+          {trainDataSource === 'csv_upload' && (
+            <div>
+              <input type="file" accept=".csv" onChange={handleFileChange} style={{ ...inputStyle, width: 'auto' }} />
+              {trainingFile && <p style={{marginTop: '5px', fontSize: '12px'}}>Archivo seleccionado: {trainingFile.name}</p>}
+              {trainingFileError && <p style={{ color: 'red', marginTop: '5px', fontSize: '12px' }}>{trainingFileError}</p>}
+            </div>
           )}
         </div>
         <div style={controlGroupStyle}>
@@ -165,6 +276,21 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
             {trainingStatus.details && Object.keys(trainingStatus.details).length > 0 && (
               <pre style={{...preStyle, maxHeight: '150px'}}>{JSON.stringify(trainingStatus.details, null, 2)}</pre>
             )}
+            {/* Placeholder para gráfica de entrenamiento */}
+            {trainingStatus.status === 'TRAINING_IN_PROGRESS' && trainingStatus.progress > 0 && (
+              <div style={chartPlaceholderStyle}>
+                Gráfica de Progreso de Entrenamiento (ej: Loss vs Epochs) iría aquí.
+                <br />
+                Progreso actual: {(trainingStatus.progress * 100).toFixed(1)}%
+              </div>
+            )}
+            {trainingStatus.status === 'COMPLETED' && trainingStatus.details && (
+                 <div style={chartPlaceholderStyle}>
+                    Gráfica de Resultados de Entrenamiento (ej: Métricas finales) iría aquí.
+                    <br/>
+                    Datos disponibles en "trainingStatus.details".
+                 </div>
+            )}
           </div>
         )}
       </div>
@@ -173,19 +299,42 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
       <div style={sectionStyle}>
         <h2>Prueba del Modelo</h2>
         <div style={controlGroupStyle}>
-          <label>Muestras de Prueba: <input type="number" value={numSamplesTest} onChange={e => setNumSamplesTest(parseInt(e.target.value))} style={inputStyle} /></label>
+          <div>
+            <label htmlFor="testFileUpload" style={{ display: 'block', marginBottom: '5px' }}>Archivo CSV para Prueba:</label>
+            <input id="testFileUpload" type="file" accept=".csv" onChange={handleTestFileChange} style={{ ...inputStyle, width: 'auto' }} />
+            {testFile && <p style={{marginTop: '5px', fontSize: '12px'}}>Archivo seleccionado: {testFile.name}</p>}
+            {testFileError && <p style={{ color: 'red', marginTop: '5px', fontSize: '12px' }}>{testFileError}</p>}
+          </div>
+        </div>
+        <div style={controlGroupStyle}>
           <button
-            onClick={() => handleRequest('test_ai_model', { num_samples: numSamplesTest })}
+            onClick={() => {
+              if (!testFile) {
+                setTestFileError('Por favor, selecciona un archivo CSV para probar.');
+                alert('Por favor, selecciona un archivo CSV para probar.');
+                return;
+              }
+              setTestFileError('');
+              handleRequest('test_ai_model', { file_name: testFile.name /*, file_content: await testFile.text() */ });
+            }}
             style={{...buttonStyle, backgroundColor: '#ffc107', color: 'black'}}
-            disabled={!aiModelDetails || !aiModelDetails.is_trained || testResults?.status === "REQUESTED"}
+            disabled={!aiModelDetails || !aiModelDetails.is_trained || testResults?.status === "REQUESTED" || !testFile}
           >
-            Probar Modelo
+            Probar Modelo con CSV
           </button>
         </div>
         {testResults && (
           <div style={statusBoxStyle(testResults.error ? 'FAILED' : 'COMPLETED')}>
             <h3>Resultados de Prueba:</h3>
             <pre style={preStyle}>{JSON.stringify(testResults, null, 2)}</pre>
+            {/* Placeholder para gráfica de resultados de prueba */}
+            {!testResults.error && Object.keys(testResults).length > 0 && (
+              <div style={chartPlaceholderStyle}>
+                Gráfica de Resultados de Prueba (ej: Accuracy, Precision, Recall, Curva ROC) iría aquí.
+                <br />
+                Datos disponibles en "testResults".
+              </div>
+            )}
           </div>
         )}
          {aiModelDetails && !aiModelDetails.is_trained && <p style={{color: 'orange', marginTop:'5px'}}>El modelo necesita ser entrenado antes de poder probarlo.</p>}
@@ -208,7 +357,15 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
            <div style={statusBoxStyle(simulationStatus.status)}>
             <p>Estado de Simulación: <strong>{simulationStatus.status}</strong></p>
             {simulationStatus.data && Object.keys(simulationStatus.data).length > 0 && (
-              <pre style={{...preStyle, maxHeight: '200px'}}>{JSON.stringify(simulationStatus.data, null, 2)}</pre>
+              <>
+                <pre style={{...preStyle, maxHeight: '200px'}}>{JSON.stringify(simulationStatus.data, null, 2)}</pre>
+                {/* Placeholder para gráfica de simulación */}
+                <div style={chartPlaceholderStyle}>
+                  Gráfica de Resultados de Simulación (ej: P&L vs Tiempo) iría aquí.
+                  <br />
+                  Datos disponibles en "simulationStatus.data".
+                </div>
+              </>
             )}
           </div>
         )}
