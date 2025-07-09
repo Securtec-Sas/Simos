@@ -16,6 +16,12 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
   const [numSamplesTest, setNumSamplesTest] = useState(200);
   const [simulationDuration, setSimulationDuration] = useState(30); // en minutos
 
+  // Nuevos parámetros para entrenamiento con 'sebo_api'
+  const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [numSymbols, setNumSymbols] = useState(20);
+  const [numOperations, setNumOperations] = useState(10000);
+
   useEffect(() => {
     if (v3Data) {
       if (v3Data.ai_model_details) {
@@ -23,6 +29,7 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
         if (isLoading && v3Data.ai_model_details) setIsLoading(false); // Detener carga si los detalles llegaron
       }
       if (v3Data.ai_training_update) {
+
         setTrainingStatus(v3Data.ai_training_update);
       }
       if (v3Data.ai_test_results) {
@@ -40,8 +47,20 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
       if (command === 'get_ai_model_details') setIsLoading(true);
       // Resetear estados visuales para nuevas acciones
       if (command === 'train_ai_model') {
+
+
+
+        /**
+        * obtebet de payload el taraindatasource si es ihial a simulautad debe llamar el metdo de simulation_engine => generate_training_data
+         * si e igual sebo-api, debe emitirlos por el socket y esperar actualizacines de avanxe cada 10 segundos
+         * enviar mensaje de entrenamiento a V3 emitir payload, obtner lo datos de 'train_ai_model' del socket para recibir
+         * estado del entrenamiento,y actualizar los datos del entrenamiento en vivo, (por ahora actualizar estado y progreso data 
+         * solo imprimirlo en una caja de teto) en la vista 
+         *  al finalizar el entrenamiento motrar resultados y dejar de recibir 'train_ai_model' del socket, 
+         */
         setTrainingStatus({ status: "REQUESTED", progress: 0, details: {} });
         setTestResults(null); // Limpiar resultados de test anteriores
+        
       }
       if (command === 'test_ai_model') {
         setTestResults(null); // Limpiar para mostrar nuevos resultados
@@ -53,6 +72,23 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
       console.error("sendV3Command function not provided to AIDataPage");
       alert("Error: Cannot send command to V3.");
     }
+  };
+
+  const handleTrainClick = () => {
+    let payload = {
+      data_source: trainDataSource,
+    };
+
+    if (trainDataSource === 'simulation') {
+      payload.num_samples = numSamplesTrain;
+    } else if (trainDataSource === 'sebo_api') {
+      payload.start_date = startDate;
+      payload.end_date = endDate;
+      payload.num_symbols = numSymbols;
+      payload.num_operations = numOperations;
+    }
+
+    handleRequest('train_ai_model', payload);
   };
 
   // Estilos básicos
@@ -95,7 +131,6 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
       <div style={sectionStyle}>
         <h2>Entrenamiento del Modelo</h2>
         <div style={controlGroupStyle}>
-          <label>Muestras: <input type="number" value={numSamplesTrain} onChange={e => setNumSamplesTrain(parseInt(e.target.value))} style={inputStyle} /></label>
           <label>Fuente:
             <select value={trainDataSource} onChange={e => setTrainDataSource(e.target.value)} style={selectStyle}>
               <option value="simulation">Simulación (Interna V3)</option>
@@ -103,8 +138,20 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
               {/* <option value="csv_upload">Subir CSV</option>  // Opción futura */}
             </select>
           </label>
+          {trainDataSource === 'simulation' ? (
+            <label>Muestras: <input type="number" value={numSamplesTrain} onChange={e => setNumSamplesTrain(parseInt(e.target.value))} style={inputStyle} /></label>
+          ) : (
+            <>
+              <label>Fecha Inicial: <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} /></label>
+              <label>Fecha Final: <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} /></label>
+              <label>Cant. Símbolos: <input type="number" value={numSymbols} onChange={e => setNumSymbols(parseInt(e.target.value))} style={inputStyle} /></label>
+              <label>Cant. Operaciones: <input type="number" value={numOperations} onChange={e => setNumOperations(parseInt(e.target.value))} style={inputStyle} /></label>
+            </>
+          )}
+        </div>
+        <div style={controlGroupStyle}>
           <button
-            onClick={() => handleRequest('train_ai_model', { num_samples: numSamplesTrain, data_source: trainDataSource })}
+            onClick={handleTrainClick}
             style={{...buttonStyle, backgroundColor: '#28a745'}}
             disabled={trainingStatus.status === 'REQUESTED' || trainingStatus.status === 'STARTED' || trainingStatus.status === 'GENERATING_SIM_DATA' || trainingStatus.status === 'FETCHING_DATA_SEBO' || trainingStatus.status === 'TRAINING_IN_PROGRESS'}
           >

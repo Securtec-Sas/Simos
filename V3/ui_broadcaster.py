@@ -24,6 +24,7 @@ class UIBroadcaster:
         self.on_trading_stop_callback: Optional[Callable] = None
         self.on_ui_message_callback: Optional[Callable] = None
         self.on_get_ai_model_details_callback: Optional[Callable] = None
+        self.on_train_ai_model_callback: Optional[Callable] = None
         
         # Estado del trading
         self.trading_active = False
@@ -123,6 +124,9 @@ class UIBroadcaster:
             elif message_type == 'get_ai_model_details':
                 if self.on_get_ai_model_details_callback:
                     await self.on_get_ai_model_details_callback()
+            elif message_type == 'train_ai_model':
+                if self.on_train_ai_model_callback:
+                    await self.on_train_ai_model_callback(payload)
             elif message_type == 'ping':
                 await self._send_pong(websocket)
             else:
@@ -293,6 +297,10 @@ class UIBroadcaster:
     def set_get_ai_model_details_callback(self, callback: Callable):
         """Establece el callback para solicitar detalles del modelo de IA."""
         self.on_get_ai_model_details_callback = callback
+
+    def set_train_ai_model_callback(self, callback: Callable):
+        """Establece el callback para la solicitud de entrenamiento del modelo de IA."""
+        self.on_train_ai_model_callback = callback
 
     # Métodos para actualizar estadísticas
     

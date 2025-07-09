@@ -53,3 +53,13 @@ Se mantendrá una estructura modular similar a V2, pero con una clara separació
 -   **Resolver errores de UI:** Analizar los errores existentes en la UI de V2 y corregirlos. Completar la vista de APIs de exchanges y la funcionalidad de actualización.
 -   **Entrenamiento, Test y Trading Simulado:** Implementar un entorno para entrenar el modelo de IA con datos históricos, probar su rendimiento y simular operaciones de trading sin riesgo real. Esto implicará la generación de datos de entrenamiento y la definición de métricas de evaluación.
 -   **Conexión Trading Real:** Conectar el botón de 
+
+
+
+**Entrenamieto de modelo**
+se sacrifica la velocidad por la veracodad e incorruptes de datos 
+si se detecta un valor corrupto o null se debe lanzar flag, continuar con el sigiente dato, guardar array de datos corruptos o incompletos y consulyar nuevamente al finañ 
+datos con precision de 0*10-12
+        //tiempo optimizado de de entrnamiento 12 mins para 240000 variables 
+        // dividir variables en paquetes de  1000 datos no broadcasu importa la incorruptes de los datps mas qie la velocidad mdelo OSI
+        // recibe por stream y ordema en pila de datos para analisar MEMCACHE

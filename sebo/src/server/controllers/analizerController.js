@@ -704,7 +704,6 @@ const actualizePricetop20 = async (req, res) => {
         if (res && !res.headersSent) res.status(500).json({ message: "A critical error occurred during the price update process.", error: error.message });
     }
 };
-// ...resto del código...
 
 const getFormattedTopAnalysis = async (limit = 20) => {
   try {
@@ -773,6 +772,145 @@ const getFormattedTopAnalysis = async (limit = 20) => {
   }
 };
 
+/**
+ * recibe un valor entero 
+ * @param payload.fecha_inicio Date
+ * @param payload.fecha_fin Date
+ * @param payload.symbol_count Nunber
+ * @param payload.data_countdata_count Number
+ * @requires payload
+ * @returns data_train = {
+ *         id_exsyMin: minSellDoc._id,
+        id_exsyMax: maxBuyDoc._id,
+        Val_buy: maxBuy,
+        Val_sell: minSell,
+        promedio: promedio,
+        symbolId: candidate.symbolId,
+        taker_fee_exMin: takerFeeExMin,
+        maker_fee_exMin: makerFeeExMin,
+        taker_fee_exMax: takerFeeExMax,
+        maker_fee_exMax: makerFeeExMax,
+        withdrawal_fee_asset_from_exMin: withdrawalFeeAssetFromExMin,
+        withdrawal_network_asset_from_exMin: withdrawalNetworkAssetFromExMin,
+        } 
+ * obtener symbol_count Analisis aleatoreos de la tabla analysis
+ * dividir el tiempo entre fecha_inicio y fecha entre data_count
+ * para obtener el rango rn cual se debe consutar el valor del analisis
+ * obtener para cada analisis los valres de compra y venta entre las fechasde inicio y fin
+ * con saltos segun el rango de tiempo obtenido 
+ * Rango(fecha_inicio,fecha_fin)en horas /data_count = intervalo de consulta en tiempo
+ * ej: si el rango =  48H / 24 = 2h intervalo de consulta cada 2 horas entra las fecha 
+ * que deben ser fechas anteriores a la actual 
+ * agregar los datos a un array que debe contener las consultas para los N analisis
+ * entre las fechas de inicio y fin, segun el intervalo, cada intervano crea un analisis 
+ * que no esta ligado al anterior, es un elemento nuevo dentro del arreglo 
+ */
+const dataTrainModel = async (req) => {
+const { start_date, end_date, num_symbols, num_operations } = req.payload;
+    console.log(`Generating training data: ${num_symbols} symbols, ${num_operations} operations, from ${start_date} to ${end_date}`);
+
+    if (!start_date || !end_date || !num_symbols || !num_operations) {
+        throw new Error("Missing required parameters: start_date, end_date, num_symbols, num_operations");
+    }
+
+    // 1. Get a random sample of analysis documents to base our data on
+    const randomAnalyses = await Analysis.aggregate([
+        { $match: { promedio: { $gt: 0 } } }, // Only pick potentially profitable ones
+        { $sample: { size: parseInt(num_symbols, 10) } }
+    ]);
+
+    if (randomAnalyses.length === 0) {
+        throw new Error("No suitable analysis documents found in the database to generate training data.");
+    }
+
+    // Populate the necessary fields
+    const analysisIds = randomAnalyses.map(a => a._id);
+    const analyses = await Analysis.find({ _id: { $in: analysisIds } })
+        .populate({
+            path: 'id_exchsymbol',
+            select: 'sy_id symbolName'
+        })
+        .lean();
+
+    // 2. Calculate time interval for data points
+    const startDate = new Date(start_date);
+    const endDate = new Date(end_date);
+    const totalDurationMs = endDate.getTime() - startDate.getTime();
+
+    if (totalDurationMs <= 0 || num_operations <= 1) {
+        throw new Error('Invalid date range or number of operations.');
+    }
+    const intervalMs = totalDurationMs / (num_operations - 1);
+
+    const trainingData = [];
+
+    // 3. Generate synthetic data points
+    for (let i = 0; i < num_operations; i++) {
+        const currentTimestamp = new Date(startDate.getTime() + i * intervalMs);
+        
+        // Pick a random analysis from our sample for this data point
+        const baseAnalysis = analyses[Math.floor(Math.random() * analyses.length)];
+
+        if (!baseAnalysis.id_exchsymbol) continue; // Skip if population failed
+
+        const buy_price = baseAnalysis.Val_min_sell;
+        const sell_price = baseAnalysis.Val_max_buy;
+
+        // Add noise to simulate historical variation
+        const price_variation = (Math.random() - 0.5) * 0.10; // +/- 5% noise
+        const noisy_buy_price = buy_price * (1 + price_variation);
+        const noisy_sell_price = sell_price * (1 + price_variation);
+
+        const investment_usdt = 50 + Math.random() * 950; // Random investment
+
+        // Simulate execution with slippage and volatility
+        const buy_slippage = Math.random() * 0.005;
+        const sell_slippage = Math.random() * 0.005;
+        const volatility_factor = 1 + (Math.random() - 0.5) * 0.02;
+
+        const actual_buy_price = noisy_buy_price * (1 + buy_slippage);
+        let actual_sell_price = noisy_sell_price * (1 - sell_slippage);
+        actual_sell_price *= volatility_factor;
+
+        // Simplified profit calculation
+        const buy_fee_rate = baseAnalysis.taker_fee_exMin || 0.001;
+        const sell_fee_rate = baseAnalysis.taker_fee_exMax || 0.001;
+        const asset_withdrawal_fee_rate = 0.001;
+
+        const asset_bought_gross = investment_usdt / actual_buy_price;
+        const asset_bought_net = asset_bought_gross * (1 - buy_fee_rate);
+        const asset_to_sell = asset_bought_net * (1 - asset_withdrawal_fee_rate);
+        const usdt_from_sale_gross = asset_to_sell * actual_sell_price;
+        const usdt_final = usdt_from_sale_gross * (1 - sell_fee_rate);
+        const net_profit = usdt_final - investment_usdt;
+
+        let success = net_profit > 0.01;
+        let decision_outcome = success ? "EJECUTADA_SIMULADA" : "PERDIDA_SIMULADA";
+
+        if (Math.random() < 0.05) { // 5% random failure chance
+            decision_outcome = "ERROR_SIMULACION";
+            success = false;
+        }
+
+        trainingData.push({
+            symbol: baseAnalysis.id_exchsymbol.sy_id,
+            buy_exchange_id: baseAnalysis.id_exdataMin,
+            sell_exchange_id: baseAnalysis.id_exdataMax,
+            current_price_buy: noisy_buy_price,
+            current_price_sell: noisy_sell_price,
+            investment_usdt: investment_usdt,
+            timestamp: currentTimestamp.toISOString(),
+            decision_outcome: decision_outcome,
+            net_profit_usdt: net_profit,
+            success: success,
+        });
+    }
+
+    return trainingData;
+};
+
+
+
 module.exports = {
     createAnalysis,
     getAllAnalysis,
@@ -784,5 +922,6 @@ module.exports = {
     addAnalyzeSymbols,
     depuredExchangeSymbolData,
     analisisExchangeSimbol,
-    actualizePricetop20
+    actualizePricetop20,
+    dataTrainModel
 }

@@ -1,7 +1,7 @@
 // const ccxt = require("ccxt"); // No longer needed here
 // const { readSpotCoinsFileHelper } = require("./spotController"); // No longer needed here
 // const { getTopOpportunitiesFromDB } = require(/'./spotController/'); // Removed
-const { getFormattedTopAnalysis } = require('./analizerController')
+const { getFormattedTopAnalysis, dataTrainModel } = require('./analizerController')
 const { getLatestBalanceDocument } = require('./balanceController')
 // let ioInstance = null; // No parece ser utilizado, se puede eliminar
 
@@ -35,30 +35,50 @@ async function emitSpotPricesLoop(io) {
     `SpotSocketController: Namespace ${SPOT_ARB_DATA_NAMESPACE} inicializado. Esperando conexiones...`
   );
 
-  targetNamespace.on('connection/', async (socket) => {
+  targetNamespace.on('connection', async (socket) => {
     console.log(`SpotSocketController: Cliente conectado al namespace ${SPOT_ARB_DATA_NAMESPACE} con ID: ${socket.id}`);
 
     // Enviar el último balance al cliente recién conectado
     try {
       const latestBalance = await getLatestBalanceDocument();
       if (latestBalance) { // latestBalance puede ser null si no hay documentos
-        socket.emit('balances-update/', latestBalance); // Enviar el objeto único
+        socket.emit('balances-update', latestBalance); // Enviar el objeto único
         // console.log(`SpotSocketController: Evento /'balances-update/' emitido al cliente ${socket.id} con el último balance.`);
       } else {
-        socket.emit('balances-update/', {}); // Enviar objeto vacío o null si no hay balance
+        socket.emit('balances-update', {}); // Enviar objeto vacío o null si no hay balance
       }
     } catch (error) {
       console.error(`SpotSocketController: Error al obtener o emitir el último balance para ${socket.id}:`, error);
-      socket.emit('balances-update/', { error: 'Error al obtener el último balance del servidor./' }); // Informar al cliente del error
+      socket.emit('balances-update', { error: 'Error al obtener el último balance del servidor./' }); // Informar al cliente del error
     }
 
-    socket.on('disconnect/', () => {
+    // Listener for training data requests from the Python V3 client
+    socket.on('train_ai_model', async (payload) => {
+      try {
+        console.log(`Received 'train_ai_model' request from ${socket.id} with payload:`, payload);
+        const req = { payload }; // Create a mock request object for the controller
+        const trainingData = await dataTrainModel(req);
+        console.log(`Generated ${trainingData.length} training records. Sending back to client.`);
+        
+        // Emit the data back on a dedicated response event
+        socket.emit('training_data_response', {
+          status: 'success',
+          data: trainingData
+        });
+      } catch (error) {
+        console.error(`Error processing 'train_ai_model' request for ${socket.id}:`, error);
+        socket.emit('training_data_response', { status: 'error', message: error.message });
+      }
+    });
+
+    socket.on('disconnect', () => {
       console.log(`SpotSocketController: Cliente desconectado del namespace ${SPOT_ARB_DATA_NAMESPACE} con ID: ${socket.id}`);
     });
 
     // Listen for balance updates pushed from V2 client
-    socket.on('v2_last_balance_update/', async (balanceData) => {
+    socket.on('v2_last_balance_update', async (balanceData) => {
     });
+
   });
 
   console.log(
@@ -87,6 +107,7 @@ async function emitSpotPricesLoop(io) {
       } else {
         targetNamespace.emit("balances-update", {}); // Emit empty object if no balance found
       }
+      
 
     } catch (err) {
       console.error(
@@ -104,5 +125,3 @@ const getLastSpotArb = (req, res) => {
 };
 
 module.exports = { emitSpotPricesLoop, getLastSpotArb };
-
-

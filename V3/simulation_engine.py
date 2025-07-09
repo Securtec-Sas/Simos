@@ -32,6 +32,7 @@ class SimulationEngine:
             'end_time': None
         }
         
+
         # Configuración de simulación
         self.simulation_config = {
             'initial_balance': 1000.0,
@@ -42,6 +43,10 @@ class SimulationEngine:
             'slippage_range': (0.001, 0.01)  # Rango de slippage (0.1% - 1%)
         }
     
+    """
+    datos de entrenamiento se obtienen de el hsitorico de la tabla analisis de la bd a 
+    travez de sebo por el endPoint ...... 
+    """
     async def generate_training_data(
         self, 
         num_samples: int = 1000,
@@ -60,6 +65,10 @@ class SimulationEngine:
             ]
             
             # Exchanges populares
+            """
+            los exchangas se obtienen de el endPoint /api/exchanges/configured retorna lista de exchanges
+            configurados
+            """
             exchanges = ['binance', 'okx', 'kucoin', 'bybit', 'huobi', 'gate']
             
             for i in range(num_samples):

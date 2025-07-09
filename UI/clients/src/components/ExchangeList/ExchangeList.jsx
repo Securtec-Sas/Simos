@@ -12,7 +12,7 @@ const ExchangeList = ({ allExchanges, setAllExchanges }) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch('/api/configured-exchanges');
+        const response = await fetch('/api/exchanges/configured');
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const exchangesData = await response.json();
         setAllExchanges(exchangesData);
