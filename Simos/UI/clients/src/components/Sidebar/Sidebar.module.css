@@ -1,0 +1,26 @@
+.menuHeader {
+    margin-top: 0;
+    margin-bottom: 0;
+    font-size: 1.2em;
+    color: inherit; /* Heredar color del contenedor padre */
+    cursor: pointer;
+    padding: 5px 0;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: none;
+    border: none;
+    width: 100%;
+    outline: none;
+}
+
+.menuTitleText {
+    flex-grow: 1;
+    font-weight: bold;
+    text-align: left;
+}
+
+.arrowIndicator {
+    margin-left: 5px;
+}

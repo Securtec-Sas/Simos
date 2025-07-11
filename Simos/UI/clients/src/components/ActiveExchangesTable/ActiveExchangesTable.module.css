@@ -1,0 +1,84 @@
+.activeExchangesTable {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+    background-color: #fff;
+}
+
+.activeExchangesTable th,
+.activeExchangesTable td {
+    border: 1px solid #ddd;
+    padding: 10px 15px;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.activeExchangesTable th {
+    background-color: #007bff;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+.activeExchangesTable th#exchangeNameHeader {
+    font-size: 0.75em;
+}
+
+.activeExchangesTable tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.activeExchangesTable tr:hover {
+    background-color: #f1f1f1;
+}
+
+.apiAccessHeaderIcons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    justify-content: center;
+}
+
+.api-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    margin: 0 2px;
+    vertical-align: middle;
+    box-shadow: 0 0 3px rgba(0,0,0,0.3);
+}
+
+.green {
+    background-color: #28a745;
+}
+
+.red {
+    background-color: #dc3545;
+}
+
+.private-api-icon {
+    margin-left: 4px;
+}
+
+.errorMessageCell {
+    max-width: 250px;
+    overflow-x: auto;
+    white-space: nowrap;
+    font-size: 0.9em;
+}
+
+.statusOnline {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.statusConnecting {
+    color: #007bff;
+    font-style: italic;
+}
+
+.statusError {
+    color: #dc3545;
+    font-weight: bold;
+}

@@ -1,0 +1,8 @@
+{
+  "experiment_name": "experiment_20250708_013005",
+  "timestamp": "20250708_013005",
+  "training_samples": 1000,
+  "backtest_samples": 500,
+  "simulation_duration": 30,
+  "initial_balance": 1000.0
+}
