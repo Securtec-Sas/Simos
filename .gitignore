@@ -1,0 +1,30 @@
+Simos_V3_Complete.zip
+Simos_Socket_Fixes_Final.zip
+Simos_Actualizaciones_V3_Final.zip
+Simos.rar
+simos_actualizado.zip
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python/
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.benchmarks/
+# Vite
+.vite/
+dist/
+# React
+build/
