@@ -17,10 +17,10 @@ let lastSpotArbData = []; // Stays as an array, will store data from DB
  *     summary: WebSocket endpoint for spot arbitrage data.
  *     tags: [Spot]
  *     responses:
- *       /'200/':
- *         description: Connected to the WebSocket.
- *     webSocket:
- *       $ref: /'#/components/webSockets/spot-arb/'
+ *       '200':
+         description: Connected to the WebSocket.
+     webSocket:
+       $ref: '#/components/webSockets/spot-arb/'rb/'
  */
 const SPOT_ARB_DATA_NAMESPACE =
   process.env.SPOT_ARB_DATA_NAMESPACE || "/api/spot/arb"; // CORREGIDO
@@ -42,14 +42,14 @@ async function emitSpotPricesLoop(io) {
     try {
       const latestBalance = await getLatestBalanceDocument();
       if (latestBalance) { // latestBalance puede ser null si no hay documentos
-        socket.emit('balances-update', latestBalance); // Enviar el objeto único
-        // console.log(`SpotSocketController: Evento /'balances-update/' emitido al cliente ${socket.id} con el último balance.`);
+      socket.emit("balances-update", latestBalance); // Enviar el objeto único
+        // console.log(`SpotSocketController: Evento 'balances-update' emitido al cliente ${socket.id} con el último balance.`);
       } else {
         socket.emit('balances-update', {}); // Enviar objeto vacío o null si no hay balance
       }
     } catch (error) {
       console.error(`SpotSocketController: Error al obtener o emitir el último balance para ${socket.id}:`, error);
-      socket.emit('balances-update', { error: 'Error al obtener el último balance del servidor./' }); // Informar al cliente del error
+      socket.emit('balances-update', { error: 'Error al obtener el último balance del servidor.' }); // Informar al cliente del error
     }
 
     // Listener for training data requests from the Python V3 client
@@ -125,3 +125,5 @@ const getLastSpotArb = (req, res) => {
 };
 
 module.exports = { emitSpotPricesLoop, getLastSpotArb };
+
+

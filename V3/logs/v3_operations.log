@@ -37272,3 +37272,26 @@
 2025-07-09 00:25:37,478 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
 2025-07-09 00:25:42,660 - V3.SeboConnector - INFO - Recibidos datos top 20: 20 items
 2025-07-09 00:25:42,664 - V3.SeboConnector - INFO - Recibida actualización de balances: 5
+2025-07-12 03:42:52,099 - V3 - INFO - Iniciando Crypto Arbitrage V3
+2025-07-12 03:42:52,460 - V3.ArbitrageAIModel - INFO - Modelo de IA cargado desde models/arbitrage_model.pkl
+2025-07-12 03:42:52,461 - V3 - INFO - Inicializando componentes...
+2025-07-12 03:42:52,461 - V3.ExchangeManager - INFO - Inicializando ExchangeManager...
+2025-07-12 03:42:52,462 - V3.ExchangeManager - WARNING - PRODUCTION API keys no configuradas o son placeholders para binance - solo lectura
+2025-07-12 03:42:52,480 - V3.ExchangeManager - WARNING - PRODUCTION API keys no configuradas o son placeholders para okx - solo lectura
+2025-07-12 03:42:52,494 - V3.ExchangeManager - WARNING - PRODUCTION API keys no configuradas o son placeholders para kucoin - solo lectura
+2025-07-12 03:42:52,500 - V3.ExchangeManager - WARNING - PRODUCTION API keys no configuradas o son placeholders para bybit - solo lectura
+2025-07-12 03:42:52,512 - V3.ExchangeManager - WARNING - PRODUCTION API keys no configuradas o son placeholders para huobi - solo lectura
+2025-07-12 03:42:52,526 - V3.ExchangeManager - WARNING - PRODUCTION API keys no configuradas o son placeholders para gate - solo lectura
+2025-07-12 03:42:52,542 - V3.ExchangeManager - WARNING - PRODUCTION API keys no configuradas o son placeholders para mexc - solo lectura
+2025-07-12 03:42:52,549 - V3.ExchangeManager - INFO - ExchangeManager inicializado con 7 exchanges
+2025-07-12 03:42:52,550 - V3.TradingLogic - INFO - Inicializando TradingLogic...
+2025-07-12 03:42:52,550 - V3 - INFO - Archivo JSON no encontrado: data/trading_state.json
+2025-07-12 03:42:52,551 - V3.DataPersistence - INFO - No se encontró estado de trading previo
+2025-07-12 03:42:52,551 - V3.TradingLogic - INFO - TradingLogic inicializado
+2025-07-12 03:42:52,551 - V3.UIBroadcaster - INFO - Iniciando servidor WebSocket UI en localhost:3001
+2025-07-12 03:42:53,242 - V3.UIBroadcaster - INFO - Servidor WebSocket UI iniciado en ws://localhost:3001
+2025-07-12 03:42:53,255 - V3 - INFO - Todos los componentes inicializados correctamente
+2025-07-12 03:42:53,262 - V3 - INFO - Iniciando Crypto Arbitrage V3...
+2025-07-12 03:42:53,263 - V3.SeboConnector - INFO - Conectando a Sebo Socket.IO: ws://localhost:3031 (namespace: /api/spot/arb)
+2025-07-12 03:42:57,395 - V3.SeboConnector - ERROR - Error conectando a Sebo Socket.IO: Cannot connect to host localhost:3031 ssl:default [El equipo remoto rechazó la conexión de red]
+2025-07-12 03:42:57,395 - V3 - ERROR - No se pudo conectar a Sebo

@@ -70,7 +70,6 @@ app.get("/api/exchanges-status", getExchangesStatus);
 app.get("/analyser", analyzerController.analisisExchangeSimbol);
 app.get("/depure",analyzerController.depuredExchangeSymbolData)
 
-app.get("/depure", analyzerController.depuredExchangeSymbolData);
 
 app.get("/api/exchange-unique/:exchangeId?", getExchangeStatusById);
 
@@ -108,6 +107,9 @@ app.use("/api/balances", balanceRoutes);
 const exchangeRoutes = require("./routes/exchangeRoutes");
 app.use("/api/exchanges", exchangeRoutes);
 
+// Nueva ruta para datos históricos de OHLCV
+app.get("/api/historical-ohlcv", analyzerController.getHistoricalOHLCV);
+
 serveri.listen(PORT, () => {
     console.log(`Servidor Express corriendo en http://localhost:${PORT}`);
     console.log(`Documentación Swagger disponible en http://localhost:${PORT}/api-docs`);
@@ -115,5 +117,7 @@ serveri.listen(PORT, () => {
     loopActualizePricetop20();
     emitSpotPricesLoop(io);
 });
+
+
 
 
