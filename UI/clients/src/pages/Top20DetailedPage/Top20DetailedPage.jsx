@@ -93,8 +93,8 @@ const Top20DetailedPage = ({ opportunities, activeTrades, sendV2Message }) => {
                       </div>
                     </td>
                     <td style={tableCellStyle}>
-                      <div style={{fontWeight: 'bold'}}>Compra:</div>
-                      {op.exchange_min_name} ({op.exchange_min_id})
+                      <div style={{fontWeight: 'bold'}}>Comprssa:</div>
+                      {op.exchange_min_name} ({op.buy_price})
                       <div style={{fontSize: '0.9em'}}>Precio: {op.price_at_exMin_to_buy_asset?.toFixed(6)} USDT</div>
                       <div style={{fontWeight: 'bold', marginTop: '5px'}}>Venta:</div>
                       {op.exchange_max_name} ({op.exchange_max_id})

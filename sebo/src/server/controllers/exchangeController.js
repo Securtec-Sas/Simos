@@ -354,6 +354,70 @@ const getWithdrawalFees = async (req, res) => {
   }
 };
 
+const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
+  try {
+    const ccxt = require('ccxt');
+
+    // Initialize exchanges
+    const sellExchange = new ccxt[id_sell]();
+    const buyExchange = new ccxt[id_buy]();
+
+    // Load markets for both exchanges
+    await sellExchange.loadMarkets();
+    await buyExchange.loadMarkets();
+
+    // Get currency info for symbol on both exchanges
+    const sellMarket = sellExchange.markets[symbol];
+    const buyMarket = buyExchange.markets[symbol];
+
+    if (!sellMarket || !buyMarket) {
+      throw new Error('Symbol not found on one or both exchanges');
+    }
+
+    // Get networks for the base currency (symbol split by '/')
+    const baseCurrency = symbol.split('/')[0];
+
+    const sellCurrencies = sellExchange.currencies[baseCurrency];
+    const buyCurrencies = buyExchange.currencies[baseCurrency];
+
+    if (!sellCurrencies || !buyCurrencies) {
+      throw new Error('Base currency info not found on one or both exchanges');
+    }
+
+    // Networks info
+    const sellNetworks = sellCurrencies.networks || {};
+    const buyNetworks = buyCurrencies.networks || {};
+
+    // Find common networks
+    const commonNetworks = Object.keys(sellNetworks).filter(network => network in buyNetworks);
+
+    if (commonNetworks.length === 0) {
+      throw new Error('No common networks found between exchanges for this symbol');
+    }
+
+    // Find network with lowest combined fee
+    let lowestFee = Number.MAX_VALUE;
+    let bestNetwork = null;
+
+    for (const network of commonNetworks) {
+      const sellFee = sellNetworks[network].fee || Number.MAX_VALUE;
+      const buyFee = buyNetworks[network].fee || Number.MAX_VALUE;
+      const totalFee = sellFee + buyFee;
+
+      if (totalFee < lowestFee) {
+        lowestFee = totalFee;
+        bestNetwork = network;
+      }
+    }
+
+    return { commission: lowestFee, network: bestNetwork };
+
+  } catch (error) {
+    console.error('Error in getLowestFeeNetwork:', error.message);
+    return { commission: null, network: null, error: error.message };
+  }
+};
+
 module.exports = {
     getExchangesStatus,
     // getAvailableExchanges, // Replaced
@@ -361,6 +425,7 @@ module.exports = {
     getExchangeStatusById,
     updateExchangeActiveStatus,
     getWithdrawalFees, // Placeholder, will be defined below
+    getLowestFeeNetwork,
 };
 
 

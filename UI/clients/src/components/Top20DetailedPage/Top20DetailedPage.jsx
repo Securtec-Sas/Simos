@@ -64,7 +64,7 @@ const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
 
   const formatPrice = (value) => {
     const num = parseFloat(value);
-    return isNaN(num) ? 'N/A' : num.toFixed(6);
+    return isNaN(num) ? 'N/A' : num.toFixed(20);
   };
 
   // Estilos
@@ -316,41 +316,41 @@ const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
                 
                 <td style={{ 
                   ...tableCellStyle, 
-                  color: getProfitabilityColor(op.percentage_difference),
+                  color: getProfitabilityColor(op.profit_percentage),
                   fontWeight: 'bold',
                   fontSize: '16px'
                 }}>
-                  {formatPercentage(op.percentage_difference)}
+                  {formatPercentage(op.profit_percentage)}
                 </td>
                 
                 <td style={tableCellStyle}>
                   <div style={{ fontWeight: 'bold' }}>
-                    {op.exchange_min_name}
+                    {op.exchange_sell}
                   </div>
                   <div style={{ fontSize: '11px', color: '#6c757d' }}>
-                    {formatPrice(op.price_at_exMin_to_buy_asset)} USDT
+                    {formatPrice(op.sell_price)} USDT
                   </div>
                 </td>
                 
                 <td style={tableCellStyle}>
                   <div style={{ fontWeight: 'bold' }}>
-                    {op.exchange_max_name}
+                    {op.exchange_buy}
                   </div>
                   <div style={{ fontSize: '11px', color: '#6c757d' }}>
-                    {formatPrice(op.price_at_exMax_to_sell_asset)} USDT
+                    {formatPrice(op.buy_price)} USDT
                   </div>
                 </td>
                 
                 <td style={tableCellStyle}>
                   <div style={{ fontSize: '11px' }}>
                     <strong>Compra:</strong><br/>
-                    T: {op.fees_exMin?.taker_fee ? (op.fees_exMin.taker_fee * 100).toFixed(3) + '%' : 'N/A'}<br/>
-                    M: {op.fees_exMin?.maker_fee ? (op.fees_exMin.maker_fee * 100).toFixed(3) + '%' : 'N/A'}
+                    T: {op.taker_fee_buy? (op.taker_fee_buy * 100).toFixed(3) + '%' : 'N/A'}<br/>
+                    M: {op.maker_fee_buy ? (op.maker_fee_buy * 100).toFixed(3) + '%' : 'N/A'}
                   </div>
                   <div style={{ fontSize: '11px', marginTop: '5px' }}>
                     <strong>Venta:</strong><br/>
-                    T: {op.fees_exMax?.taker_fee ? (op.fees_exMax.taker_fee * 100).toFixed(3) + '%' : 'N/A'}<br/>
-                    M: {op.fees_exMax?.maker_fee ? (op.fees_exMax.maker_fee * 100).toFixed(3) + '%' : 'N/A'}
+                    T: {op.taker_fee_sell ? (op.taker_fee_sell * 100).toFixed(3) + '%' : 'N/A'}<br/>
+                    M: {op.maker_fee_sell ? (op.maker_fee_sell * 100).toFixed(3) + '%' : 'N/A'}
                   </div>
                 </td>
                 

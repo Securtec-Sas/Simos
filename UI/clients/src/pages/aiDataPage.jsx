@@ -12,7 +12,7 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
 
   // Parámetros para entrenamiento/prueba
   const [numSamplesTrain, setNumSamplesTrain] = useState(1000);
-  const [trainDataSource, setTrainDataSource] = useState('simulation'); // 'simulation', 'sebo_api' o 'csv_upload'
+  const [trainDataSource, setTrainDataSource] = useState('sebo_api'); // Eliminada opción de simulación interna, solo 'sebo_api' o 'csv_upload'
   const [numSamplesTest, setNumSamplesTest] = useState(200);
   const [simulationDuration, setSimulationDuration] = useState(30); // en minutos
 
@@ -28,32 +28,9 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
   const [apiKeyMissingPopup, setApiKeyMissingPopup] = useState({ isOpen: false, exchangeId: '', message: '' });
 
   useEffect(() => {
-    if (v3Data) {
-      if (v3Data.ai_model_details) {
-        setAiModelDetails(v3Data.ai_model_details);
-        if (isLoading && v3Data.ai_model_details) setIsLoading(false); // Detener carga si los detalles llegaron
-      }
-      if (v3Data.ai_training_update) {
-
-        setTrainingStatus(v3Data.ai_training_update);
-      }
-      if (v3Data.ai_test_results) {
-        setTestResults(v3Data.ai_test_results);
-      }
-      if (v3Data.ai_simulation_update) {
-        setSimulationStatus(v3Data.ai_simulation_update);
-      }
-      // Check for API key missing error
-      if (v3Data.error_api_key_missing) {
-        setApiKeyMissingPopup({
-          isOpen: true,
-          exchangeId: v3Data.error_api_key_missing.exchange_id,
-          message: v3Data.error_api_key_missing.message || `Faltan API keys para ${v3Data.error_api_key_missing.exchange_id} o son incorrectas.`
-        });
-        // Optionally, reset the error in v3Data or have V3 send it only once
-      }
-    }
-  }, [v3Data, isLoading]); // Añadir isLoading a las dependencias de useEffect
+    // Cargar automáticamente detalles del modelo al cargar la página
+    handleRequest('get_ai_model_details');
+  }, []);
 
   const handleRequest = (command, payload = {}) => {
     if (sendV3Command) {
@@ -224,7 +201,13 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
         </button>
         {isLoading && !aiModelDetails && <p>Solicitando datos del modelo...</p>}
         {aiModelDetails ? (
-          <pre style={preStyle}>{JSON.stringify(aiModelDetails, null, 2)}</pre>
+          // Aquí se pueden implementar gráficos y estadísticas en lugar de mostrar JSON
+          <div>
+            <p><strong>Estado del Modelo:</strong> {aiModelDetails.is_trained ? 'Entrenado' : 'No Entrenado'}</p>
+            <p><strong>Último Entrenamiento:</strong> {aiModelDetails.training_history?.last_training || 'N/A'}</p>
+            <p><strong>Número de Características:</strong> {aiModelDetails.feature_count}</p>
+            {/* Aquí se pueden agregar gráficos de importancia de características, precisión, etc. */}
+          </div>
         ) : (
           !isLoading && <p>No hay datos del modelo disponibles. Presiona "Actualizar".</p>
         )}
@@ -235,15 +218,12 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
         <h2>Entrenamiento del Modelo</h2>
         <div style={controlGroupStyle}>
           <label>Fuente:
-            <select value={trainDataSource} onChange={e => setTrainDataSource(e.target.value)} style={selectStyle}>
-              <option value="simulation">Simulación (Interna V3)</option>
+          <select value={trainDataSource} onChange={e => setTrainDataSource(e.target.value)} style={selectStyle}>
+              {/* Eliminada opción de simulación interna */}
               <option value="sebo_api">Sebo API (Histórico)</option>
               <option value="csv_upload">Subir CSV</option>
             </select>
           </label>
-          {trainDataSource === 'simulation' && (
-            <label>Muestras: <input type="number" value={numSamplesTrain} onChange={e => setNumSamplesTrain(parseInt(e.target.value))} style={inputStyle} /></label>
-          )}
           {trainDataSource === 'sebo_api' && (
             <>
               <label>Fecha Inicial: <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} /></label>
@@ -260,6 +240,52 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
             </div>
           )}
         </div>
+
+        {/* New form for creating CSV for training */}
+        {trainDataSource === 'sebo_api' && (
+          <div style={{ ...sectionStyle, marginTop: '20px' }}>
+            <h3>Crear CSV para Entrenamiento</h3>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  const response = await fetch('/api/trading/create-training-csv', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      fecha_inicio: startDate,
+                      intervalo: '1h', // Example interval, could be made dynamic
+                      cantidad_operaciones: numOperations,
+                      cantidad_simbolos: numSymbols,
+                      lista_simbolos: [], // Could add UI to input list if needed
+                    }),
+                  });
+                  if (!response.ok) {
+                    throw new Error('Error al crear CSV');
+                  }
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'training_data.csv';
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  window.URL.revokeObjectURL(url);
+                } catch (error) {
+                  alert('Error al crear CSV: ' + error.message);
+                }
+              }}
+            >
+              <button type="submit" style={{ ...buttonStyle, backgroundColor: '#007bff' }}>
+                Descargar CSV de Entrenamiento
+              </button>
+            </form>
+          </div>
+        )}
+
         <div style={controlGroupStyle}>
           <button
             onClick={handleTrainClick}

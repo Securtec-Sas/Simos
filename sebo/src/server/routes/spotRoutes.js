@@ -168,7 +168,7 @@ router.get('/exchangesymbol', exchangesymbolsNewAdd);
  *       500:
  *         description: Error al depurar datos de símbolos de exchanges.
  */
-router.get('/depure', analizerController.depuredExchangeSymbolData);
+// router.get('/depure', analizerController.depuredExchangeSymbolData);
 
 
 /**
@@ -191,7 +191,7 @@ router.get('/depure', analizerController.depuredExchangeSymbolData);
  *       500:
  *         description: Error durante el análisis de promedios.
  */
-router.get('/promedios', analizerController.analyzeSymbols); // Usando acceso directo a la propiedad
+router.get('/promedios', analizerController.addAnalyzeSymbolsAsync); // Usando acceso directo a la propiedad
 
 /**
  * @swagger

@@ -67,8 +67,8 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.get("/api/exchanges-status", getExchangesStatus);
 
-app.get("/analyser", analyzerController.analisisExchangeSimbol);
-app.get("/depure",analyzerController.depuredExchangeSymbolData)
+app.get("/analyser", analyzerController.addAnalyzeSymbolsAsync);
+// app.get("/depure",balanceRoutes.depº)
 
 
 app.get("/api/exchange-unique/:exchangeId?", getExchangeStatusById);
@@ -98,6 +98,7 @@ async function loopActualizePricetop20() {
     }
 }
 
+
 const spotRoutes = require("./routes/spotRoutes");
 app.use("/api/spot", spotRoutes);
 
@@ -106,6 +107,9 @@ app.use("/api/balances", balanceRoutes);
 
 const exchangeRoutes = require("./routes/exchangeRoutes");
 app.use("/api/exchanges", exchangeRoutes);
+
+const tradingRoutes = require("./routes/tradingRoutes");
+app.use("/api/trading", tradingRoutes);
 
 // Nueva ruta para datos históricos de OHLCV
 app.get("/api/historical-ohlcv", analyzerController.getHistoricalOHLCV);
