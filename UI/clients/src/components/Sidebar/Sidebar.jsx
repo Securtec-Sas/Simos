@@ -8,7 +8,7 @@ const Sidebar = ({ allExchanges, setAllExchanges }) => {
   const navigate = useNavigate();
 
   return (
-    <div className="sidebar">
+    <div className={styles.sidebar}>
       <button id="toggleSidebarButton" title="Toggle Menu">
         <span className="button-main-title-group">
           <span className="menu-main-icon">☰</span> SEBO
@@ -22,28 +22,24 @@ const Sidebar = ({ allExchanges, setAllExchanges }) => {
         />
         <button
           className={styles.menuHeader}
-          style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
           onClick={() => navigate('/conexion')}
         >
           Conexión
         </button>
         <button
-          className={styles.menuHeader} // Assuming similar styling is desired
-          style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
+          className={styles.menuHeader}
           onClick={() => navigate('/top20-detailed')}
         >
           Top 20 Detallado
         </button>
         <button
-          className={styles.menuHeader} // Assuming similar styling is desired
-          style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
+          className={styles.menuHeader}
           onClick={() => navigate('/data-view')}
         >
           Data View & Model
         </button>
                 <button
-          className={styles.menuHeader} // Assuming similar styling is desired
-          style={{ fontWeight: 'bold', textAlign: 'left', width: '100%' }}
+          className={styles.menuHeader}
           onClick={() => navigate('/exchanges/apis')}
         >
           Apis

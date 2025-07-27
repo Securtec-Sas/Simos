@@ -9,6 +9,7 @@ import Top20DetailedPage from './components/Top20DetailedPage/Top20DetailedPage.
 import ExchangeAPIsPage from './pages/exchangesApis/ExchangeAPIsPage.jsx'; // Corregido: Importar desde components
 import DataViewPage from './pages/DataViewPage/DataViewPage.jsx';
 import AIDataPage from './pages/aiDataPage.jsx';
+import ConfigDataPage from './pages/configDataPage/ConfigDataPage.jsx';
 
 function App() {
   const [allExchanges, setAllExchanges] = useState([]);
@@ -230,6 +231,7 @@ function App() {
               sendV3Command={sendV3Command}
             />
           } />
+          <Route path="config-data" element={<ConfigDataPage />} />
           <Route index element={
             <div style={{ padding: '20px' }}>
               <div>

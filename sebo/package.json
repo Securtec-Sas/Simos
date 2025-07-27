@@ -11,6 +11,9 @@
   "author": "",
   "license": "LIP",
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^7.2.0",
     "ccxt": "^4.3.56",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

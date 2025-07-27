@@ -78,7 +78,7 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus, balances }) =
   };
 
   const sidebarContainerStyle = {
-    flex: '0 0 15%', // Sidebar ocupa 15%
+    flex: '0 0 25%', // Sidebar ocupa 15%
     backgroundColor: '#343a40', // Color de fondo igual al Navbar
     color: '#ffffff', // Color de texto general para el Sidebar
     padding: '1rem',
@@ -144,6 +144,14 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus, balances }) =
                 style={isActive('/ai-data') ? activeLinkStyle : navLinkStyle}
               >
                 🧠 Datos IA
+              </Link>
+            </li>
+            <li>
+              <Link 
+                to="/config-data" 
+                style={isActive('/config-data') ? activeLinkStyle : navLinkStyle}
+              >
+                ⚙️ Config
               </Link>
             </li>
             
@@ -225,4 +233,3 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus, balances }) =
 };
 
 export default Layout;
-
