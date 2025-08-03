@@ -80,6 +80,11 @@ class APIv3Routes:
         self.app.route('/api/sebo/symbols', methods=['GET'])(
             self._get_sebo_symbols
         )
+        
+        # Ruta para agregar símbolos en Sebo
+        self.app.route('/api/sebo/symbols/add-for-exchanges', methods=['POST'])(
+            self._add_symbols_for_exchanges
+        )
     
     def _create_training_csv(self):
         """Endpoint para crear CSV de entrenamiento."""
@@ -318,14 +323,37 @@ class APIv3Routes:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             symbols = loop.run_until_complete(
-                self.training_handler._get_symbols_from_sebo()
+                self.training_handler.sebo_symbols_api.get_symbols()
             )
             loop.close()
             
-            return jsonify(symbols)
+            return jsonify({
+                "status": "success",
+                "data": symbols
+            })
             
         except Exception as e:
             self.logger.error(f"Error en get_sebo_symbols: {e}")
+            return jsonify({
+                "status": "error",
+                "message": f"Error interno: {str(e)}"
+            }), 500
+    
+    def _add_symbols_for_exchanges(self):
+        """Endpoint para agregar símbolos para exchanges activos en Sebo."""
+        try:
+            # Ejecutar de forma asíncrona
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(
+                self.training_handler.sebo_symbols_api.add_symbols_for_exchanges()
+            )
+            loop.close()
+            
+            return jsonify(result)
+            
+        except Exception as e:
+            self.logger.error(f"Error en add_symbols_for_exchanges: {e}")
             return jsonify({
                 "status": "error",
                 "message": f"Error interno: {str(e)}"

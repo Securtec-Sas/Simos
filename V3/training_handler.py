@@ -13,14 +13,14 @@ from io import StringIO
 
 from config_v3 import DATA_DIR
 from utils import get_current_timestamp, safe_float
-from sebo_connector import SeboConnector
 from ai_model import ArbitrageAIModel
 from data_persistence import DataPersistence
+from sebo_symbols_api import SeboSymbolsAPI
 
 class TrainingHandler:
     """Manejador para operaciones de entrenamiento del modelo de IA."""
     
-    def __init__(self, sebo_connector: SeboConnector, ai_model: ArbitrageAIModel, 
+    def __init__(self, sebo_connector, ai_model: ArbitrageAIModel, 
                  data_persistence: DataPersistence, ui_broadcaster=None):
         self.logger = logging.getLogger('V3.TrainingHandler')
         self.sebo_connector = sebo_connector
@@ -28,11 +28,12 @@ class TrainingHandler:
         self.data_persistence = data_persistence
         self.ui_broadcaster = ui_broadcaster
         
-        # Asegurar que existe el directorio de datos
-        os.makedirs(DATA_DIR, exist_ok=True)
+        # Inicializar API de símbolos de Sebo
+        self.sebo_symbols_api = SeboSymbolsAPI()
         
         # Estado del entrenamiento
         self.training_in_progress = False
+        self.training_results = {}
         self.training_progress = 0
         
     async def create_training_csv(self, request_data: Dict) -> Dict:
@@ -152,27 +153,50 @@ class TrainingHandler:
     async def _get_symbols_from_sebo(self) -> List[Dict]:
         """Obtiene la lista de símbolos desde Sebo."""
         try:
-            # Simular llamada a Sebo - en implementación real usar sebo_connector
-            symbols = [
+            symbols_data = await self.sebo_symbols_api.get_symbols()
+            
+            if symbols_data:
+                # Convertir formato de Sebo al formato esperado
+                formatted_symbols = []
+                for symbol in symbols_data:
+                    if 'id_sy' in symbol and 'name' in symbol:
+                        # Extraer base y quote del id_sy (ej: "BTC/USDT" -> base="BTC", quote="USDT")
+                        parts = symbol['id_sy'].split('/')
+                        base = parts[0] if len(parts) > 0 else symbol['name']
+                        quote = parts[1] if len(parts) > 1 else 'USDT'
+                        
+                        formatted_symbols.append({
+                            "id": symbol['id_sy'].replace('/', ''),  # "BTC/USDT" -> "BTCUSDT"
+                            "name": symbol['id_sy'],  # "BTC/USDT"
+                            "base": base,  # "BTC"
+                            "quote": quote  # "USDT"
+                        })
+                
+                self.logger.info(f"Obtenidos {len(formatted_symbols)} símbolos desde Sebo")
+                return formatted_symbols
+            else:
+                self.logger.warning("No se pudieron obtener símbolos desde Sebo, usando símbolos por defecto")
+                # Retornar símbolos por defecto
+                return [
+                    {"id": "BTCUSDT", "name": "BTC/USDT", "base": "BTC", "quote": "USDT"},
+                    {"id": "ETHUSDT", "name": "ETH/USDT", "base": "ETH", "quote": "USDT"},
+                    {"id": "BNBUSDT", "name": "BNB/USDT", "base": "BNB", "quote": "USDT"},
+                    {"id": "ADAUSDT", "name": "ADA/USDT", "base": "ADA", "quote": "USDT"},
+                    {"id": "SOLUSDT", "name": "SOL/USDT", "base": "SOL", "quote": "USDT"}
+                ]
+                
+        except Exception as e:
+            self.logger.error(f"Error obteniendo símbolos desde Sebo: {e}")
+            # Retornar símbolos por defecto en caso de error
+            return [
                 {"id": "BTCUSDT", "name": "BTC/USDT", "base": "BTC", "quote": "USDT"},
                 {"id": "ETHUSDT", "name": "ETH/USDT", "base": "ETH", "quote": "USDT"},
                 {"id": "BNBUSDT", "name": "BNB/USDT", "base": "BNB", "quote": "USDT"},
                 {"id": "ADAUSDT", "name": "ADA/USDT", "base": "ADA", "quote": "USDT"},
-                {"id": "SOLUSDT", "name": "SOL/USDT", "base": "SOL", "quote": "USDT"},
-                {"id": "XRPUSDT", "name": "XRP/USDT", "base": "XRP", "quote": "USDT"},
-                {"id": "DOTUSDT", "name": "DOT/USDT", "base": "DOT", "quote": "USDT"},
-                {"id": "AVAXUSDT", "name": "AVAX/USDT", "base": "AVAX", "quote": "USDT"},
-                {"id": "LINKUSDT", "name": "LINK/USDT", "base": "LINK", "quote": "USDT"},
-                {"id": "MATICUSDT", "name": "MATIC/USDT", "base": "MATIC", "quote": "USDT"}
+                {"id": "SOLUSDT", "name": "SOL/USDT", "base": "SOL", "quote": "USDT"}
             ]
-            return symbols
-            
-        except Exception as e:
-            self.logger.error(f"Error obteniendo símbolos de Sebo: {e}")
-            return []
     
-    def _select_symbols(self, symbols_data: List[Dict], cantidad: Optional[int], 
-                       lista: List[str]) -> List[Dict]:
+    async def _generate_training_data(self, config: Dict) -> List[Dict]:
         """Selecciona símbolos según el criterio especificado."""
         if lista:
             # Filtrar por lista específica
