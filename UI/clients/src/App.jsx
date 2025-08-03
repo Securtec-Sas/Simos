@@ -1,208 +1,39 @@
 // UI/clients/src/App.jsx
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout/Layout.jsx';
 import ActiveExchangesTable from './components/ActiveExchangesTable/ActiveExchangesTable.jsx';
 import SpotsMenu from './components/SpotsMenu/SpotsMenu.jsx';
 import Top20DetailedPage from './components/Top20DetailedPage/Top20DetailedPage.jsx';
-import ExchangeAPIsPage from './pages/exchangesApis/ExchangeAPIsPage.jsx'; // Corregido: Importar desde components
+import ExchangeAPIsPage from './pages/exchangesApis/ExchangeAPIsPage.jsx';
 import DataViewPage from './pages/DataViewPage/DataViewPage.jsx';
 import AIDataPage from './pages/aiDataPage.jsx';
 import ConfigDataPage from './pages/configDataPage/ConfigDataPage.jsx';
+import useWebSocketController from './hooks/useWebSocketController.jsx';
 
 function App() {
-  const [allExchanges, setAllExchanges] = useState([]);
-  const [selectedExchanges, setSelectedExchanges] = useState([]);
-  const [v2Data, setV2Data] = useState(null);
-  const [v3Data, setV3Data] = useState(null);
-  const [connectionStatus, setConnectionStatus] = useState({
-    v2: 'disconnected',
-    v3: 'disconnected',
-    sebo: 'disconnected'
-  });
-  const [balances, setBalances] = useState(null); // Estado para los balances
+  const {
+    connectionStatus,
+    v2Data,
+    v3Data,
+    balances,
+    sendV3Command,
+  } = useWebSocketController();
 
-  useEffect(() => {
+  const [allExchanges, setAllExchanges] = React.useState([]);
+  const [selectedExchanges, setSelectedExchanges] = React.useState([]);
+
+  React.useEffect(() => {
     fetch('/api/configured-exchanges')
       .then(res => res.json())
       .then(data => setAllExchanges(data))
       .catch(err => console.error('Error fetching exchanges:', err));
   }, []);
 
-  useEffect(() => {
+  React.useEffect(() => {
     setSelectedExchanges(allExchanges.filter(ex => ex.isActive));
   }, [allExchanges]);
-
-  // V2 WebSocket connection con manejo de errores mejorado
-  useEffect(() => {
-    let v2Socket = null;
-    let reconnectTimeout = null;
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-
-    const connectV2 = () => {
-      try {
-        const wsUrl = 'ws://localhost:3001';
-        v2Socket = new WebSocket(wsUrl);
-
-        v2Socket.onopen = () => {
-          console.log('Connected to V2 WebSocket server');
-          setConnectionStatus(prev => ({ ...prev, v2: 'connected' }));
-          reconnectAttempts = 0;
-        };
-
-        v2Socket.onmessage = (event) => {
-          try {
-            const message = JSON.parse(event.data);
-            console.log('Message from V2:', message);
-            if (message.type === 'arbitrage_update') {
-              setV2Data(message.payload);
-            }
-          } catch (error) {
-            console.error('Error parsing V2 message:', error);
-          }
-        };
-
-        v2Socket.onerror = (error) => {
-          console.error('V2 WebSocket error:', error);
-          setConnectionStatus(prev => ({ ...prev, v2: 'error' }));
-        };
-
-        v2Socket.onclose = (event) => {
-          console.log('V2 WebSocket disconnected:', event.reason, `Code: ${event.code}`);
-          setConnectionStatus(prev => ({ ...prev, v2: 'disconnected' }));
-          
-          // Intentar reconectar si no fue un cierre intencional
-          if (event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
-            reconnectAttempts++;
-            console.log(`Attempting to reconnect to V2 (${reconnectAttempts}/${maxReconnectAttempts})...`);
-            reconnectTimeout = setTimeout(connectV2, 3000 * reconnectAttempts);
-          }
-        };
-      } catch (error) {
-        console.error('Error creating V2 WebSocket:', error);
-        setConnectionStatus(prev => ({ ...prev, v2: 'error' }));
-      }
-    };
-
-    connectV2();
-
-    return () => {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
-      if (v2Socket && (v2Socket.readyState === WebSocket.OPEN || v2Socket.readyState === WebSocket.CONNECTING)) {
-        v2Socket.close(1000, 'Component unmounting');
-      }
-    };
-  }, []);
-
-  // Función para enviar comandos a V3
-  const sendV3Command = (command, payload = {}) => {
-    if (window.v3SocketInstance && window.v3SocketInstance.readyState === WebSocket.OPEN) {
-      window.v3SocketInstance.send(JSON.stringify({ type: command, payload }));
-    } else {
-      console.error('V3 WebSocket no está conectado o no está listo. No se pudo enviar el comando:', command);
-    }
-  };
-
-  // V3 WebSocket connection
-  useEffect(() => {
-    let v3Socket = null;
-    let reconnectTimeout = null;
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-
-    const connectV3 = () => {
-      try {
-        const wsUrl = 'ws://localhost:3001'; // Puerto para V3
-        const currentSocket = new WebSocket(wsUrl);
-        window.v3SocketInstance = currentSocket;
-
-        currentSocket.onopen = () => {
-          console.log('Connected to V3 WebSocket server');
-          setConnectionStatus(prev => ({ ...prev, v3: 'connected' }));
-          reconnectAttempts = 0;
-          currentSocket.send(JSON.stringify({ type: 'get_system_status' }));
-        };
-
-        currentSocket.onmessage = (event) => {
-          try {
-            const message = JSON.parse(event.data);
-            console.log('Message from V3:', message);
-            
-            switch (message.type) {
-              case 'initial_state':
-                console.log('Received initial_state from V3:', message.payload);
-                setV3Data(prev => ({
-                  ...prev,
-                  ...message.payload,
-                }));
-                if (typeof message.payload.sebo_connection_status !== 'undefined') {
-                    setConnectionStatus(prev => ({ ...prev, sebo: message.payload.sebo_connection_status ? 'connected' : 'disconnected' }));
-                }
-                break;
-              case 'system_status':
-              case 'trading_stats':
-              case 'operation_result':
-              // case 'balance_update': // Ya está aquí, se usará para actualizar v3Data y balances
-              case 'top20_data':
-              case 'log_message':
-              case 'ai_model_details':
-              case 'ai_training_update':
-              case 'ai_test_results':
-              case 'ai_simulation_update':
-                setV3Data(prev => ({ ...prev, [message.type]: message.payload }));
-                break;
-              case 'balance_update': // Específicamente para el estado de balances
-                setBalances(message.payload); // Actualizar el estado de balances
-                setV3Data(prev => ({ ...prev, balance_update: message.payload })); // Mantener también en v3Data si es necesario
-                break;
-              default:
-                console.log('Unknown V3 message type:', message.type);
-            }
-          } catch (error) {
-            console.error('Error parsing V3 message:', error);
-          }
-        };
-
-        currentSocket.onerror = (error) => {
-          console.error('V3 WebSocket error:', error);
-          setConnectionStatus(prev => ({ ...prev, v3: 'error' }));
-        };
-
-        currentSocket.onclose = (event) => {
-          console.log('V3 WebSocket disconnected:', event.reason, `Code: ${event.code}`);
-          setConnectionStatus(prev => ({ ...prev, v3: 'disconnected' }));
-          window.v3SocketInstance = null;
-
-          if (event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
-            reconnectAttempts++;
-            console.log(`Attempting to reconnect to V3 (${reconnectAttempts}/${maxReconnectAttempts})...`);
-            reconnectTimeout = setTimeout(connectV3, 3000 * reconnectAttempts);
-          }
-        };
-        v3Socket = currentSocket;
-      } catch (error) {
-        console.error('Error creating V3 WebSocket:', error);
-        setConnectionStatus(prev => ({ ...prev, v3: 'error' }));
-      }
-    };
-
-    connectV3();
-
-    return () => {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
-      if (v3Socket && (v3Socket.readyState === WebSocket.OPEN || v3Socket.readyState === WebSocket.CONNECTING)) {
-        v3Socket.close(1000, 'Component unmounting');
-      }
-      window.v3SocketInstance = null;
-    };
-  }, []);
-
 
   return (
     <Router>
@@ -212,7 +43,7 @@ function App() {
             allExchanges={allExchanges}
             setAllExchanges={setAllExchanges}
             connectionStatus={connectionStatus}
-            balances={balances} // Pasar el estado de balances
+            balances={balances}
           />
         }>
           <Route path="conexion" element={<ActiveExchangesTable selectedExchanges={selectedExchanges} />} />

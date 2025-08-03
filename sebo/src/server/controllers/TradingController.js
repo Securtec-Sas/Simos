@@ -120,6 +120,7 @@ const createTrainingCSV = async (req, res) => {
     }
 
     // Generate CSV
+    // FALTAN DATOS FEES Y 
     const fields = [
       'buy_exchange_id',
       'sell_exchange_id',

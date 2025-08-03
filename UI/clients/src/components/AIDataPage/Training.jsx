@@ -27,6 +27,10 @@ const Training = ({
   statusBoxStyle,
 }) => {
   return (
+    // datos para generar diccionario de entrenamiento 
+    /**
+     * fecha_inicio, intervalo, cantidad_operaciones, cantidad_simbolos o lista_simbolos
+     */
     <div style={sectionStyle}>
       <h2>Entrenamiento del Modelo</h2>
       <div style={controlGroupStyle}>
