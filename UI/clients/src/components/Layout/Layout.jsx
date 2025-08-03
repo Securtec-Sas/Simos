@@ -158,9 +158,6 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus, balances }) =
             {/* Estado de conexiones */}
             {connectionStatus && (
               <div style={statusContainerStyle}>
-                <div style={statusBadgeStyle(connectionStatus.v2)}>
-                  V2
-                </div>
                 <div style={statusBadgeStyle(connectionStatus.v3)}>
                   V3
                 </div>

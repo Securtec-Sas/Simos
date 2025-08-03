@@ -15,7 +15,6 @@ import useWebSocketController from './hooks/useWebSocketController.jsx';
 function App() {
   const {
     connectionStatus,
-    v2Data,
     v3Data,
     balances,
     sendV3Command,
@@ -73,14 +72,6 @@ function App() {
                     <div style={{ 
                       padding: '10px', 
                       borderRadius: '5px', 
-                      backgroundColor: connectionStatus.v2 === 'connected' ? '#d4edda' : '#f8d7da',
-                      color: connectionStatus.v2 === 'connected' ? '#155724' : '#721c24'
-                    }}>
-                      V2: {connectionStatus.v2}
-                    </div>
-                    <div style={{ 
-                      padding: '10px', 
-                      borderRadius: '5px', 
                       backgroundColor: connectionStatus.v3 === 'connected' ? '#d4edda' : '#f8d7da',
                       color: connectionStatus.v3 === 'connected' ? '#155724' : '#721c24'
                     }}>
@@ -92,25 +83,6 @@ function App() {
               <hr />
               
               <div style={{ display: 'flex', gap: '20px' }}>
-                <div style={{ flex: 1 }}>
-                  <h2>Datos de V2:</h2>
-                  {v2Data ? (
-                    <pre style={{ 
-                      textAlign: 'left', 
-                      backgroundColor: '#f5f5f5', 
-                      padding: '10px', 
-                      borderRadius: '4px', 
-                      overflowX: 'auto',
-                      maxHeight: '300px',
-                      overflow: 'auto'
-                    }}>
-                      {JSON.stringify(v2Data, null, 2)}
-                    </pre>
-                  ) : (
-                    <p>No hay datos de V2 disponibles...</p>
-                  )}
-                </div>
-                
                 <div style={{ flex: 1 }}>
                   <h2>Datos de V3:</h2>
                   {v3Data ? (

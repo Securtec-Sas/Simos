@@ -2,79 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 
 const useWebSocketController = () => {
   const [connectionStatus, setConnectionStatus] = useState({
-    v2: 'disconnected',
     v3: 'disconnected',
     sebo: 'disconnected'
   });
-  const [v2Data, setV2Data] = useState(null);
   const [v3Data, setV3Data] = useState(null);
   const [balances, setBalances] = useState(null);
 
-  const v2SocketRef = useRef(null);
   const v3SocketRef = useRef(null);
-  const v2ReconnectTimeoutRef = useRef(null);
   const v3ReconnectTimeoutRef = useRef(null);
-  const v2ReconnectAttemptsRef = useRef(0);
   const v3ReconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
-
-  useEffect(() => {
-    const connectV2 = () => {
-      try {
-        const wsUrl = 'ws://localhost:3001';
-        const socket = new WebSocket(wsUrl);
-        v2SocketRef.current = socket;
-
-        socket.onopen = () => {
-          console.log('Connected to V2 WebSocket server');
-          setConnectionStatus(prev => ({ ...prev, v2: 'connected' }));
-          v2ReconnectAttemptsRef.current = 0;
-        };
-
-        socket.onmessage = (event) => {
-          try {
-            const message = JSON.parse(event.data);
-            console.log('Message from V2:', message);
-            if (message.type === 'arbitrage_update') {
-              setV2Data(message.payload);
-            }
-          } catch (error) {
-            console.error('Error parsing V2 message:', error);
-          }
-        };
-
-        socket.onerror = (error) => {
-          console.error('V2 WebSocket error:', error);
-          setConnectionStatus(prev => ({ ...prev, v2: 'error' }));
-        };
-
-        socket.onclose = (event) => {
-          console.log('V2 WebSocket disconnected:', event.reason, `Code: ${event.code}`);
-          setConnectionStatus(prev => ({ ...prev, v2: 'disconnected' }));
-
-          if (event.code !== 1000 && v2ReconnectAttemptsRef.current < maxReconnectAttempts) {
-            v2ReconnectAttemptsRef.current++;
-            console.log('Attempting to reconnect to V2 (${v2ReconnectAttemptsRef.current}/${maxReconnectAttempts})...');
-            v2ReconnectTimeoutRef.current = setTimeout(connectV2, 3000 * v2ReconnectAttemptsRef.current);
-          }
-        };
-      } catch (error) {
-        console.error('Error creating V2 WebSocket:', error);
-        setConnectionStatus(prev => ({ ...prev, v2: 'error' }));
-      }
-    };
-
-    connectV2();
-
-    return () => {
-      if (v2ReconnectTimeoutRef.current) {
-        clearTimeout(v2ReconnectTimeoutRef.current);
-      }
-      if (v2SocketRef.current && (v2SocketRef.current.readyState === WebSocket.OPEN || v2SocketRef.current.readyState === WebSocket.CONNECTING)) {
-        v2SocketRef.current.close(1000, 'Component unmounting');
-      }
-    };
-  }, []);
 
   useEffect(() => {
     const connectV3 = () => {
@@ -185,7 +122,6 @@ const useWebSocketController = () => {
 
   return {
     connectionStatus,
-    v2Data,
     v3Data,
     balances,
     sendV3Command,
