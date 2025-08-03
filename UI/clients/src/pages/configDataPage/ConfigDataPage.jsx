@@ -20,6 +20,7 @@ const ConfigDataPage = () => {
   const [testFile, setTestFile] = useState(null);
   const [testFileError, setTestFileError] = useState('');
   const [simulationDuration, setSimulationDuration] = useState(30); // en minutos
+  const [dataUpdateRequested, setDataUpdateRequested] = useState(false);
 
   // Estilos básicos (copiados de AIDataPage)
   const buttonStyle = { padding: '10px 15px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '10px', fontSize: '14px', minWidth: '150px' };
@@ -73,6 +74,30 @@ const ConfigDataPage = () => {
     }
   };
 
+  const handleUpdateDataAI = () => {
+    setDataUpdateRequested(true);
+    fetchDataAI();
+  };
+
+  const fetchDataAI = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/v3/data-ai');
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        setAiModelDetails(result.data);
+      } else {
+        console.error('Error obteniendo datos AI:', result.message);
+      }
+    } catch (error) {
+      console.error('Error en fetchDataAI:', error);
+    } finally {
+      setIsLoading(false);
+      setDataUpdateRequested(false);
+    }
+  };
+
   const handleTestFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -87,12 +112,12 @@ const ConfigDataPage = () => {
     }
   };
 
-  // Enviar el comando para obtener detalles del modelo AI al cargar la página
+  // Cargar datos AI solo una vez al montar el componente
   useEffect(() => {
-    handleRequest('get_ai_model_details');
+    fetchDataAI();
   }, []);
 
-  // Actualizar el estado cuando se reciben los detalles del modelo AI desde V3
+  // Actualizar el estado cuando se reciben datos desde V3
   useEffect(() => {
     if (v3Data && v3Data.ai_model_details) {
       setAiModelDetails(v3Data.ai_model_details);
@@ -121,12 +146,37 @@ const ConfigDataPage = () => {
       {tabIndex === 0 && (
         <Box sx={{ p: 3 }}>
           <h2>Detalles del Modelo AI</h2>
+          <div style={controlGroupStyle}>
+            <button 
+              style={buttonStyle} 
+              onClick={handleUpdateDataAI}
+              disabled={isLoading || dataUpdateRequested}
+            >
+              {isLoading || dataUpdateRequested ? 'Actualizando...' : 'Actualizar Datos'}
+            </button>
+          </div>
           {isLoading ? (
             <p>Cargando detalles del modelo AI...</p>
           ) : aiModelDetails ? (
-            <pre style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
-              {JSON.stringify(aiModelDetails, null, 2)}
-            </pre>
+            <div>
+              <div style={chartPlaceholderStyle}>
+                <div>
+                  <h3>Visualización de Datos del Modelo</h3>
+                  <p>Estado: {aiModelDetails.is_trained ? 'Entrenado' : 'No entrenado'}</p>
+                  <p>Características: {aiModelDetails.feature_count || 0}</p>
+                  <p>Última actualización: {aiModelDetails.last_updated || 'N/A'}</p>
+                  <p>Umbral de confianza: {aiModelDetails.confidence_threshold || 'N/A'}</p>
+                </div>
+              </div>
+              <details style={{ marginTop: '20px' }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>
+                  Ver detalles completos del modelo
+                </summary>
+                <pre style={preStyle}>
+                  {JSON.stringify(aiModelDetails, null, 2)}
+                </pre>
+              </details>
+            </div>
           ) : (
             <p>No hay detalles disponibles del modelo AI.</p>
           )}
