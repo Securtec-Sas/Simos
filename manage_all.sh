@@ -55,14 +55,11 @@ restart_ui() {
   start_ui
 }
 
-# Function to activate venv and start V3 python script
+# Function to start V3 python script
 start_v3() {
-  print_msg last_v3_msg "Activating Python venv and starting V3..."
-  if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
-    start cmd /k "cd V3 && cd ..\\..\\simo\\V1\\venv\\Scripts && activate && cd ..\\..\\V3 && python start_v3.py"
-  else
-    gnome-terminal -- bash -c "source ./../simo/V1/venv/bin/activate && cd V3 && python start_v3.py; exec bash"
-  fi
+  print_msg last_v3_msg "Starting V3 python script..."
+  # Run Python script directly in background without opening new terminal
+  (cd V3 && python start_v3.py) &
   print_msg last_v3_msg "V3 started."
 }
 
