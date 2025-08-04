@@ -96,7 +96,7 @@ const Training = ({
         intervalo: formData.intervalo
       };
 
-      const response = await fetch('/api/v3/create-training-csv', {
+      const response = await fetch('/api/trading/create-training-csv', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
