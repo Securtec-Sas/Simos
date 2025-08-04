@@ -39,3 +39,5 @@ coverage.xml
 *.egg
 .pytest_cache/
 migrations/
+.tmp.driveupload/
+.tmp.drivedownload/
