@@ -23,12 +23,14 @@ const Training = ({
   const [csvData, setCsvData] = useState(null);
   const [trainingStatus, setTrainingStatus] = useState('idle'); // idle, training, completed
   const [trainingProgress, setTrainingProgress] = useState(0);
+  const [isCreatingCsv, setIsCreatingCsv] = useState(false); // Estado para el proceso de creación de CSV
 
   // Obtener símbolos de Sebo
   useEffect(() => {
     const fetchSymbols = async () => {
       try {
-        const response = await fetch('/api/sebo/symbols');
+        // La ruta correcta probablemente es /api/symbol/symbols, no /api/sebo/symbols.
+        const response = await fetch('/api/symbols/symbols');
         const data = await response.json();
         setSymbols(data);
       } catch (error) {
@@ -87,6 +89,7 @@ const Training = ({
   };
 
   const handleCreateCSV = async () => {
+    setIsCreatingCsv(true); // Bloquear botón y mostrar estado de carga
     try {
       const payload = {
         fecha: formData.fecha,
@@ -104,17 +107,21 @@ const Training = ({
         body: JSON.stringify(payload)
       });
 
-      const result = await response.json();
-      
-      if (result.status === 'success') {
-        setCsvData(result.data);
-        alert('CSV de entrenamiento creado exitosamente');
+      // Check if the response was successful (status code 2xx)
+      if (response.ok) {
+        const result = await response.json();
+        setCsvData(result); // The entire response is the data object
+        alert(result.message || 'CSV de entrenamiento creado exitosamente');
       } else {
-        alert(`Error: ${result.message}`);
+        // Handle HTTP errors
+        const errorResult = await response.json();
+        alert(`Error: ${errorResult.error || 'Ocurrió un error desconocido.'}`);
       }
     } catch (error) {
       console.error('Error creando CSV:', error);
       alert('Error creando CSV de entrenamiento');
+    } finally {
+      setIsCreatingCsv(false); // Desbloquear el botón al finalizar
     }
   };
 
@@ -303,10 +310,16 @@ const Training = ({
             <button 
               className="create-csv-btn"
               onClick={handleCreateCSV}
-              disabled={!formData.fecha}
-              style={buttonStyle}
+              disabled={!formData.fecha || isCreatingCsv}
+              style={{
+                ...buttonStyle,
+                backgroundColor: isCreatingCsv ? '#ffc107' : (buttonStyle?.backgroundColor || '#007bff'),
+                color: isCreatingCsv ? '#212529' : (buttonStyle?.color || 'white'),
+                cursor: isCreatingCsv ? 'not-allowed' : 'pointer',
+                opacity: isCreatingCsv ? 0.7 : 1
+              }}
             >
-              Crear CSV de Entrenamiento
+              {isCreatingCsv ? 'Creando CSV...' : 'Crear CSV de Entrenamiento'}
             </button>
 
             {csvData && (

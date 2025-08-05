@@ -42,8 +42,9 @@ const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
   useEffect(() => {
     if (v3Data) {
       // Check if top20_data has actually changed
-      if (v3Data.top20_data && !deepEqual(v3Data.top20_data, prevTop20DataRef.current)) {
-        setOpportunities(v3Data.top20_data);
+      // Only update if the new data is a non-empty array to prevent flickering
+      if (v3Data.top20_data && v3Data.top20_data.length > 0 && !deepEqual(v3Data.top20_data, prevTop20DataRef.current)) {
+        setOpportunities(v3Data.top20_data.filter(op => op)); // Filter out nulls just in case
         prevTop20DataRef.current = v3Data.top20_data;
       }
       
@@ -435,4 +436,3 @@ const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
 };
 
 export default Top20DetailedPage;
-

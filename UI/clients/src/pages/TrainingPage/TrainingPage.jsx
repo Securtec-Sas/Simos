@@ -23,7 +23,7 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
   useEffect(() => {
     const fetchSymbols = async () => {
       try {
-        const response = await fetch('/sebo/api/sebo/symbols');
+        const response = await fetch('/api/symbol/symbols');
         const data = await response.json();
         setSymbols(data);
       } catch (error) {

@@ -8,8 +8,8 @@ const swaggerJsdoc = require("swagger-jsdoc");
 const { getExchangesStatus, getExchangeStatusById, getConfiguredExchanges, updateExchangeActiveStatus } = require("./controllers/exchangeController");
 const { handleSpotAnalysisRequest, getTopSpotOpportunities } = require("./controllers/spotController");
 const http = require("http");
-const { Server } = require("socket.io");
-const { emitSpotPricesLoop } = require("./controllers/spotSocketController");
+const { Server } = require("socket.io"); // NOSONAR
+const { setupSpotSocketController } = require("./controllers/spotSocketController");
 const { connectDB } = require("./data/dataBase/connectio");
 const { addExchanges } = require("./controllers/dbCotroller");
 const analyzerController = require("./controllers/analizerController");
@@ -121,10 +121,6 @@ serveri.listen(PORT, () => {
     console.log(`Servidor Express corriendo en http://localhost:${PORT}`);
     console.log(`Documentación Swagger disponible en http://localhost:${PORT}/api-docs`);
     console.log("Accede al frontend en http://localhost:3000");
-    loopActualizePricetop20();
-    emitSpotPricesLoop(io);
+    // loopActualizePricetop20();
+    setupSpotSocketController(io);
 });
-
-
-
-
