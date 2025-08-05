@@ -508,6 +508,165 @@ const addAnalyzeSymbolsAsync = async (req, res) => {
     }
 };
 
+const analisisExchangeSimbol= async (req, res) => {
+    // Send an immediate response to the client to indicate the process has started
+    res.status(202).json({ message: "El proceso de análisis asíncrono ha comenzado. Revise los logs del servidor para ver el progreso." });
+
+    // Start the background processing without awaiting it
+    (async () => {
+        try {
+            const ccxtInstanceCache = {}; // Cache for CCXT instances
+            console.log('[Async Analysis] Proceso en segundo plano iniciado.');
+
+            // 1. Cargar los IDs de los ExchangeSymbol que ya están en la colección de análisis
+            const analyzedSymbolIds = await Analysis.distinct('id_exchsymbol');
+            console.log(`[Async Analysis] Encontrados ${analyzedSymbolIds.length} análisis existentes.`);
+
+            // Cargar los datos de los ExchangeSymbol que no han sido analizados
+            const exchangeSymbolsToAnalyze = await ExchangeSymbol.find({
+                _id: { $nin: analyzedSymbolIds }
+            }).lean(); // Usar .lean() para mejor rendimiento ya que solo leeremos datos
+
+            console.log(`[Async Analysis] Se analizarán ${exchangeSymbolsToAnalyze.length} nuevos documentos de ExchangeSymbol.`);
+
+            // 2. Empezar a recorrer los ExchangeSymbol
+            for (const exSym of exchangeSymbolsToAnalyze) {
+                console.log(`\n[Async Analysis] -> Procesando ExchangeSymbol ID: ${exSym._id} (Símbolo: ${exSym.sy_id})`);
+                
+                const exchData = exSym.exch_data || {};
+                const exchangesInData = Object.values(exchData);
+
+                if (exchangesInData.length < 2) {
+                    console.log(`   - Omitido: Se requieren al menos 2 exchanges, pero solo se encontraron ${exchangesInData.length}.`);
+                    continue;
+                }
+
+                let minSellData = null;
+                let maxBuyData = null;
+
+                // 3. Comparar valores para encontrar el mínimo de venta y el máximo de compra
+                for (const data of exchangesInData) {
+                    if (data.Val_sell > 0 && (!minSellData || data.Val_sell < minSellData.Val_sell)) {
+                        minSellData = data;
+                    }
+                    if (data.Val_buy > 0 && (!maxBuyData || data.Val_buy > maxBuyData.Val_buy)) {
+                        maxBuyData = data;
+                    }
+                }
+
+                // 4. Calcular el porcentaje de diferencia si se encontró una oportunidad válida
+                if (minSellData && maxBuyData && minSellData.id_ex !== maxBuyData.id_ex && maxBuyData.Val_buy > minSellData.Val_sell) {
+                    try {
+                        const promedio = ((maxBuyData.Val_buy - minSellData.Val_sell) / minSellData.Val_sell) * 100;
+
+                        // a. Obtener comisiones de CCXT
+                        const [ccxtExMin, ccxtExMax] = await Promise.all([
+                            getCcxtInstance(minSellData.id_ex, ccxtInstanceCache),
+                            getCcxtInstance(maxBuyData.id_ex, ccxtInstanceCache)
+                        ]);
+
+                        const symbolStr = exSym.sy_id;
+                        const marketMin = ccxtExMin.markets[symbolStr];
+                        const takerFeeExMin = marketMin ? marketMin.taker : 0;
+                        const makerFeeExMin = marketMin ? marketMin.maker : 0;
+
+                        const marketMax = ccxtExMax.markets[symbolStr];
+                        const takerFeeExMax = marketMax ? marketMax.taker : 0;
+                        const makerFeeExMax = marketMax ? marketMax.maker : 0;
+
+                        // b. Agregar los datos al modelo Analysis
+                        const newAnalysis = new Analysis({
+                            id_exdataMin: minSellData.id_ex, // Guardar el ID de CCXT estable
+                            id_exdataMax: maxBuyData.id_ex, // Guardar el ID de CCXT estable
+                            Val_max_buy: maxBuyData.Val_buy,
+                            Val_min_sell: minSellData.Val_sell,
+                            promedio: promedio,
+                            id_exchsymbol: exSym._id,
+                            taker_fee_exMin: takerFeeExMin,
+                            maker_fee_exMin: makerFeeExMin,
+                            taker_fee_exMax: takerFeeExMax,
+                            maker_fee_exMax: makerFeeExMax,
+                            timestamp: new Date()
+                        });
+
+                        await newAnalysis.save();
+                            console.log('agregado')
+                        // 5. Imprimir los resultados
+                        console.log(`   - Oportunidad encontrada y guardada para ${exSym.sy_id}:`);
+                        console.log(`     - Compra Máxima (Val_max_buy): ${maxBuyData.Val_buy} en ${maxBuyData.id_ex}`);
+                        console.log(`     - Venta Mínima (Val_min_sell): ${minSellData.Val_sell} en ${minSellData.id_ex}`);
+                        console.log(`     - Diferencia (Promedio): ${promedio.toFixed(2)}%`);
+                    } catch (analysisError) {
+                        console.error(`[Async Analysis] Error al procesar o guardar el análisis para ${exSym.sy_id}: ${analysisError.message}`);
+                    }
+                } else {
+                    console.log(`   - No se encontró una oportunidad de arbitraje rentable.`);
+                }
+            }
+
+            console.log('\n[Async Analysis] Proceso en segundo plano finalizado.');
+
+        } catch (error) {
+            console.error('[Async Analysis] Error crítico durante el proceso en segundo plano:', error);
+        }
+    })();
+};
+
+// const analyzeSymbols = async (req, res) => {
+//     /**
+//      * 1 debe tomar los simbolos de la base de datos
+//      * 2 debe buscar los exchanges activos 
+//      */
+//     console.time("Total Analysis Time");
+//     const ccxtInstanceCache = {}; // Cache for CCXT instances to avoid re-initialization
+
+//     try {
+//         // Step 1: Find all potential arbitrage opportunities using an efficient aggregation query.
+//         const candidates = await findArbitrageCandidates();
+
+//         if (candidates.length === 0) {
+//             console.log("No new arbitrage candidates found to process.");
+//             await Analysis.deleteMany({}); // Clear old analysis if no new opportunities
+//             return res.status(200).json({ message: "Analysis complete. No arbitrage opportunities found.", insertedCount: 0 });
+//         }
+
+//         // Step 2: Process all candidates in parallel to fetch fees and prepare analysis data.
+//         console.log(`Step 2: Processing ${candidates.length} candidates in parallel to fetch fees...`);
+//         const analysisPromises = candidates.map(candidate =>
+//             processCandidateAndFetchFees(candidate, ccxtInstanceCache)
+//         );
+//         const analysisResults = await Promise.allSettled(analysisPromises);
+
+//         // Filter out failed promises and extract successful analysis documents
+//         const successfulAnalyses = analysisResults
+//             .filter(result => {
+//                 if (result.status === 'rejected') {
+//                     console.error("Error processing a candidate:", result.reason);
+//                     return false;
+//                 }
+//                 return result.value !== null;
+//             })
+//             .map(result => result.value);
+
+//         // Step 3: Perform a bulk update (clear old, insert new).
+//         console.log(`Step 3: Clearing old analysis data and inserting ${successfulAnalyses.length} new documents...`);
+//         await Analysis.deleteMany({}); // Clean slate for fresh data
+
+//         if (successfulAnalyses.length > 0) {
+//             await Analysis.insertMany(successfulAnalyses);
+//         }
+
+//         console.timeEnd("Total Analysis Time");
+//         const successMessage = `Analysis complete. Inserted ${successfulAnalyses.length} new analysis documents.`;
+//         console.log(successMessage);
+//         res.status(200).json({ message: successMessage, insertedCount: successfulAnalyses.length });
+
+//     } catch (error) {
+//         console.timeEnd("Total Analysis Time");
+//         console.error("Critical error during symbol analysis:", error);
+//         res.status(500).json({ message: "A critical error occurred during the analysis process.", error: error.message });
+//     }
+// };
 
 
 
@@ -581,6 +740,7 @@ const dataTrainModel = async (req) => {
             .populate('id_exchsymbol', 'sy_id')
             .sort({ timestamp: -1 })
             .limit(parseInt(limit));
+            
 
         // Formatear datos para entrenamiento
         const trainingData = historicalData.map(record => {
@@ -656,7 +816,8 @@ module.exports = {
     getHistoricalOHLCV,
     getFormattedTopAnalysis,
     dataTrainModel,
-    actualizePricetop20
+    actualizePricetop20,
+    analisisExchangeSimbol
 };
 
 

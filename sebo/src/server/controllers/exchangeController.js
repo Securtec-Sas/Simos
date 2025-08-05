@@ -356,64 +356,67 @@ const getWithdrawalFees = async (req, res) => {
 
 const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
   try {
-    const ccxt = require('ccxt');
-
-    // Initialize exchanges
+    // 1. Inicializar los exchanges
     const sellExchange = new ccxt[id_sell]();
     const buyExchange = new ccxt[id_buy]();
 
-    // Load markets for both exchanges
-    await sellExchange.loadMarkets();
-    await buyExchange.loadMarkets();
+    // 2. Cargar los mercados de ambos exchanges en paralelo
+    await Promise.all([
+      sellExchange.loadMarkets(),
+      buyExchange.loadMarkets()
+    ]);
 
-    // Get currency info for symbol on both exchanges
-    const sellMarket = sellExchange.markets[symbol];
-    const buyMarket = buyExchange.markets[symbol];
+    // 3. Validar que el símbolo existe en ambos exchanges
+    const sellMarket = await sellExchange.market(symbol);
+    const buyMarket = await buyExchange.market(symbol);
 
-    if (!sellMarket || !buyMarket) {
-      throw new Error('Symbol not found on one or both exchanges');
+    // 4. Obtener el código de la moneda base (ej. 'BTC' de 'BTC/USDT')
+    const baseCurrencysell = await sellMarket.base;
+    const baseCurrencybuy =await buyMarket.base;
+    
+    if (baseCurrencysell !== baseCurrencybuy) {
+      throw new Error(`Los símbolos de moneda base no coinciden: ${baseCurrencysell} vs ${baseCurrencybuy}`);
     }
 
-    // Get networks for the base currency (symbol split by '/')
-    const baseCurrency = symbol.split('/')[0];
+    // 5. Obtener información de la moneda (incluyendo redes)
+    const sellCurrencyInfo = await sellExchange.currency(baseCurrencysell);
+    const buyCurrencyInfo = await buyExchange.currency(baseCurrencybuy);
 
-    const sellCurrencies = sellExchange.currencies[baseCurrency];
-    const buyCurrencies = buyExchange.currencies[baseCurrency];
-
-    if (!sellCurrencies || !buyCurrencies) {
-      throw new Error('Base currency info not found on one or both exchanges');
+    if (!sellCurrencyInfo || !buyCurrencyInfo || !sellCurrencyInfo.networks || !buyCurrencyInfo.networks) {
+      throw new Error(`Información de red para '${baseCurrencysell}' no encontrada en uno o ambos exchanges.`);
     }
 
-    // Networks info
-    const sellNetworks = sellCurrencies.networks || {};
-    const buyNetworks = buyCurrencies.networks || {};
+    const sellNetworks = sellCurrencyInfo.networks;
+    const buyNetworks = buyCurrencyInfo.networks;
 
-    // Find common networks
-    const commonNetworks = Object.keys(sellNetworks).filter(network => network in buyNetworks);
+    const commonNetworks = [];
 
-    if (commonNetworks.length === 0) {
-      throw new Error('No common networks found between exchanges for this symbol');
-    }
+    for (const networkName in sellNetworks) {
+      if (buyNetworks.hasOwnProperty(networkName)) {
+        const sellNetwork = sellNetworks[networkName];
+        const buyNetwork = buyNetworks[networkName];
 
-    // Find network with lowest combined fee
-    let lowestFee = Number.MAX_VALUE;
-    let bestNetwork = null;
-
-    for (const network of commonNetworks) {
-      const sellFee = sellNetworks[network].fee || Number.MAX_VALUE;
-      const buyFee = buyNetworks[network].fee || Number.MAX_VALUE;
-      const totalFee = sellFee + buyFee;
-
-      if (totalFee < lowestFee) {
-        lowestFee = totalFee;
-        bestNetwork = network;
+        if (sellNetwork.withdraw && buyNetwork.deposit) {
+          
+          commonNetworks.push({
+            name: networkName,
+            withdraw: sellNetwork.withdraw,
+            fee: sellNetwork.fee,
+            deposit: buyNetwork.deposit
+          });
+        }
       }
     }
+    for (const network of commonNetworks) {
+      console.log(`Network: ${network.name}, Withdraw Fee: ${network.fee}, Withdraw Enabled: ${network.withdraw}, Deposit Enabled: ${network.deposit}`);
+      return {commission: network.fee, network: network.name, error: null};
+    }
 
-    return { commission: lowestFee, network: bestNetwork };
+
 
   } catch (error) {
-    console.error('Error in getLowestFeeNetwork:', error.message);
+    // 9. Manejar y registrar cualquier error
+    console.error(`Error en getLowestFeeNetwork para ${symbol} en ${id_sell}->${id_buy}:`, error.message);
     return { commission: null, network: null, error: error.message };
   }
 };
@@ -427,5 +430,3 @@ module.exports = {
     getWithdrawalFees, // Placeholder, will be defined below
     getLowestFeeNetwork,
 };
-
-

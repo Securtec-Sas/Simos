@@ -8,6 +8,7 @@ const Exchange = require('../data/dataBase/modelosBD/exchange.model');
 const mongoose = require('mongoose');
 const exchangesConfig = require('../data/exchanges_config.json');
 const ExchangeSymbol = require('../data/dataBase/modelosBD/exchangeSymbol.model');
+const Analysis = require('../data/dataBase/modelosBD/analysis.model');
 const analyzerController = require('./analizerController'); // Importar el controlador de análisis
 const Symbol = require('../data/dataBase/modelosBD/symbol.model');
 const ccxt = require('ccxt');
@@ -393,57 +394,101 @@ const addExchangesSymbols = async (req, res) => {
  * delete document  from  exchanSymbol where symbolid = symbol,_id count(exchangeId) < 2clos exchangeSymbol que no tengan de 2 exchanges en adelante
  * recorrer la coleccion de symbols y buscar y eliminar de la coleccion de exchangeSymbol los que cumplan las condiciones
  *
- */const deleteLowCountExchangeSymbols = async (req, res) => {
+ */
+// const deleteLowCountExchangeSymbols = async (req, res) => {
+//   let deletedCount = 0;
+//   const symbolsProcessed = [];
+//   const errors = [];
+
+//   try {
+//     // 1. Obtener todos los símbolos
+//     const symbols = await Symbol.find({}, '_id id_sy');
+
+//     console.log(`Found ${symbols.length} symbols to check.`);
+
+//     for (const symbol of symbols) {
+//       symbolsProcessed.push(symbol.id_sy);
+//       try {
+//         // 2. Contar cuántos ExchangeSymbols existen para este símbolo
+//         const count = await ExchangeSymbol.countDocuments({ symbolId: symbol._id });
+
+//         // 3. Si el count es menor que 2, eliminar todos los ExchangeSymbols para este símbolo
+//         if (count < 2) {
+//           const deleteResult = await ExchangeSymbol.deleteMany({ symbolId: symbol._id });
+//           deletedCount += deleteResult.deletedCount;
+//           console.log(`Deleted ${deleteResult.deletedCount} ExchangeSymbol entries for symbol ${symbol.id_sy} (count: ${count}).`);
+//         } else {
+//           // console.log(`Symbol ${symbol.id_sy} has ${count} ExchangeSymbol entries. Keeping.`);
+//         }
+//       } catch (symbolError) {
+//         errors.push({
+//           symbolId: symbol._id,
+//           symbol: symbol.id_sy,
+//           error: symbolError.message,
+//         });
+//         console.error(`Error processing symbol ${symbol.id_sy} for deletion check:`, symbolError);
+//       }
+//     }
+//     /**celimina el simbolo  */
+//     console.log(`Finished deleting low count ExchangeSymbols. Total deleted: ${deletedCount}`);
+
+//     res.status(200).json({
+//       message: `Checked ${symbols.length} symbols. Deleted ${deletedCount} ExchangeSymbol entries where count was less than 2.`,
+//       symbolsProcessed: symbolsProcessed,
+//       errors: errors,
+//     });
+
+//   } catch (error) {
+//     console.error("Critical error in deleteLowCountExchangeSymbols:", error);
+//     res.status(500).json({
+//       message: "An error occurred while deleting low count exchange symbols.",
+//       error: error.message,
+//       symbolsProcessed: symbolsProcessed,
+//       errors: errors,
+//     });  }
+// };
+
+const deleteLowCountExchangeSymbols = async (req, res) => {
   let deletedCount = 0;
-  const symbolsProcessed = [];
-  const errors = [];
 
   try {
-    // 1. Obtener todos los símbolos
-    const symbols = await Symbol.find({}, '_id id_sy');
+    // 1. Encontrar y eliminar los documentos que cumplen con la condición
+    //    Usamos $expr con $lt (less than) y $size para contar los elementos del mapa exch_data.
+    const deleteResult = await ExchangeSymbol.deleteMany({
+      $expr: { $lt: [{ $size: "$exch_data" }, 2] }
+    });
 
-    console.log(`Found ${symbols.length} symbols to check.`);
+    deletedCount = deleteResult.deletedCount;
+    
+    // 2. Opcional: Si necesitas limpiar símbolos de la colección 'Symbol' que ya no tienen ExchangeSymbols.
+    // Esta parte asume que tu aplicación podría necesitar esta limpieza.
+    // const symbolsWithoutExchangeSymbols = await Symbol.find({
+    //   _id: {
+    //     $nin: await ExchangeSymbol.distinct('symbolId')
+    //   }
+    // });
+    // const symbolsDeleted = await Symbol.deleteMany({
+    //   _id: {
+    //     $in: symbolsWithoutExchangeSymbols.map(s => s._id)
+    //   }
+    // });
+    // console.log(`Deleted ${symbolsDeleted.deletedCount} symbols without associated ExchangeSymbols.`);
 
-    for (const symbol of symbols) {
-      symbolsProcessed.push(symbol.id_sy);
-      try {
-        // 2. Contar cuántos ExchangeSymbols existen para este símbolo
-        const count = await ExchangeSymbol.countDocuments({ symbolId: symbol._id });
+    console.log(`Se eliminaron ${deletedCount} documentos de ExchangeSymbol donde exch_data tenía menos de 2 elementos.`);
 
-        // 3. Si el count es menor que 2, eliminar todos los ExchangeSymbols para este símbolo
-        if (count < 2) {
-          const deleteResult = await ExchangeSymbol.deleteMany({ symbolId: symbol._id });
-          deletedCount += deleteResult.deletedCount;
-          console.log(`Deleted ${deleteResult.deletedCount} ExchangeSymbol entries for symbol ${symbol.id_sy} (count: ${count}).`);
-        } else {
-          // console.log(`Symbol ${symbol.id_sy} has ${count} ExchangeSymbol entries. Keeping.`);
-        }
-      } catch (symbolError) {
-        errors.push({
-          symbolId: symbol._id,
-          symbol: symbol.id_sy,
-          error: symbolError.message,
-        });
-        console.error(`Error processing symbol ${symbol.id_sy} for deletion check:`, symbolError);
-      }
-    }
-    /**celimina el simbolo  */
-    console.log(`Finished deleting low count ExchangeSymbols. Total deleted: ${deletedCount}`);
-
+    // 3. Devolver la respuesta con el conteo de documentos eliminados
     res.status(200).json({
-      message: `Checked ${symbols.length} symbols. Deleted ${deletedCount} ExchangeSymbol entries where count was less than 2.`,
-      symbolsProcessed: symbolsProcessed,
-      errors: errors,
+      message: `Proceso completado. Se eliminaron ${deletedCount} documentos de ExchangeSymbol.`,
+      deletedCount: deletedCount
     });
 
   } catch (error) {
-    console.error("Critical error in deleteLowCountExchangeSymbols:", error);
+    console.error("Error crítico en deleteLowCountExchangeSymbols:", error);
     res.status(500).json({
-      message: "An error occurred while deleting low count exchange symbols.",
-      error: error.message,
-      symbolsProcessed: symbolsProcessed,
-      errors: errors,
-    });  }
+      message: "Ocurrió un error al intentar eliminar los símbolos con pocos exchanges.",
+      error: error.message
+    });
+  }
 };
 
 /**
@@ -471,10 +516,167 @@ const getAllExchangeSymbols = async (req, res) => {
   }
 };
 
+/**
+ * Verifica si un par de exchanges tiene una red de retiro en común para un símbolo.
+ * @param {string} symbolId El ID del símbolo (ej. 'BTC/USDT').
+ * @param {string} id_sell El ID del exchange de venta (ej. 'binance').
+ * @param {string} id_buy El ID del exchange de compra (ej. 'coinbase').
+ * @returns {Promise<boolean>} Retorna true si hay una red común, de lo contrario, false.
+ */
+const hasCommonWithdrawalNetwork = async (symbolId, id_sell, id_buy) => {
+  try {
+    const sellExchange = new ccxt[id_sell]();
+    const buyExchange = new ccxt[id_buy]();
+
+    await Promise.all([
+      sellExchange.loadMarkets(),
+      buyExchange.loadMarkets()
+    ]);
+
+    const sellMarket = sellExchange.market(symbolId);
+    const buyMarket = buyExchange.market(symbolId);
+
+    const baseCurrencysell = sellMarket.base;
+    const baseCurrencybuy = buyMarket.base;
+
+    const [sellCurrencyInfo, buyCurrencyInfo] = await Promise.all([
+      sellExchange.currency(baseCurrencysell),
+      buyExchange.currency(baseCurrencybuy)
+    ]);
+
+    const sellNetworks = await sellCurrencyInfo?.networks;
+    // console.log(sellNetworks);
+    const buyNetworks = await buyCurrencyInfo?.networks;
+    // console.log('buyNetworks[networkName]');
+    // console.log(buyNetworks);
+    const networkDetails = await Object.entries(sellNetworks).map(([networkName, networkInfo]) => ({
+      name: networkName,
+      withdraw: networkInfo.withdraw,
+      fee: networkInfo.fee
+    }));
+    console.log(networkDetails);
+    
+    const buyNetworkDetails = await Object.entries(buyNetworks).map(([networkName, networkInfo]) => ({
+      name: networkName,
+      deposit: networkInfo.deposit,
+      fee: networkInfo.fee
+    }));
+
+    console.log(buyNetworkDetails);
+
+    const commonNetwork = await networkDetails.find(sellNetwork => buyNetworkDetails.find(buyNetwork => sellNetwork.name === buyNetwork.name && sellNetwork.withdraw && buyNetwork.deposit));
+    console.log(commonNetwork)
+    return commonNetwork;
+
+    
+
+    // if (Object.keys(sellNetworks).length > 0) {
+    //   Object.entries(sellNetworks).forEach(([networkName, networkInfo]) => {
+    //     console.log(`---------------------------------------------------`);
+    //     console.log(`sellNetworks[${networkName}]:`);
+    //     console.log(networkInfo);
+    // if (Object.keys(buyNetworks).length > 0) {
+    //   Object.entries(buyNetworks).forEach(([networkName, networkInfo]) => {
+    //     console.log(`---------------------------------------------------`);
+    //     console.log(`buyNetworks[${networkName}]:`);
+    //     console.log(networkInfo);
+    //     if (buyNetworks[networkName]) {
+          
+    //     }
+    //   });
+    // }
+    //   });
+    // }
+    // const commonNetworks = Object.keys(sellNetworks).filter(networkName => {
+    //   // Verifica si la red existe en ambos exchanges
+    //   console.log(networkName);
+    //   console.log('sellNetworks[networkName]');
+    //   // console.log(sellNetworks[networkName].info);
+    //   console.log('buyNetworks[networkName]');
+    //   console.log(buyNetworks[networkName].info);
+    //   if (buyNetworks[networkName]) {
+    //     // Opcional: Verifica si la red está activa para retiros
+    //     // console.log(buyNetworks[networkName])
+    //     const sellNetworkActive = sellNetworks[networkName].withdrawal?.active;
+    //     const buyNetworkActive = buyNetworks[networkName].deposit?.active;
+    //     return sellNetworkActive && buyNetworkActive;
+    //   }
+    //   return false;
+    // });
+    // await new Promise(resolve => setTimeout(resolve, 2000));
+    // return commonNetworks.length > 0;
+
+  } catch (error) {
+    console.error(`Error al verificar redes para ${symbolId} en ${id_sell}->${id_buy}:`, error.message);
+    return false;
+  }
+};
+
+const deleteAnalysisWithoutActiveNetworks = async (req, res) => {
+  let deletedCount = 0;
+  let processedCount = 0;
+
+  try {
+    // 1. Obtener todos los documentos de análisis, poblando el ExchangeSymbol
+    const analyses = await Analysis.find().populate('id_exchsymbol');
+
+    console.log(`Se encontraron ${analyses.length} análisis para verificar.`);
+
+    // 2. Usar Promise.all para procesar todas las verificaciones en paralelo
+    const analysesToDelete = [];
+    
+    // Usamos un bucle for-of normal para poder usar await de forma segura
+    for (const analysis of analyses) {
+      processedCount++;
+      const id_exchsymbol = analysis.id_exchsymbol;
+      
+      // Si el populate falló o el documento vinculado fue eliminado, se salta
+      if (!id_exchsymbol) {
+        analysesToDelete.push(analysis._id);
+        continue;
+      }
+      
+      const symbolId = id_exchsymbol.sy_id;
+      const id_sell = analysis.id_exdataMax;
+      const id_buy = analysis.id_exdataMin;
+      
+      const hasNetworks = await hasCommonWithdrawalNetwork(symbolId, id_sell, id_buy);
+
+      if (!hasNetworks) {
+        analysesToDelete.push(analysis._id);
+        console.log(`Análisis para ${symbolId} en ${id_buy}->${id_sell} no tiene redes comunes. Marcado para eliminación.`);
+      }
+    }
+    
+    // 3. Eliminar todos los documentos marcados en una sola operación en la base de datos
+    if (analysesToDelete.length > 0) {
+      const result = await Analysis.deleteMany({ _id: { $in: analysesToDelete } });
+      deletedCount = result.deletedCount;
+    }
+
+    console.log(`Proceso completado. ${deletedCount} documentos de análisis eliminados.`);
+    
+    // 4. Devolver la respuesta al cliente
+    res.status(200).json({
+      message: `Proceso completado. Se revisaron ${processedCount} análisis y se eliminaron ${deletedCount} que no tenían redes de retiro activas en común.`,
+      deletedCount: deletedCount
+    });
+
+  } catch (error) {
+    console.error("Error crítico en deleteAnalysisWithoutActiveNetworks:", error);
+    res.status(500).json({
+      message: "Ocurrió un error al eliminar los análisis sin redes activas.",
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   addExchanges,
   addSymbols,
   addExchangesSymbols,
   getAllExchangeSymbols,
-  exchangesymbolsNewAdd // Exportar la nueva función
+  exchangesymbolsNewAdd, // Exportar la nueva función
+  deleteLowCountExchangeSymbols,
+  deleteAnalysisWithoutActiveNetworks
 };
