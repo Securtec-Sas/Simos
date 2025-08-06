@@ -2,6 +2,7 @@ const Analysis = require('../data/dataBase/modelosBD/analysis.model');
 const ExchangeSymbol = require('../data/dataBase/modelosBD/exchangeSymbol.model');
 const { Parser } = require('json2csv');
 const { getLowestFeeNetwork } = require('./exchangeController');
+const { getExchangeTimeframe } = require('../utils/timeframeConverter');
 const ccxt = require('ccxt');
 const fs = require('fs').promises;
 const path = require('path');
@@ -12,44 +13,8 @@ const fetchHistoricalData = async (data, fecha_inicio, intervalo, cantidad_opera
   // CCXT limit is per request, and often capped at 1000 by exchanges.
   const limit = cantidad_operaciones ? parseInt(cantidad_operaciones) : 100;
 
-  const exchangeTimeframeMaps = {
-    kucoin: {
-      '1m': '1min',
-      '3m': '3min',
-      '5m': '5min',
-      '15m': '15min',
-      '30m': '30min',
-      '1h': '1hour',
-      '2h': '2hour',
-      '4h': '4hour',
-      '6h': '6hour',
-      '8h': '8hour',
-      '12h': '12hour',
-      '1d': '1day',
-      '1w': '1week',
-      default: '5min',
-    },
-    // Se pueden agregar otros exchanges aquí en el futuro
-  };
-
-  let buyIntervalo = intervalo;
-  let sellIntervalo = intervalo;
-
-  if (exchangeTimeframeMaps[buyExchangeId]) {
-    const map = exchangeTimeframeMaps[buyExchangeId];
-    buyIntervalo = map[intervalo] || map.default;
-    if (!map[intervalo]) {
-      console.warn(`Intervalo no mapeado para ${buyExchangeId}: '${intervalo}'. Usando '${map.default}' por defecto.`);
-    }
-  }
-
-  if (exchangeTimeframeMaps[sellExchangeId]) {
-    const map = exchangeTimeframeMaps[sellExchangeId];
-    sellIntervalo = map[intervalo] || map.default;
-    if (!map[intervalo]) {
-      console.warn(`Intervalo no mapeado para ${sellExchangeId}: '${intervalo}'. Usando '${map.default}' por defecto.`);
-    }
-  }
+  const buyIntervalo = getExchangeTimeframe(buyExchangeId, intervalo);
+  const sellIntervalo = getExchangeTimeframe(sellExchangeId, intervalo);
 
   try {
 /*************  ✨ Windsurf Command ⭐  *************/
