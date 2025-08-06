@@ -12,36 +12,42 @@ const fetchHistoricalData = async (data, fecha_inicio, intervalo, cantidad_opera
   // CCXT limit is per request, and often capped at 1000 by exchanges.
   const limit = cantidad_operaciones ? parseInt(cantidad_operaciones) : 100;
 
-  const kucoinTimeframeMap = {
-    '1m': '1min',
-    '3m': '3min',
-    '5m': '5min',
-    '15m': '15min',
-    '30m': '30min',
-    '1h': '1hour',
-    '2h': '2hour',
-    '4h': '4hour',
-    '6h': '6hour',
-    '8h': '8hour',
-    '12h': '12hour',
-    '1d': '1day',
-    '1w': '1week',
+  const exchangeTimeframeMaps = {
+    kucoin: {
+      '1m': '1min',
+      '3m': '3min',
+      '5m': '5min',
+      '15m': '15min',
+      '30m': '30min',
+      '1h': '1hour',
+      '2h': '2hour',
+      '4h': '4hour',
+      '6h': '6hour',
+      '8h': '8hour',
+      '12h': '12hour',
+      '1d': '1day',
+      '1w': '1week',
+      default: '5min',
+    },
+    // Se pueden agregar otros exchanges aquí en el futuro
   };
 
   let buyIntervalo = intervalo;
   let sellIntervalo = intervalo;
 
-  if (buyExchangeId === 'kucoin') {
-    buyIntervalo = kucoinTimeframeMap[intervalo] || '5min';
-    if (!kucoinTimeframeMap[intervalo]) {
-      console.warn(`Intervalo no mapeado para KuCoin: '${intervalo}'. Usando '5min' por defecto.`);
+  if (exchangeTimeframeMaps[buyExchangeId]) {
+    const map = exchangeTimeframeMaps[buyExchangeId];
+    buyIntervalo = map[intervalo] || map.default;
+    if (!map[intervalo]) {
+      console.warn(`Intervalo no mapeado para ${buyExchangeId}: '${intervalo}'. Usando '${map.default}' por defecto.`);
     }
   }
 
-  if (sellExchangeId === 'kucoin') {
-    sellIntervalo = kucoinTimeframeMap[intervalo] || '5min';
-    if (!kucoinTimeframeMap[intervalo]) {
-      console.warn(`Intervalo no mapeado para KuCoin: '${intervalo}'. Usando '5min' por defecto.`);
+  if (exchangeTimeframeMaps[sellExchangeId]) {
+    const map = exchangeTimeframeMaps[sellExchangeId];
+    sellIntervalo = map[intervalo] || map.default;
+    if (!map[intervalo]) {
+      console.warn(`Intervalo no mapeado para ${sellExchangeId}: '${intervalo}'. Usando '${map.default}' por defecto.`);
     }
   }
 
