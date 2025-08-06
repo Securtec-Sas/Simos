@@ -389,6 +389,9 @@ const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
     const sellNetworks = sellCurrencyInfo.networks;
     const buyNetworks = buyCurrencyInfo.networks;
 
+    const sellNetworksAvailable = Object.keys(sellNetworks);
+    const buyNetworksAvailable = Object.keys(buyNetworks);
+
     const commonNetworks = [];
 
     for (const networkName in sellNetworks) {
@@ -408,19 +411,37 @@ const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
       }
     }
     if (commonNetworks.length === 0) {
-      return { commission: null, network: null, error: "No common network found with withdrawal and deposit enabled." };
+      return {
+        commission: null,
+        network: null,
+        error: "No common network found with withdrawal and deposit enabled.",
+        sellNetworksAvailable,
+        buyNetworksAvailable
+      };
     }
 
     let lowestFeeNetwork = commonNetworks.reduce((min, net) => net.fee < min.fee ? net : min, commonNetworks[0]);
 
     console.log(`Lowest Fee Network: ${lowestFeeNetwork.name}, Withdraw Fee: ${lowestFeeNetwork.fee}`);
-    return {commission: lowestFeeNetwork.fee, network: lowestFeeNetwork.name, error: null};
+    return {
+      commission: lowestFeeNetwork.fee,
+      network: lowestFeeNetwork.name,
+      error: null,
+      sellNetworksAvailable,
+      buyNetworksAvailable
+    };
 
 
   } catch (error) {
     // 9. Manejar y registrar cualquier error
     console.error(`Error en getLowestFeeNetwork para ${symbol} en ${id_sell}->${id_buy}:`, error.message);
-    return { commission: null, network: null, error: error.message };
+    return {
+      commission: null,
+      network: null,
+      error: error.message,
+      sellNetworksAvailable: [],
+      buyNetworksAvailable: []
+    };
   }
 };
 
