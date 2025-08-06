@@ -366,6 +366,14 @@ const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
       buyExchange.loadMarkets()
     ]);
 
+    // Explicitly fetch currencies to get detailed network info, especially for exchanges like Bitrue
+    if (sellExchange.has['fetchCurrencies']) {
+      await sellExchange.fetchCurrencies();
+    }
+    if (buyExchange.has['fetchCurrencies']) {
+      await buyExchange.fetchCurrencies();
+    }
+
     // 3. Validar que el símbolo existe en ambos exchanges
     const sellMarket = await sellExchange.market(symbol);
     const buyMarket = await buyExchange.market(symbol);
