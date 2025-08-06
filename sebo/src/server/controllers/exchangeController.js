@@ -417,6 +417,7 @@ const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
     return {commission: lowestFeeNetwork.fee, network: lowestFeeNetwork.name, error: null};
 
 
+    
   } catch (error) {
     // 9. Manejar y registrar cualquier error
     console.error(`Error en getLowestFeeNetwork para ${symbol} en ${id_sell}->${id_buy}:`, error.message);
