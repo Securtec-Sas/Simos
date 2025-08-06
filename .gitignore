@@ -41,3 +41,5 @@ coverage.xml
 migrations/
 .tmp.driveupload/
 .tmp.drivedownload/
+
+V3/data/

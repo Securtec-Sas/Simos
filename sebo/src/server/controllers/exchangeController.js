@@ -356,121 +356,67 @@ const getWithdrawalFees = async (req, res) => {
 
 const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
   try {
-    const ccxt = require('ccxt');
-
-    // Initialize exchanges
+    // 1. Inicializar los exchanges
     const sellExchange = new ccxt[id_sell]();
     const buyExchange = new ccxt[id_buy]();
 
-    // Load markets for both exchanges
-    await sellExchange.loadMarkets();
-    await buyExchange.loadMarkets();
+    // 2. Cargar los mercados de ambos exchanges en paralelo
+    await Promise.all([
+      sellExchange.loadMarkets(),
+      buyExchange.loadMarkets()
+    ]);
 
-    // Get currency info for symbol on both exchanges
-    const sellMarket = await sellExchange.markets[symbol];
-    const buyMarket = await buyExchange.markets[symbol];
+    // 3. Validar que el símbolo existe en ambos exchanges
+    const sellMarket = await sellExchange.market(symbol);
+    const buyMarket = await buyExchange.market(symbol);
 
-    if (!sellMarket || !buyMarket) {
-      throw new Error(`Symbol ${symbol} not found on one or both exchanges: ${id_sell}, ${id_buy}`);
-    }
-
-    // Get networks for the base currency (symbol split by '/')
-    const baseCurrency = await symbol.split('/')[0];
-    // console.log(sellExchange.currencies) 
-    // console.log(symbol)
-    const sellCurrencies = await sellExchange.currencies[baseCurrency];
-    const buyCurrencies = await buyExchange.currencies[baseCurrency];
-    // console.log(await sellCurrencies)
-
-    if (!sellCurrencies || !buyCurrencies) {
-      throw new Error(`Base currency info not found on one or both exchanges for ${baseCurrency}`);
-    }
+    // 4. Obtener el código de la moneda base (ej. 'BTC' de 'BTC/USDT')
+    const baseCurrencysell = await sellMarket.base;
+    const baseCurrencybuy =await buyMarket.base;
     
-    if(!sellCurrencies.withdraw && !buyCurrencies.deposit){
-      throw new Error(`no se puede realizar retiros o deposits en ${id_sell} o ${id_buy} para ${baseCurrency}`);
+    if (baseCurrencysell !== baseCurrencybuy) {
+      throw new Error(`Los símbolos de moneda base no coinciden: ${baseCurrencysell} vs ${baseCurrencybuy}`);
     }
 
-    // Networks info
-    const sellNetworks = await sellCurrencies.networks || {};
-    const buyNetworks = await buyCurrencies.networks || {};
+    // 5. Obtener información de la moneda (incluyendo redes)
+    const sellCurrencyInfo = await sellExchange.currency(baseCurrencysell);
+    const buyCurrencyInfo = await buyExchange.currency(baseCurrencybuy);
 
-    // Find common networks where sell exchange allows withdrawal and buy exchange allows deposit
-    // const commonNetworks = await Object.keys(sellNetworks).filter(network => {
-    //   // Check if the network exists in buyNetworks
-    //   // console.log(sellNetworks)
-     
-    //   // Get the network details for both exchanges
-    //   const sellNetworkDetails = sellNetworks[network];
-    //   const buyNetworkDetails =  buyNetworks[network];
-    //   console.log(network)
-    //   console.log('*******************************************')
-    //   console.log(sellNetworkDetails)
-    //   console.log('*******************************************')
-    //   console.log(buyNetworkDetails)
-    //   console.log('*******************************************')
-      
-    //   // Check if withdrawal is enabled on the sell exchange and deposit is enabled on the buy exchange
-    //   const sellWithdrawEnabled = sellNetworkDetails.withdraw;
-    //   const buyDepositEnabled = buyNetworkDetails.deposit;
-      
-    //   return sellWithdrawEnabled && buyDepositEnabled;
-    // });
-    // console.log(commonNetworks)
-    // if (commonNetworks.length === 0) {
-    //   throw new Error('No common networks found with enabled withdraw/deposit for this symbol');
-    // }
+    if (!sellCurrencyInfo || !buyCurrencyInfo || !sellCurrencyInfo.networks || !buyCurrencyInfo.networks) {
+      throw new Error(`Información de red para '${baseCurrencysell}' no encontrada en uno o ambos exchanges.`);
+    }
 
-    // Find network with lowest combined fee
-    let lowestFee = Number.MAX_VALUE;
-    let bestNetwork = null;
+    const sellNetworks = sellCurrencyInfo.networks;
+    const buyNetworks = buyCurrencyInfo.networks;
 
-    const buyArr=[];
-    console.log(buyNetworks)
-    for ([networkName, networkDetails] of Object.entries(buyNetworks)) {
-      console.log(`Network: ${networkName}, deposit: ${networkDetails.deposit}, fee: ${networkDetails.fee}`);
-      if(networkDetails.deposit == true){
-        buyArr.push( networkName);
+    const commonNetworks = [];
+
+    for (const networkName in sellNetworks) {
+      if (buyNetworks.hasOwnProperty(networkName)) {
+        const sellNetwork = sellNetworks[networkName];
+        const buyNetwork = buyNetworks[networkName];
+
+        if (sellNetwork.withdraw && buyNetwork.deposit) {
+          
+          commonNetworks.push({
+            name: networkName,
+            withdraw: sellNetwork.withdraw,
+            fee: sellNetwork.fee,
+            deposit: buyNetwork.deposit
+          });
+        }
       }
     }
-    for(let i = 0; i < buyNetworks.length; i++){
-      console.log(buyNetworks[i]);
-      console.log('*******************************************')
+    for (const network of commonNetworks) {
+      console.log(`Network: ${network.name}, Withdraw Fee: ${network.fee}, Withdraw Enabled: ${network.withdraw}, Deposit Enabled: ${network.deposit}`);
+      return {commission: network.fee, network: network.name, error: null};
     }
-    console.log(await buyArr)
-    
 
-    // console.log(buyNetworks.length)
-    // const enabledDepositNetworks = await Object.entries(buyNetworks)
-    //   .filter(([networkName, networkDetails]) => networkDetails.deposit)
-    //   .map(([networkName]) => networkName);
 
-  for(let i = 0; i < buyArr.length; i++){
-    console.log(buyArr.length);
-    // console.log(enabledDepositNetworks)
-  for (const [networkName, networkDetails] of Object.entries(sellNetworks)) {
-  const sellFee = networkDetails.fee || Number.MAX_VALUE;
-  // console.log('networkDetails***************************************')
-  console.log(networkDetails)
-  // console.log('networkDetails***************************************')
-  // console.log(enabledDepositNetworks + '--- ' + networkDetails.network)
-  // console.log('networkDetails***************************************')
-  
 
-  if (networkDetails.withdraw !== false) {
-      console.log(buyArr[i] + '--- ' + networkDetails.network);
-      if(buyArr[i] == networkDetails.network){
-        console.log('entro');
-        return { commission: networkDetails.fee ?? 0, network: networkDetails.network, error: null };
-      }
-      else{
-        console.log('no entro'); 
-      }
-    }
-  }
-}
-return { commission: null, network: null, error: 'No common networks found with enabled withdraw/deposit for this symbol' };
- } catch (error) {
-    console.error('Error in getLowestFeeNetwork:', error.message);
+  } catch (error) {
+    // 9. Manejar y registrar cualquier error
+    console.error(`Error en getLowestFeeNetwork para ${symbol} en ${id_sell}->${id_buy}:`, error.message);
     return { commission: null, network: null, error: error.message };
   }
 };
@@ -484,5 +430,3 @@ module.exports = {
     getWithdrawalFees, // Placeholder, will be defined below
     getLowestFeeNetwork,
 };
-
-
