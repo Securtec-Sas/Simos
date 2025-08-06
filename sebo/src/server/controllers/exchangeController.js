@@ -407,17 +407,70 @@ const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
         }
       }
     }
-    for (const network of commonNetworks) {
-      console.log(`Network: ${network.name}, Withdraw Fee: ${network.fee}, Withdraw Enabled: ${network.withdraw}, Deposit Enabled: ${network.deposit}`);
-      return {commission: network.fee, network: network.name, error: null};
+    if (commonNetworks.length === 0) {
+      return { commission: null, network: null, error: "No common network found with withdrawal and deposit enabled." };
     }
-    return { commission: null, network: null, error: "No common network found with withdrawal and deposit enabled." };
+
+    let lowestFeeNetwork = commonNetworks.reduce((min, net) => net.fee < min.fee ? net : min, commonNetworks[0]);
+
+    console.log(`Lowest Fee Network: ${lowestFeeNetwork.name}, Withdraw Fee: ${lowestFeeNetwork.fee}`);
+    return {commission: lowestFeeNetwork.fee, network: lowestFeeNetwork.name, error: null};
 
 
   } catch (error) {
     // 9. Manejar y registrar cualquier error
     console.error(`Error en getLowestFeeNetwork para ${symbol} en ${id_sell}->${id_buy}:`, error.message);
     return { commission: null, network: null, error: error.message };
+  }
+};
+
+const canTransferSymbol = async (id_sell, id_buy, symbol) => {
+  try {
+    const sellExchange = new ccxt[id_sell]();
+    const buyExchange = new ccxt[id_buy]();
+
+    await Promise.all([
+      sellExchange.loadMarkets(),
+      buyExchange.loadMarkets()
+    ]);
+
+    const sellMarket = await sellExchange.market(symbol);
+    const buyMarket = await buyExchange.market(symbol);
+
+    const baseCurrencysell = await sellMarket.base;
+    const baseCurrencybuy = await buyMarket.base;
+
+    if (baseCurrencysell !== baseCurrencybuy) {
+      console.error(`Los símbolos de moneda base no coinciden: ${baseCurrencysell} vs ${baseCurrencybuy}`);
+      return false;
+    }
+
+    const sellCurrencyInfo = await sellExchange.currency(baseCurrencysell);
+    const buyCurrencyInfo = await buyExchange.currency(baseCurrencybuy);
+
+    if (!sellCurrencyInfo || !buyCurrencyInfo || !sellCurrencyInfo.networks || !buyCurrencyInfo.networks) {
+      console.error(`Información de red para '${baseCurrencysell}' no encontrada en uno o ambos exchanges.`);
+      return false;
+    }
+
+    const sellNetworks = sellCurrencyInfo.networks;
+    const buyNetworks = buyCurrencyInfo.networks;
+
+    for (const networkName in sellNetworks) {
+      if (buyNetworks.hasOwnProperty(networkName)) {
+        const sellNetwork = sellNetworks[networkName];
+        const buyNetwork = buyNetworks[networkName];
+
+        if (sellNetwork.withdraw && buyNetwork.deposit) {
+          return true; // Found a common, active network
+        }
+      }
+    }
+
+    return false; // No common, active network found
+  } catch (error) {
+    console.error(`Error en canTransferSymbol para ${symbol} en ${id_sell}->${id_buy}:`, error.message);
+    return false;
   }
 };
 
@@ -429,4 +482,5 @@ module.exports = {
     updateExchangeActiveStatus,
     getWithdrawalFees, // Placeholder, will be defined below
     getLowestFeeNetwork,
+    canTransferSymbol,
 };
