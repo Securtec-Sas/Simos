@@ -12,6 +12,39 @@ const fetchHistoricalData = async (data, fecha_inicio, intervalo, cantidad_opera
   // CCXT limit is per request, and often capped at 1000 by exchanges.
   const limit = cantidad_operaciones ? parseInt(cantidad_operaciones) : 100;
 
+  const kucoinTimeframeMap = {
+    '1m': '1min',
+    '3m': '3min',
+    '5m': '5min',
+    '15m': '15min',
+    '30m': '30min',
+    '1h': '1hour',
+    '2h': '2hour',
+    '4h': '4hour',
+    '6h': '6hour',
+    '8h': '8hour',
+    '12h': '12hour',
+    '1d': '1day',
+    '1w': '1week',
+  };
+
+  let buyIntervalo = intervalo;
+  let sellIntervalo = intervalo;
+
+  if (buyExchangeId === 'kucoin') {
+    buyIntervalo = kucoinTimeframeMap[intervalo] || '5min';
+    if (!kucoinTimeframeMap[intervalo]) {
+      console.warn(`Intervalo no mapeado para KuCoin: '${intervalo}'. Usando '5min' por defecto.`);
+    }
+  }
+
+  if (sellExchangeId === 'kucoin') {
+    sellIntervalo = kucoinTimeframeMap[intervalo] || '5min';
+    if (!kucoinTimeframeMap[intervalo]) {
+      console.warn(`Intervalo no mapeado para KuCoin: '${intervalo}'. Usando '5min' por defecto.`);
+    }
+  }
+
   try {
 /*************  ✨ Windsurf Command ⭐  *************/
   /**
@@ -43,8 +76,8 @@ const fetchHistoricalData = async (data, fecha_inicio, intervalo, cantidad_opera
 
     // Fetch in parallel
     const [buyData, sellData] = await Promise.all([
-        buyExchange.fetchOHLCV(symbol, intervalo, since, limit),
-        sellExchange.fetchOHLCV(symbol, intervalo, since, limit)
+        buyExchange.fetchOHLCV(symbol, buyIntervalo, since, limit),
+        sellExchange.fetchOHLCV(symbol, sellIntervalo, since, limit)
     ]);
 
     // Synchronize data by timestamp
