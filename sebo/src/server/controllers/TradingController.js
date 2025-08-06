@@ -164,6 +164,12 @@ const createTrainingCSV = async (req, res) => {
       // Si la eliminas, el código será más rápido.
       // await new Promise(resolve => setTimeout(resolve, 2000));
 
+      if (!analysis.id_exchsymbol) {
+        // Si el símbolo de intercambio no está poblado, salta este registro para evitar un crash.
+        console.warn(`Omitiendo registro de análisis ${analysis._id} por datos de símbolo de intercambio ausentes o inconsistentes.`);
+        continue;
+      }
+
       const data = {
         symbol: analysis.id_exchsymbol.sy_id,
         buyExchangeId: analysis.id_exdataMin,
