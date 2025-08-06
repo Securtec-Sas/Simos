@@ -184,8 +184,9 @@ const createTrainingCSV = async (req, res) => {
       // Es mejor obtener el resultado directamente.
       const lowestFeeResult = await getLowestFeeNetwork( data.sellExchangeId, data.buyExchangeId, data.symbol);
       console.log(lowestFeeResult);
-      if (await lowestFeeResult.error !== null) {
-        console.warn(`Advertencia: No se pudo obtener la red de menor comisión para el símbolo ${data.symbol}: ${lowestFeeResult.error}`);
+      if (!lowestFeeResult || lowestFeeResult.error) {
+        const errorMessage = lowestFeeResult ? lowestFeeResult.error : "La función getLowestFeeNetwork no devolvió resultado.";
+        console.warn(`Advertencia: No se pudo obtener la red de menor comisión para el símbolo ${data.symbol}: ${errorMessage}`);
         continue;
       } else {
         // Asumiendo que getLowestFeeNetwork devuelve un array. Tomamos el primer elemento.

@@ -411,7 +411,7 @@ const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
       console.log(`Network: ${network.name}, Withdraw Fee: ${network.fee}, Withdraw Enabled: ${network.withdraw}, Deposit Enabled: ${network.deposit}`);
       return {commission: network.fee, network: network.name, error: null};
     }
-
+    return { commission: null, network: null, error: "No common network found with withdrawal and deposit enabled." };
 
 
   } catch (error) {
