@@ -367,52 +367,109 @@ const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
     await buyExchange.loadMarkets();
 
     // Get currency info for symbol on both exchanges
-    const sellMarket = sellExchange.markets[symbol];
-    const buyMarket = buyExchange.markets[symbol];
+    const sellMarket = await sellExchange.markets[symbol];
+    const buyMarket = await buyExchange.markets[symbol];
 
     if (!sellMarket || !buyMarket) {
-      throw new Error('Symbol not found on one or both exchanges');
+      throw new Error(`Symbol ${symbol} not found on one or both exchanges: ${id_sell}, ${id_buy}`);
     }
 
     // Get networks for the base currency (symbol split by '/')
-    const baseCurrency = symbol.split('/')[0];
-
-    const sellCurrencies = sellExchange.currencies[baseCurrency];
-    const buyCurrencies = buyExchange.currencies[baseCurrency];
+    const baseCurrency = await symbol.split('/')[0];
+    // console.log(sellExchange.currencies) 
+    // console.log(symbol)
+    const sellCurrencies = await sellExchange.currencies[baseCurrency];
+    const buyCurrencies = await buyExchange.currencies[baseCurrency];
+    // console.log(await sellCurrencies)
 
     if (!sellCurrencies || !buyCurrencies) {
-      throw new Error('Base currency info not found on one or both exchanges');
+      throw new Error(`Base currency info not found on one or both exchanges for ${baseCurrency}`);
+    }
+    
+    if(!sellCurrencies.withdraw && !buyCurrencies.deposit){
+      throw new Error(`no se puede realizar retiros o deposits en ${id_sell} o ${id_buy} para ${baseCurrency}`);
     }
 
     // Networks info
-    const sellNetworks = sellCurrencies.networks || {};
-    const buyNetworks = buyCurrencies.networks || {};
+    const sellNetworks = await sellCurrencies.networks || {};
+    const buyNetworks = await buyCurrencies.networks || {};
 
-    // Find common networks
-    const commonNetworks = Object.keys(sellNetworks).filter(network => network in buyNetworks);
-
-    if (commonNetworks.length === 0) {
-      throw new Error('No common networks found between exchanges for this symbol');
-    }
+    // Find common networks where sell exchange allows withdrawal and buy exchange allows deposit
+    // const commonNetworks = await Object.keys(sellNetworks).filter(network => {
+    //   // Check if the network exists in buyNetworks
+    //   // console.log(sellNetworks)
+     
+    //   // Get the network details for both exchanges
+    //   const sellNetworkDetails = sellNetworks[network];
+    //   const buyNetworkDetails =  buyNetworks[network];
+    //   console.log(network)
+    //   console.log('*******************************************')
+    //   console.log(sellNetworkDetails)
+    //   console.log('*******************************************')
+    //   console.log(buyNetworkDetails)
+    //   console.log('*******************************************')
+      
+    //   // Check if withdrawal is enabled on the sell exchange and deposit is enabled on the buy exchange
+    //   const sellWithdrawEnabled = sellNetworkDetails.withdraw;
+    //   const buyDepositEnabled = buyNetworkDetails.deposit;
+      
+    //   return sellWithdrawEnabled && buyDepositEnabled;
+    // });
+    // console.log(commonNetworks)
+    // if (commonNetworks.length === 0) {
+    //   throw new Error('No common networks found with enabled withdraw/deposit for this symbol');
+    // }
 
     // Find network with lowest combined fee
     let lowestFee = Number.MAX_VALUE;
     let bestNetwork = null;
 
-    for (const network of commonNetworks) {
-      const sellFee = sellNetworks[network].fee || Number.MAX_VALUE;
-      const buyFee = buyNetworks[network].fee || Number.MAX_VALUE;
-      const totalFee = sellFee + buyFee;
-
-      if (totalFee < lowestFee) {
-        lowestFee = totalFee;
-        bestNetwork = network;
+    const buyArr=[];
+    console.log(buyNetworks)
+    for ([networkName, networkDetails] of Object.entries(buyNetworks)) {
+      console.log(`Network: ${networkName}, deposit: ${networkDetails.deposit}, fee: ${networkDetails.fee}`);
+      if(networkDetails.deposit == true){
+        buyArr.push( networkName);
       }
     }
+    for(let i = 0; i < buyNetworks.length; i++){
+      console.log(buyNetworks[i]);
+      console.log('*******************************************')
+    }
+    console.log(await buyArr)
+    
 
-    return { commission: lowestFee, network: bestNetwork };
+    // console.log(buyNetworks.length)
+    // const enabledDepositNetworks = await Object.entries(buyNetworks)
+    //   .filter(([networkName, networkDetails]) => networkDetails.deposit)
+    //   .map(([networkName]) => networkName);
 
-  } catch (error) {
+  for(let i = 0; i < buyArr.length; i++){
+    console.log(buyArr.length);
+    // console.log(enabledDepositNetworks)
+  for (const [networkName, networkDetails] of Object.entries(sellNetworks)) {
+  const sellFee = networkDetails.fee || Number.MAX_VALUE;
+  // console.log('networkDetails***************************************')
+  console.log(networkDetails)
+  // console.log('networkDetails***************************************')
+  // console.log(enabledDepositNetworks + '--- ' + networkDetails.network)
+  // console.log('networkDetails***************************************')
+  
+
+  if (networkDetails.withdraw !== false) {
+      console.log(buyArr[i] + '--- ' + networkDetails.network);
+      if(buyArr[i] == networkDetails.network){
+        console.log('entro');
+        return { commission: networkDetails.fee ?? 0, network: networkDetails.network, error: null };
+      }
+      else{
+        console.log('no entro'); 
+      }
+    }
+  }
+}
+return { commission: null, network: null, error: 'No common networks found with enabled withdraw/deposit for this symbol' };
+ } catch (error) {
     console.error('Error in getLowestFeeNetwork:', error.message);
     return { commission: null, network: null, error: error.message };
   }

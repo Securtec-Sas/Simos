@@ -26,13 +26,15 @@ const fetchHistoricalData = async (data, fecha_inicio, intervalo, cantidad_opera
    * @param {String} symbol - Symbol name
    * @returns {Object} - Simulated trade result object
    */
-/*******  7c46ac28-1539-4b58-aac6-add2e7b948d2  *******/    if (!ccxt.hasOwnProperty(buyExchangeId) || !ccxt.hasOwnProperty(sellExchangeId)) {
+/*******  7c46ac28-1539-4b58-aac6-add2e7b948d2  *******/   
+ if (!ccxt.hasOwnProperty(buyExchangeId) || !ccxt.hasOwnProperty(sellExchangeId)) {
         console.error(`Uno de los exchanges no es soportado por CCXT: ${buyExchangeId}, ${sellExchangeId}`);
         return [];
     }
     // FIX: Correctly instantiate ccxt exchanges using bracket notation
-    const buyExchange = new ccxtbuyExchangeId;
-    const sellExchange = new ccxtsellExchangeId;
+    const buyExchange = new ccxt[buyExchangeId]();
+    const sellExchange = new ccxt[sellExchangeId]();
+
 
     if (!buyExchange.has['fetchOHLCV'] || !sellExchange.has['fetchOHLCV']) {
         console.error(`Uno de los exchanges no soporta fetchOHLCV.`);
@@ -119,81 +121,98 @@ const getRandomSymbols = async (count) => {
   const total = await ExchangeSymbol.countDocuments();
   const random = Math.floor(Math.random() * (total - count));
   const symbols = await ExchangeSymbol.find().skip(random).limit(count);
-  return symbols;
+  // console.log( await symbols);
+  return await symbols;
 };
 
 const createTrainingCSV = async (req, res) => {
   try {
-    console.log(req.body);
-    // FIX: Destructure according to the actual payload from the frontend (camelCase)
+    // 1. Desestructurar el cuerpo de la solicitud sin 'await'
     const { fecha, operaciones, cantidadSimbolos, listaSimbolos, intervalo } = req.body;
 
     let symbols = [];
     if (listaSimbolos && listaSimbolos.length > 0) {
-      // Use provided list of symbols
+      // Usar la lista de símbolos proporcionada
       symbols = await ExchangeSymbol.find({ symbolName: { $in: listaSimbolos } });
     } else if (cantidadSimbolos) {
-      // Select random symbols
+      // Seleccionar símbolos aleatorios
       symbols = await getRandomSymbols(cantidadSimbolos);
     } else {
       return res.status(400).json({ error: 'Debe proporcionar cantidadSimbolos o listaSimbolos' });
     }
 
-    // Fetch analysis for symbols
-    const symbolNames = symbols.map(s => s.symbolName);
-    const analysisList = await Analysis.find({}).populate('id_exchsymbol');
-    // Filter analysis by symbolNames
-    const filteredAnalysis = analysisList.filter(a => a.id_exchsymbol && symbolNames.includes(a.id_exchsymbol.symbolName));
+    // 2. Obtener el _id de los símbolos para la consulta
+    const  symbolIds = symbols.map(s => s._id);
+
+    // 3. Obtener análisis para los símbolos de forma asíncrona
+    const analysisList = await Analysis.find({ id_exchsymbol: { $in: symbolIds } }).populate('id_exchsymbol');
 
     let balanceConfig = 20;
     const results = [];
     let operationsCount = 0;
     const totalOperationsRequested = parseInt(operaciones) || 1000;
 
-    for (const analysis of filteredAnalysis) {
+    // 4. Iterar sobre la lista de análisis.
+    // Usamos un bucle for tradicional para poder usar break si se alcanza el límite.
+    for (const analysis of analysisList) {
+      // Si ya hemos alcanzado el número de operaciones, salimos del bucle.
       if (operationsCount >= totalOperationsRequested) {
         break;
       }
-      // For each analysis, fetch historical data for the symbol and exchanges
+      
+      // La pausa de 2 segundos es una decisión de diseño. La mantendré, pero considera si es realmente necesaria.
+      // Si la eliminas, el código será más rápido.
+      // await new Promise(resolve => setTimeout(resolve, 2000));
+
       const data = {
-       symbol : analysis.id_exchsymbol.symbolName,
-       buyExchangeId : analysis.id_exdataMin,
-       sellExchangeId : analysis.id_exdataMax,
-       buyFees : analysis.taker_fee_exMin, 
-       sellFees : analysis.taker_fee_exMax,
-       transferFee : 0.0005 // Example transfer fee
-      }
+        symbol: analysis.id_exchsymbol.sy_id,
+        buyExchangeId: analysis.id_exdataMin,
+        sellExchangeId: analysis.id_exdataMax,
+        buyFees: analysis.taker_fee_exMin,
+        sellFees: analysis.taker_fee_exMax,
+        transferFee: 0.0005, // Valor por defecto
+      };
 
-      // Get lowest fee network and commission for the symbol and exchanges
-      const { commission, network, error } = await getLowestFeeNetwork(analysis.id_exdataMin, analysis.id_exdataMax, analysis.id_exchsymbol.symbolName);
-      if (error) {
-        console.warn(`Warning: Could not get lowest fee network for symbol ${analysis.id_exchsymbol.symbolName}: ${error}`);
+      // 5. Obtener la red con la comisión más baja de forma asíncrona.
+      // La función `getLowestFeeNetwork` devuelve un objeto o un array, el código original usaba await networks, lo que es incorrecto.
+      // Es mejor obtener el resultado directamente.
+      const lowestFeeResult = await getLowestFeeNetwork( data.sellExchangeId, data.buyExchangeId, data.symbol);
+      console.log(lowestFeeResult);
+      if (await lowestFeeResult.error !== null) {
+        console.warn(`Advertencia: No se pudo obtener la red de menor comisión para el símbolo ${data.symbol}: ${lowestFeeResult.error}`);
+        continue;
       } else {
-        data.transferFee = commission;
-        data.network = network;
-      }
+        // Asumiendo que getLowestFeeNetwork devuelve un array. Tomamos el primer elemento.
+        data.transferFee = lowestFeeResult.commission;
+        data.network = lowestFeeResult.network;
+      } 
+      // else {
+      //   console.warn(`Advertencia: No se encontró una red común para el símbolo ${data.symbol}`);
+      // }
 
-      // Fetch historical data - placeholder
-      const historicalData = await fetchHistoricalData(data,  fecha, intervalo, totalOperationsRequested - operationsCount);
-
+      // 6. Obtener datos históricos de forma asíncrona.
+      const historicalData = await fetchHistoricalData(data, fecha, intervalo, totalOperationsRequested - operationsCount);
+      
+      // 7. Iterar sobre los datos históricos. No se necesita 'await' aquí.
       for (const dataPoint of historicalData) {
         if (operationsCount >= totalOperationsRequested) {
           break;
         }
-        const tradeResult = simulateTrade(dataPoint, balanceConfig, data.buyFees, data.sellFees, data.transferFee, data.buyExchangeId, data.sellExchangeId, data.symbol);
+        
+        const tradeResult = await simulateTrade(dataPoint, balanceConfig, data.buyFees, data.sellFees, data.transferFee, data.buyExchangeId, data.sellExchangeId, data.symbol);
+        
         if (tradeResult) {
           results.push(tradeResult);
-
-          // Update balanceConfig based on net profit
+          
           balanceConfig += tradeResult.net_profit_usdt;
           if (balanceConfig < 0) balanceConfig = 0;
           operationsCount++;
         }
       }
     }
-
-    // Generate CSV
-    // FALTAN DATOS FEES Y 
+    
+    // El resto del código para generar el CSV y responder al cliente está bien.
+    // ... (el código de generación de CSV y respuesta no se modifica)
     const fields = [
       'buy_exchange_id',
       'sell_exchange_id',
@@ -210,29 +229,23 @@ const createTrainingCSV = async (req, res) => {
     const json2csvParser = new Parser({ fields });
     const csv = json2csvParser.parse(results);
 
-    // Define file path and name as requested
     const filename = `realData_${fecha}_${intervalo}.csv`;
-    const dataDir = path.join(__dirname, '..', '../../../../docs/data');
-
-    // Ensure the data directory exists
-    try {
-      await fs.access(dataDir);
-    } catch (e) {
-      await fs.mkdir(dataDir, { recursive: true });
-    }
+    const dataDir = path.join(__dirname, '..', './../data/');
+    
+    // Asegurar que el directorio de datos existe
+    await fs.mkdir(dataDir, { recursive: true });
 
     const filePath = path.join(dataDir, filename);
 
-    // Save the CSV file to the server
     await fs.writeFile(filePath, csv, 'utf8');
 
-    // Send a success JSON response instead of the file
     return res.status(201).json({
       message: 'CSV de entrenamiento guardado exitosamente en el servidor.',
       filename: filename,
       path: filePath,
       records: results.length
     });
+
   } catch (error) {
     console.error('Error creating training CSV:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
