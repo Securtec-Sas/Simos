@@ -68,14 +68,6 @@ class APIv3Routes:
             self._model_predict
         )
         
-        # Rutas de datos
-        self.app.route('/api/v3/data-ai', methods=['GET'])(
-            self._get_data_ai
-        )
-        self.app.route('/api/v3/update-data-ai', methods=['POST'])(
-            self._update_data_ai
-        )
-        
         # Ruta de símbolos de Sebo
         self.app.route('/api/sebo/symbols', methods=['GET'])(
             self._get_sebo_symbols
@@ -261,56 +253,6 @@ class APIv3Routes:
             
         except Exception as e:
             self.logger.error(f"Error en model_predict: {e}")
-            return jsonify({
-                "status": "error",
-                "message": f"Error interno: {str(e)}"
-            }), 500
-    
-    def _get_data_ai(self):
-        """Endpoint para obtener datos de IA (solo una vez por solicitud)."""
-        try:
-            # Obtener información del modelo
-            model_info = self.training_handler.ai_model.get_model_info()
-            
-            # Obtener estadísticas de entrenamiento
-            training_stats = self.training_handler.ai_model.training_history
-            
-            # Datos de configuración
-            ai_data = {
-                "model_info": model_info,
-                "training_stats": training_stats,
-                "is_trained": self.training_handler.ai_model.is_trained,
-                "last_updated": self.training_handler.ai_model.training_history.get('last_training'),
-                "feature_count": len(self.training_handler.ai_model.feature_names),
-                "confidence_threshold": self.training_handler.ai_model.confidence_threshold
-            }
-            
-            return jsonify({
-                "status": "success",
-                "data": ai_data
-            })
-            
-        except Exception as e:
-            self.logger.error(f"Error en get_data_ai: {e}")
-            return jsonify({
-                "status": "error",
-                "message": f"Error interno: {str(e)}"
-            }), 500
-    
-    def _update_data_ai(self):
-        """Endpoint para actualizar datos de IA."""
-        try:
-            request_data = request.get_json()
-            
-            # Actualizar configuración del modelo si se proporciona
-            if 'confidence_threshold' in request_data:
-                self.training_handler.ai_model.confidence_threshold = request_data['confidence_threshold']
-            
-            # Retornar datos actualizados
-            return self._get_data_ai()
-            
-        except Exception as e:
-            self.logger.error(f"Error en update_data_ai: {e}")
             return jsonify({
                 "status": "error",
                 "message": f"Error interno: {str(e)}"
