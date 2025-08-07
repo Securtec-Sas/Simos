@@ -35,7 +35,7 @@ const initializeExchange = (exchangeId) => {
 
         // Para este ejemplo, solo inicializamos sin credenciales para probar conectividad pública
         return new ccxt[exchangeId]({
-            'timeout': 10000,
+            'timeout': 30000,
             'enableRateLimit': true,
         });
 
@@ -354,116 +354,119 @@ const getWithdrawalFees = async (req, res) => {
 };
 
 const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
-  try {
-    // 1. Inicializar los exchanges
-    const sellExchange = initializeExchange(id_sell);
-    const buyExchange = initializeExchange(id_buy);
+  const maxRetries = 3;
+  const retryDelay = 2000; // 2 segundos
+  let attempt = 0;
 
-    if (!sellExchange || !buyExchange) {
-      throw new Error(`Failed to initialize one or both exchanges: ${id_sell}, ${id_buy}`);
-    }
+  while (attempt < maxRetries) {
+    try {
+      // 1. Inicializar los exchanges
+      const sellExchange = initializeExchange(id_sell);
+      const buyExchange = initializeExchange(id_buy);
 
-    
-    // 2. Cargar los mercados de ambos exchanges en paralelo
-    await Promise.all([
-      sellExchange.loadMarkets(),
-      buyExchange.loadMarkets(),
-    ]);
-    // 1. Obtener las redes de ambos exchanges usando getSymbolNetworks
-    [sellNetworksList, buyNetworksList] = await Promise.all([
-      getSymbolNetworks(id_sell, symbol),
-      getSymbolNetworks(id_buy, symbol)
-    ]);
+      if (!sellExchange || !buyExchange) {
+        // No reintentar esto, es un error de configuración
+        throw new Error(`Failed to initialize one or both exchanges: ${id_sell}, ${id_buy}`);
+      }
 
-    console.log(await sellNetworksList)
-    if (sellNetworksList.length === 0 || buyNetworksList.length === 0) {
-      const errorMsg = `No se encontraron redes para el símbolo ${symbol} en uno o ambos exchanges: ${id_sell} (redes: ${sellNetworksList.length}), ${id_buy} (redes: ${buyNetworksList.length}).`;
-      console.warn(errorMsg);
-      return {
-        commission: null,
-        network: null,
-        error: errorMsg,
-        sellNetworksAvailable: sellNetworksList.map(n => n.network),
-        buyNetworksAvailable: buyNetworksList.map(n => n.network)
-      };
-    }
+      // 2. Cargar los mercados y obtener las redes. Estas son las operaciones de red que pueden fallar.
+      await Promise.all([
+        sellExchange.loadMarkets(),
+        buyExchange.loadMarkets(),
+      ]);
 
-    const commonNetworks = [];
-    console.log(`--- Buscando redes comunes para ${symbol} entre ${id_sell} y ${id_buy} ---`);
+      const [sellNetworksList, buyNetworksList] = await Promise.all([
+        getSymbolNetworks(id_sell, symbol),
+        getSymbolNetworks(id_buy, symbol)
+      ]);
 
-    // 2. Recorrer las redes de id_buy (outer loop)
-    for (const buyNetwork of buyNetworksList) {
-      // 3. Recorrer las redes de id_sell (inner loop)
-      for (const sellNetwork of sellNetworksList) {
-        // Imprimir por consola la comparación
-        console.log(`Comparando red de compra: ${buyNetwork.network} con red de venta: ${sellNetwork.network}`);
+      if (sellNetworksList.length === 0 || buyNetworksList.length === 0) {
+        const errorMsg = `No se encontraron redes para el símbolo ${symbol} en uno o ambos exchanges: ${id_sell} (redes: ${sellNetworksList.length}), ${id_buy} (redes: ${buyNetworksList.length}).`;
+        console.warn(errorMsg);
+        return {
+          commission: null,
+          network: null,
+          error: errorMsg,
+          sellNetworksAvailable: sellNetworksList.map(n => n.network),
+          buyNetworksAvailable: buyNetworksList.map(n => n.network)
+        };
+      }
 
-        // 4. Buscar una red en común
-        if (buyNetwork.network === sellNetwork.network) {
-          console.log(`--> Red en común encontrada: ${buyNetwork.network}`);
-          
-          // Verificar que el retiro esté habilitado en el exchange de venta y el depósito en el de compra
-          if (sellNetwork.withdraw && buyNetwork.deposit) {
-            console.log(`    - Retiro habilitado en ${id_sell}: ${sellNetwork.withdraw}`);
-            console.log(`    - Depósito habilitado en ${id_buy}: ${buyNetwork.deposit}`);
-            commonNetworks.push({
-              name: sellNetwork.network,
-              withdraw: sellNetwork.withdraw,
-              fee: sellNetwork.fee, // La comisión de retiro es del exchange de venta
-              deposit: buyNetwork.deposit
-            });
-          } else {
-            console.log(`    - La red ${sellNetwork.network} no es viable (retiro: ${sellNetwork.withdraw}, depósito: ${buyNetwork.deposit})`);
+      const commonNetworks = [];
+      for (const buyNetwork of buyNetworksList) {
+        for (const sellNetwork of sellNetworksList) {
+          if (buyNetwork.network === sellNetwork.network) {
+            if (sellNetwork.withdraw && buyNetwork.deposit) {
+              commonNetworks.push({
+                name: sellNetwork.network,
+                withdraw: sellNetwork.withdraw,
+                fee: sellNetwork.fee,
+                deposit: buyNetwork.deposit
+              });
+            }
           }
         }
       }
-    }
 
-    if (commonNetworks.length === 0) {
+      if (commonNetworks.length === 0) {
+        return {
+          commission: null,
+          network: null,
+          error: "No se encontró una red común con retiro y depósito habilitados.",
+          sellNetworksAvailable: sellNetworksList.map(n => n.network),
+          buyNetworksAvailable: buyNetworksList.map(n => n.network)
+        };
+      }
+
+      const validFeeNetworks = commonNetworks.filter(net => net.fee !== null && net.fee !== undefined);
+
+      if (validFeeNetworks.length === 0) {
+          return {
+              commission: null,
+              network: null,
+              error: "Se encontraron redes comunes, pero ninguna tiene información de comisión de retiro.",
+              sellNetworksAvailable: sellNetworksList.map(n => n.network),
+              buyNetworksAvailable: buyNetworksList.map(n => n.network)
+          };
+      }
+
+      let lowestFeeNetwork = validFeeNetworks.reduce((min, net) => net.fee < min.fee ? net : min, validFeeNetworks[0]);
+
       return {
-        commission: null,
-        network: null,
-        error: "No se encontró una red común con retiro y depósito habilitados.",
+        commission: lowestFeeNetwork.fee,
+        network: lowestFeeNetwork.name,
+        error: null,
         sellNetworksAvailable: sellNetworksList.map(n => n.network),
         buyNetworksAvailable: buyNetworksList.map(n => n.network)
       };
+
+    } catch (error) {
+      if (error instanceof ccxt.RequestTimeout && attempt < maxRetries - 1) {
+        attempt++;
+        console.warn(`Intento ${attempt}/${maxRetries} falló por timeout en getLowestFeeNetwork para ${symbol} en ${id_sell}->${id_buy}. Reintentando en ${retryDelay / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        continue;
+      }
+
+      console.error(`Error crítico en getLowestFeeNetwork para ${symbol} en ${id_sell}->${id_buy}:`, error.message);
+      return {
+        commission: null,
+        network: null,
+        error: error.message,
+        sellNetworksAvailable: [],
+        buyNetworksAvailable: []
+      };
     }
-
-    // 5. Filtrar redes sin fee definido o con fee nulo y encontrar la de menor comisión
-    const validFeeNetworks = commonNetworks.filter(net => net.fee !== null && net.fee !== undefined);
-
-    if (validFeeNetworks.length === 0) {
-        return {
-            commission: null,
-            network: null,
-            error: "Se encontraron redes comunes, pero ninguna tiene información de comisión de retiro.",
-            sellNetworksAvailable: sellNetworksList.map(n => n.network),
-            buyNetworksAvailable: buyNetworksList.map(n => n.network)
-        };
-    }
-
-    let lowestFeeNetwork = validFeeNetworks.reduce((min, net) => net.fee < min.fee ? net : min, validFeeNetworks[0]);
-
-    console.log(`--- Mejor red encontrada: ${lowestFeeNetwork.name}, Comisión de retiro: ${lowestFeeNetwork.fee} ---`);
-
-    return {
-      commission: lowestFeeNetwork.fee,
-      network: lowestFeeNetwork.name,
-      error: null,
-      sellNetworksAvailable: sellNetworksList.map(n => n.network),
-      buyNetworksAvailable: buyNetworksList.map(n => n.network)
-    };
-
-  } catch (error) {
-    console.error(`Error crítico en getLowestFeeNetwork para ${symbol} en ${id_sell}->${id_buy}:`, error.message);
-    return {
-      commission: null,
-      network: null,
-      error: error.message,
-      sellNetworksAvailable: [],
-      buyNetworksAvailable: []
-    };
   }
+
+  // Se retorna si todos los reintentos fallan
+  return {
+    commission: null,
+    network: null,
+    error: `No se pudo obtener la red de menor comisión para ${symbol} en ${id_sell}->${id_buy} después de ${maxRetries} intentos.`,
+    sellNetworksAvailable: [],
+    buyNetworksAvailable: []
+  };
 };
 
 const canTransferSymbol = async (id_sell, id_buy, symbol) => {
@@ -565,10 +568,10 @@ const getSymbolNetworks = async (id_exchange, id_simbol) => {
     return formattedNetworks;
 
   } catch (error) {
-    console.error(`[getSymbolNetworks] Error fetching networks for ${id_simbol} on ${id_exchange}:`, error);
-    // En caso de un error inesperado (ej. de red), devolvemos un array vacío
-    // para mantener la consistencia del tipo de retorno.
-    return [];
+    console.error(`[getSymbolNetworks] Error fetching networks for ${id_simbol} on ${id_exchange}:`, error.message);
+    // Lanzar el error para que la función que llama (getLowestFeeNetwork) pueda manejarlo,
+    // especialmente para los reintentos en caso de timeout.
+    throw error;
   }
 };
 
