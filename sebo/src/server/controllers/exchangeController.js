@@ -271,12 +271,11 @@ const updateExchangeConexionStatus = async (exchangeId, status) => {
 const getWithdrawalFees = async (req, res) => {
   const { exchangeId, currencyCode } = req.params;
 
-  if (!ccxt.exchanges.includes(exchangeId)) {
-    return res.status(400).json({ message: `Exchange ID '${exchangeId}' is not supported by CCXT or is invalid.` });
-  }
-
   try {
-    const exchange = new ccxt[exchangeId]();
+    const exchange = initializeExchange(exchangeId);
+    if (!exchange) {
+      return res.status(400).json({ message: `Exchange ID '${exchangeId}' is not supported by CCXT or is invalid.` });
+    }
     // No es estrictamente necesario tener API keys para fetchCurrencies en la mayoría de los exchanges,
     // pero si se requieren para alguno en particular, esta llamada fallará o devolverá datos limitados.
 
@@ -357,8 +356,12 @@ const getWithdrawalFees = async (req, res) => {
 const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
   try {
     // 1. Inicializar los exchanges
-    const sellExchange = new ccxt[id_sell]();
-    const buyExchange = new ccxt[id_buy]();
+    const sellExchange = initializeExchange(id_sell);
+    const buyExchange = initializeExchange(id_buy);
+
+    if (!sellExchange || !buyExchange) {
+      throw new Error(`Failed to initialize one or both exchanges: ${id_sell}, ${id_buy}`);
+    }
 
     // 2. Cargar los mercados de ambos exchanges en paralelo
     await Promise.all([
@@ -456,8 +459,13 @@ const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
 
 const canTransferSymbol = async (id_sell, id_buy, symbol) => {
   try {
-    const sellExchange = new ccxt[id_sell]();
-    const buyExchange = new ccxt[id_buy]();
+    const sellExchange = initializeExchange(id_sell);
+    const buyExchange = initializeExchange(id_buy);
+
+    if (!sellExchange || !buyExchange) {
+      console.error(`Failed to initialize one or both exchanges for canTransferSymbol: ${id_sell}, ${id_buy}`);
+      return false;
+    }
 
     await Promise.all([
       sellExchange.loadMarkets(),
@@ -504,7 +512,59 @@ const canTransferSymbol = async (id_sell, id_buy, symbol) => {
   }
 };
 
+const getSymbolNetworks = async (id_exchange, id_simbol) => {
+  try {
+    const exchange = initializeExchange(id_exchange);
+    if (!exchange) {
+      console.error(`[getSymbolNetworks] Failed to initialize exchange: ${id_exchange}`);
+      return [];
+    }
+    await exchange.loadMarkets();
+
+    // Validar que el símbolo existe en el exchange
+    if (!exchange.markets[id_simbol]) {
+      console.warn(`[getSymbolNetworks] Símbolo '${id_simbol}' no encontrado en el exchange '${id_exchange}'.`);
+      return [];
+    }
+
+    // Es crucial para obtener información detallada de las redes.
+    if (exchange.has['fetchCurrencies']) {
+      await exchange.fetchCurrencies();
+    }
+
+    const market = exchange.markets[id_simbol];
+    const baseCurrencyCode = market.base;
+    const currencyInfo = exchange.currencies[baseCurrencyCode];
+
+    if (!currencyInfo || !currencyInfo.networks || Object.keys(currencyInfo.networks).length === 0) {
+      console.log(`[getSymbolNetworks] No se encontró información de redes para la moneda '${baseCurrencyCode}' en '${id_exchange}'.`);
+      return [];
+    }
+
+    const networks = currencyInfo.networks;
+    const formattedNetworks = [];
+
+    for (const [networkCode, networkData] of Object.entries(networks)) {
+      formattedNetworks.push({
+        network: networkCode, // Nombre de la red (e.g., ERC20, TRC20, BEP20)
+        withdraw: networkData.withdraw === true,
+        deposit: networkData.deposit === true,
+        fee: networkData.fee !== undefined ? networkData.fee : null, // Asegurarse de que la fee exista
+      });
+    }
+
+    return formattedNetworks;
+
+  } catch (error) {
+    console.error(`[getSymbolNetworks] Error fetching networks for ${id_simbol} on ${id_exchange}:`, error);
+    // En caso de un error inesperado (ej. de red), devolvemos un array vacío
+    // para mantener la consistencia del tipo de retorno.
+    return [];
+  }
+};
+
 module.exports = {
+    initializeExchange,
     getExchangesStatus,
     // getAvailableExchanges, // Replaced
     getConfiguredExchanges,
@@ -513,4 +573,5 @@ module.exports = {
     getWithdrawalFees, // Placeholder, will be defined below
     getLowestFeeNetwork,
     canTransferSymbol,
+    getSymbolNetworks,
 };

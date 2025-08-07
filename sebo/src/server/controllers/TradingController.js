@@ -3,6 +3,7 @@ const ExchangeSymbol = require('../data/dataBase/modelosBD/exchangeSymbol.model'
 const { Parser } = require('json2csv');
 const { getLowestFeeNetwork } = require('./exchangeController');
 const { getExchangeTimeframe } = require('../utils/timeframeConverter');
+const { getLowestFeeNetwork, initializeExchange } = require('./exchangeController');
 const ccxt = require('ccxt');
 const fs = require('fs').promises;
 const path = require('path');
@@ -31,13 +32,13 @@ const fetchHistoricalData = async (data, fecha_inicio, intervalo, cantidad_opera
    * @returns {Object} - Simulated trade result object
    */
 /*******  7c46ac28-1539-4b58-aac6-add2e7b948d2  *******/   
- if (!ccxt.hasOwnProperty(buyExchangeId) || !ccxt.hasOwnProperty(sellExchangeId)) {
-        console.error(`Uno de los exchanges no es soportado por CCXT: ${buyExchangeId}, ${sellExchangeId}`);
-        return [];
+    const buyExchange = initializeExchange(buyExchangeId);
+    const sellExchange = initializeExchange(sellExchangeId);
+
+    if (!buyExchange || !sellExchange) {
+      console.error(`Failed to initialize one or both exchanges for fetchHistoricalData: ${buyExchangeId}, ${sellExchangeId}`);
+      return [];
     }
-    // FIX: Correctly instantiate ccxt exchanges using bracket notation
-    const buyExchange = new ccxt[buyExchangeId]();
-    const sellExchange = new ccxt[sellExchangeId]();
 
 
     if (!buyExchange.has['fetchOHLCV'] || !sellExchange.has['fetchOHLCV']) {
