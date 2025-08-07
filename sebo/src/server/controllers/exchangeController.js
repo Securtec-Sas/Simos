@@ -367,13 +367,15 @@ const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
     // 2. Cargar los mercados de ambos exchanges en paralelo
     await Promise.all([
       sellExchange.loadMarkets(),
-      buyExchange.loadMarkets()
+      buyExchange.loadMarkets(),
+    ]);
     // 1. Obtener las redes de ambos exchanges usando getSymbolNetworks
-    const [sellNetworksList, buyNetworksList] = await Promise.all([
+    [sellNetworksList, buyNetworksList] = await Promise.all([
       getSymbolNetworks(id_sell, symbol),
       getSymbolNetworks(id_buy, symbol)
     ]);
 
+    console.log(await sellNetworksList)
     if (sellNetworksList.length === 0 || buyNetworksList.length === 0) {
       const errorMsg = `No se encontraron redes para el símbolo ${symbol} en uno o ambos exchanges: ${id_sell} (redes: ${sellNetworksList.length}), ${id_buy} (redes: ${buyNetworksList.length}).`;
       console.warn(errorMsg);
