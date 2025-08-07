@@ -504,6 +504,60 @@ const canTransferSymbol = async (id_sell, id_buy, symbol) => {
   }
 };
 
+const getSymbolNetworks = async (id_exchange, id_simbol) => {
+  if (!ccxt.exchanges.includes(id_exchange)) {
+    console.error(`[getSymbolNetworks] Exchange ID '${id_exchange}' is not supported by CCXT or is invalid.`);
+    // En lugar de devolver un objeto de respuesta HTTP, devolvemos un array vacío o lanzamos un error.
+    // Devolver un array vacío puede ser más seguro para los consumidores de la función.
+    return [];
+  }
+
+  try {
+    const exchange = new ccxt[id_exchange]();
+    await exchange.loadMarkets();
+
+    // Validar que el símbolo existe en el exchange
+    if (!exchange.markets[id_simbol]) {
+      console.warn(`[getSymbolNetworks] Símbolo '${id_simbol}' no encontrado en el exchange '${id_exchange}'.`);
+      return [];
+    }
+
+    // Es crucial para obtener información detallada de las redes.
+    if (exchange.has['fetchCurrencies']) {
+      await exchange.fetchCurrencies();
+    }
+
+    const market = exchange.markets[id_simbol];
+    const baseCurrencyCode = market.base;
+    const currencyInfo = exchange.currencies[baseCurrencyCode];
+
+    if (!currencyInfo || !currencyInfo.networks || Object.keys(currencyInfo.networks).length === 0) {
+      console.log(`[getSymbolNetworks] No se encontró información de redes para la moneda '${baseCurrencyCode}' en '${id_exchange}'.`);
+      return [];
+    }
+
+    const networks = currencyInfo.networks;
+    const formattedNetworks = [];
+
+    for (const [networkCode, networkData] of Object.entries(networks)) {
+      formattedNetworks.push({
+        network: networkCode, // Nombre de la red (e.g., ERC20, TRC20, BEP20)
+        withdraw: networkData.withdraw === true,
+        deposit: networkData.deposit === true,
+        fee: networkData.fee !== undefined ? networkData.fee : null, // Asegurarse de que la fee exista
+      });
+    }
+
+    return formattedNetworks;
+
+  } catch (error) {
+    console.error(`[getSymbolNetworks] Error fetching networks for ${id_simbol} on ${id_exchange}:`, error);
+    // En caso de un error inesperado (ej. de red), devolvemos un array vacío
+    // para mantener la consistencia del tipo de retorno.
+    return [];
+  }
+};
+
 module.exports = {
     getExchangesStatus,
     // getAvailableExchanges, // Replaced
@@ -513,4 +567,5 @@ module.exports = {
     getWithdrawalFees, // Placeholder, will be defined below
     getLowestFeeNetwork,
     canTransferSymbol,
+    getSymbolNetworks,
 };
