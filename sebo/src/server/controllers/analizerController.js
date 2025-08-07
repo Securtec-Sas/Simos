@@ -20,6 +20,7 @@ const Analysis = require('../data/dataBase/modelosBD/analysis.model')
 const ExchangeSymbol = require('../data/dataBase/modelosBD/exchangeSymbol.model');
 const Symbol = require('../data/dataBase/modelosBD/symbol.model');
 const Exchange = require('../data/dataBase/modelosBD/exchange.model');
+const { initializeExchange } = require('./exchangeController');
 const ccxt = require('ccxt');
 
 /**
@@ -132,10 +133,10 @@ const getCcxtInstance = async (exchangeId, cache) => {
     if (cache[exchangeId]) {
         return cache[exchangeId];
     }
-    if (!ccxt.hasOwnProperty(exchangeId)) {
-        throw new Error(`CCXT does not support exchange: ${exchangeId}`);
+    const instance = initializeExchange(exchangeId);
+    if (!instance) {
+        throw new Error(`Failed to initialize exchange: ${exchangeId}`);
     }
-    const instance = new ccxt[exchangeId]();
     await instance.loadMarkets(true); // Force reload to get latest fees
     cache[exchangeId] = instance;
     return instance;
@@ -164,12 +165,10 @@ const getHistoricalOHLCV = async (req, res) => {
             return res.status(400).json({ message: 'Missing required parameters: exchangeId, symbol, timeframe' });
         }
 
-        const exchangeClass = ccxt[exchangeId];
-        if (!exchangeClass) {
-            return res.status(400).json({ message: `Exchange ${exchangeId} not supported by CCXT` });
+        const exchange = initializeExchange(exchangeId);
+        if (!exchange) {
+            return res.status(400).json({ message: `Exchange ${exchangeId} not supported by CCXT or failed to initialize.` });
         }
-
-        const exchange = new exchangeClass();
         if (!exchange.has['fetchOHLCV']) {
             return res.status(400).json({ message: `Exchange ${exchangeId} does not support fetching OHLCV data` });
         }

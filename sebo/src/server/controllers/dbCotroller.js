@@ -10,6 +10,7 @@ const exchangesConfig = require('../data/exchanges_config.json');
 const ExchangeSymbol = require('../data/dataBase/modelosBD/exchangeSymbol.model');
 const analyzerController = require('./analizerController'); // Importar el controlador de análisis
 const Symbol = require('../data/dataBase/modelosBD/symbol.model');
+const { initializeExchange } = require('./exchangeController');
 const ccxt = require('ccxt');
 
 const addExchanges = async (req, res) => {
@@ -121,16 +122,14 @@ const exchangesymbolsNewAdd = async (req, res) => {
     // 2. Iterar sobre cada exchange activo
     for (const exchangeDoc of activeExchanges) {
       try {
-        // FIX: Validar que el ID del exchange existe en CCXT antes de intentar instanciarlo.
-        // Esto previene el error "is not a constructor" si el id_ex es incorrecto o no soportado.
-        if (!ccxt.hasOwnProperty(exchangeDoc.id_ex)) {
-          const errorMessage = `El exchange con ID '${exchangeDoc.id_ex}' no es soportado por CCXT o el ID es incorrecto.`;
+        // 3. Inicializar CCXT y obtener todos los tickers de una vez (Optimización)
+        const exchange = initializeExchange(exchangeDoc.id_ex);
+        if (!exchange) {
+          const errorMessage = `Failed to initialize exchange with ID '${exchangeDoc.id_ex}'.`;
           console.warn(errorMessage);
           failedExchanges.push({ id: exchangeDoc.id_ex, error: errorMessage });
           continue;
         }
-        // 3. Inicializar CCXT y obtener todos los tickers de una vez (Optimización)
-        const exchange = new ccxt[exchangeDoc.id_ex]();
         await exchange.loadMarkets();
         const tickers = await exchange.fetchTickers();
 
@@ -262,10 +261,15 @@ const addExchangesSymbols = async (req, res) => {
       console.log(`Processing exchange: ${exchangeId}`);
       try {
         // 2. Obtener los símbolos de cada exchange activo desde ccxt
-        const ccxtExchange = new ccxt[exchangeId]({
-          'timeout': 10000,
-          'enableRateLimit': true,
-        });
+        const ccxtExchange = initializeExchange(exchangeId);
+        if (!ccxtExchange) {
+          const errorMessage = `Failed to initialize exchange with ID '${exchangeId}'.`;
+          console.warn(errorMessage);
+          failedExchangeCount++;
+          failedExchangeIds.push(exchangeId);
+          symbolErrors.push({ exchangeId: exchangeId, error: errorMessage });
+          continue;
+        }
         await ccxtExchange.loadMarkets();
         
 

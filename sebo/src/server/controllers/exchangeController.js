@@ -271,12 +271,11 @@ const updateExchangeConexionStatus = async (exchangeId, status) => {
 const getWithdrawalFees = async (req, res) => {
   const { exchangeId, currencyCode } = req.params;
 
-  if (!ccxt.exchanges.includes(exchangeId)) {
-    return res.status(400).json({ message: `Exchange ID '${exchangeId}' is not supported by CCXT or is invalid.` });
-  }
-
   try {
-    const exchange = new ccxt[exchangeId]();
+    const exchange = initializeExchange(exchangeId);
+    if (!exchange) {
+      return res.status(400).json({ message: `Exchange ID '${exchangeId}' is not supported by CCXT or is invalid.` });
+    }
     // No es estrictamente necesario tener API keys para fetchCurrencies en la mayoría de los exchanges,
     // pero si se requieren para alguno en particular, esta llamada fallará o devolverá datos limitados.
 
@@ -357,8 +356,12 @@ const getWithdrawalFees = async (req, res) => {
 const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
   try {
     // 1. Inicializar los exchanges
-    const sellExchange = new ccxt[id_sell]();
-    const buyExchange = new ccxt[id_buy]();
+    const sellExchange = initializeExchange(id_sell);
+    const buyExchange = initializeExchange(id_buy);
+
+    if (!sellExchange || !buyExchange) {
+      throw new Error(`Failed to initialize one or both exchanges: ${id_sell}, ${id_buy}`);
+    }
 
     // 2. Cargar los mercados de ambos exchanges en paralelo
     await Promise.all([
@@ -456,8 +459,13 @@ const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
 
 const canTransferSymbol = async (id_sell, id_buy, symbol) => {
   try {
-    const sellExchange = new ccxt[id_sell]();
-    const buyExchange = new ccxt[id_buy]();
+    const sellExchange = initializeExchange(id_sell);
+    const buyExchange = initializeExchange(id_buy);
+
+    if (!sellExchange || !buyExchange) {
+      console.error(`Failed to initialize one or both exchanges for canTransferSymbol: ${id_sell}, ${id_buy}`);
+      return false;
+    }
 
     await Promise.all([
       sellExchange.loadMarkets(),
@@ -505,15 +513,12 @@ const canTransferSymbol = async (id_sell, id_buy, symbol) => {
 };
 
 const getSymbolNetworks = async (id_exchange, id_simbol) => {
-  if (!ccxt.exchanges.includes(id_exchange)) {
-    console.error(`[getSymbolNetworks] Exchange ID '${id_exchange}' is not supported by CCXT or is invalid.`);
-    // En lugar de devolver un objeto de respuesta HTTP, devolvemos un array vacío o lanzamos un error.
-    // Devolver un array vacío puede ser más seguro para los consumidores de la función.
-    return [];
-  }
-
   try {
-    const exchange = new ccxt[id_exchange]();
+    const exchange = initializeExchange(id_exchange);
+    if (!exchange) {
+      console.error(`[getSymbolNetworks] Failed to initialize exchange: ${id_exchange}`);
+      return [];
+    }
     await exchange.loadMarkets();
 
     // Validar que el símbolo existe en el exchange
@@ -559,6 +564,7 @@ const getSymbolNetworks = async (id_exchange, id_simbol) => {
 };
 
 module.exports = {
+    initializeExchange,
     getExchangesStatus,
     // getAvailableExchanges, // Replaced
     getConfiguredExchanges,
