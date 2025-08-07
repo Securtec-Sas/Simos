@@ -25,6 +25,8 @@ class UIBroadcaster:
         self.on_ui_message_callback: Optional[Callable] = None
         self.on_get_ai_model_details_callback: Optional[Callable] = None
         self.on_train_ai_model_callback: Optional[Callable] = None
+        self.get_latest_balance_callback: Optional[Callable] = None
+        self.get_ai_model_details_callback: Optional[Callable] = None
         
         # Estado del trading
         self.trading_active = False
@@ -76,8 +78,10 @@ class UIBroadcaster:
         self.ui_clients.add(websocket)
         
         try:
-            # Enviar estado inicial al cliente
+            # Enviar estado inicial y datos adicionales al cliente
             await self._send_initial_state(websocket)
+            await self.send_ai_model_details(websocket)
+            await self.send_latest_balance(websocket)
             
             # Escuchar mensajes del cliente
             async for message in websocket:
@@ -279,6 +283,33 @@ class UIBroadcaster:
         }
         
         await self.broadcast_message(log_message)
+
+    async def send_ai_model_details(self, websocket):
+        """Envía los detalles del modelo de IA a un cliente específico."""
+        if self.get_ai_model_details_callback:
+            try:
+                model_info = self.get_ai_model_details_callback()
+                message = {
+                    "type": "ai_model_details",
+                    "payload": model_info
+                }
+                await websocket.send(json.dumps(message))
+            except Exception as e:
+                self.logger.error(f"Error enviando detalles del modelo de IA: {e}")
+
+    async def send_latest_balance(self, websocket):
+        """Envía el último balance cacheado a un cliente específico."""
+        if self.get_latest_balance_callback:
+            try:
+                balance_data = self.get_latest_balance_callback()
+                if balance_data:
+                    message = {
+                        "type": "balance_update",
+                        "payload": balance_data
+                    }
+                    await websocket.send(json.dumps(message))
+            except Exception as e:
+                self.logger.error(f"Error enviando el último balance: {e}")
     
     # Callback setters
     
@@ -297,10 +328,15 @@ class UIBroadcaster:
     def set_get_ai_model_details_callback(self, callback: Callable):
         """Establece el callback para solicitar detalles del modelo de IA."""
         self.on_get_ai_model_details_callback = callback
+        self.get_ai_model_details_callback = callback
 
     def set_train_ai_model_callback(self, callback: Callable):
         """Establece el callback para la solicitud de entrenamiento del modelo de IA."""
         self.on_train_ai_model_callback = callback
+
+    def set_get_latest_balance_callback(self, callback: Callable):
+        """Establece el callback para obtener el último balance cacheado."""
+        self.get_latest_balance_callback = callback
 
     # Métodos para actualizar estadísticas
     

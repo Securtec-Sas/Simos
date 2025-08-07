@@ -64,32 +64,12 @@ const ConfigDataPage = () => {
   };
 
   const handleUpdateDataAI = () => {
-    setDataUpdateRequested(true);
-    fetchDataAI();
-  };
-
-  const fetchDataAI = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch('/api/v3/data-ai');
-      const result = await response.json();
-      
-      if (result.status === 'success') {
-        setAiModelDetails(result.data);
-      } else {
-        console.error('Error obteniendo datos AI:', result.message);
-      }
-    } catch (error) {
-      console.error('Error en fetchDataAI:', error);
-    } finally {
-      setIsLoading(false);
-      setDataUpdateRequested(false);
-    }
+    handleRequest('get_ai_model_details');
   };
 
   // Cargar datos AI solo una vez al montar el componente
   useEffect(() => {
-    fetchDataAI();
+    handleRequest('get_ai_model_details');
   }, []);
 
   // Actualizar el estado cuando se reciben datos desde V3
