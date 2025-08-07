@@ -1,7 +1,6 @@
 const Analysis = require('../data/dataBase/modelosBD/analysis.model');
 const ExchangeSymbol = require('../data/dataBase/modelosBD/exchangeSymbol.model');
 const { Parser } = require('json2csv');
-const { getLowestFeeNetwork } = require('./exchangeController');
 const { getExchangeTimeframe } = require('../utils/timeframeConverter');
 const { getLowestFeeNetwork, initializeExchange } = require('./exchangeController');
 const ccxt = require('ccxt');

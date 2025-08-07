@@ -363,6 +363,7 @@ const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
       throw new Error(`Failed to initialize one or both exchanges: ${id_sell}, ${id_buy}`);
     }
 
+    
     // 2. Cargar los mercados de ambos exchanges en paralelo
     await Promise.all([
       sellExchange.loadMarkets(),
