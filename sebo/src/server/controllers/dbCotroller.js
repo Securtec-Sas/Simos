@@ -202,6 +202,9 @@ const exchangesymbolsNewAdd = async (req, res) => {
     console.timeEnd("exchangesymbolsNewAdd-TotalTime");
 
     // 8. Enviar la respuesta final (se eliminó la llamada incorrecta a analyzerController)
+    console.log('eliminando exchangesymbols con menos de 2 exch_data');
+    let deletedResult = await deleteExchangeSymbolsWithFewExchData();
+    console.log(deletedResult.message);
     res.status(200).json({
       message: `Proceso completado. Se procesaron ${bulkOps.length} pares símbolo-exchange.`,
       newSymbolsCreated,
@@ -397,7 +400,9 @@ const addExchangesSymbols = async (req, res) => {
  * delete document  from  exchanSymbol where symbolid = symbol,_id count(exchangeId) < 2clos exchangeSymbol que no tengan de 2 exchanges en adelante
  * recorrer la coleccion de symbols y buscar y eliminar de la coleccion de exchangeSymbol los que cumplan las condiciones
  *
- */const deleteLowCountExchangeSymbols = async (req, res) => {
+ */
+
+const deleteLowCountExchangeSymbols = async () => {
   let deletedCount = 0;
   const symbolsProcessed = [];
   const errors = [];
@@ -412,7 +417,12 @@ const addExchangesSymbols = async (req, res) => {
       symbolsProcessed.push(symbol.id_sy);
       try {
         // 2. Contar cuántos ExchangeSymbols existen para este símbolo
-        const count = await ExchangeSymbol.countDocuments({ symbolId: symbol._id });
+        
+        const count = await ExchangeSymbol.aggregate([
+          { $match: { symbolId: symbol._id } },
+          { $unwind: "$exch_data" },
+          { $group: { _id: null, count: { $sum: 1 } } },
+        ]).then(result => result[0].count);
 
         // 3. Si el count es menor que 2, eliminar todos los ExchangeSymbols para este símbolo
         if (count < 2) {
@@ -434,7 +444,7 @@ const addExchangesSymbols = async (req, res) => {
     /**celimina el simbolo  */
     console.log(`Finished deleting low count ExchangeSymbols. Total deleted: ${deletedCount}`);
 
-    res.status(200).json({
+    return ({
       message: `Checked ${symbols.length} symbols. Deleted ${deletedCount} ExchangeSymbol entries where count was less than 2.`,
       symbolsProcessed: symbolsProcessed,
       errors: errors,
@@ -450,6 +460,32 @@ const addExchangesSymbols = async (req, res) => {
     });  }
 };
 
+const deleteExchangeSymbolsWithFewExchData = async () => {
+  try {
+    const exchangeSymbols = await ExchangeSymbol.find();
+
+    let deletedCount = 0;
+    for (const symbol of exchangeSymbols) {
+      if (symbol.exch_data.size < 2) {
+        await ExchangeSymbol.deleteOne({ _id: symbol._id });
+        deletedCount++;
+        console.log(`Deleted ExchangeSymbol with ID: ${symbol._id} due to insufficient exch_data.`);
+      }
+    }
+
+    return ({
+      message: `Processed ${exchangeSymbols.length} ExchangeSymbols. Deleted ${deletedCount} with less than 2 exch_data entries.`,
+    });
+  } catch (error) {
+    console.error("Error in deleteExchangeSymbolsWithFewExchData:", error);
+    res.status(500).json({
+      message: "An error occurred while processing ExchangeSymbols.",
+      error: error.message,
+    });
+  }
+};
+
+
 /**
  * crea el metodo para obtener todos los exchangeSymbol de un symbolo
  * @param {Object} req - Request object
@@ -464,7 +500,7 @@ const addExchangesSymbols = async (req, res) => {
 
 
 
-const getAllExchangeSymbols = async (req, res) => {
+const getAllExchangeSymbols = async () => {
   try {
     const { symbolId } = req.params;
     const exchangeSymbols = await ExchangeSymbol.find({ symbolId });
@@ -480,5 +516,7 @@ module.exports = {
   addSymbols,
   addExchangesSymbols,
   getAllExchangeSymbols,
-  exchangesymbolsNewAdd // Exportar la nueva función
+  exchangesymbolsNewAdd, // Exportar la nueva función
+  deleteLowCountExchangeSymbols,
+  deleteExchangeSymbolsWithFewExchData
 };

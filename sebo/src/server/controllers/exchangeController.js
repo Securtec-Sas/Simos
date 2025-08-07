@@ -35,7 +35,7 @@ const initializeExchange = (exchangeId) => {
 
         // Para este ejemplo, solo inicializamos sin credenciales para probar conectividad pública
         return new ccxt[exchangeId]({
-            'timeout': 10000,
+            'timeout': 30000,
             'enableRateLimit': true,
         });
 
@@ -303,7 +303,7 @@ const getWithdrawalFees = async (req, res) => {
     if (networks && Object.keys(networks).length > 0) {
       for (const [networkCode, networkData] of Object.entries(networks)) {
         resultNetworks.push({
-          network: networkCode.toUpperCase(), // Nombre de la red (e.g., ERC20, TRC20, BEP20)
+          network: networkData.network, // Nombre de la red (e.g., ERC20, TRC20, BEP20)
           currency: upperCurrencyCode,
           fee: networkData.fee,
           precision: networkData.precision, // Precisión para el fee y monto de retiro
@@ -320,7 +320,7 @@ const getWithdrawalFees = async (req, res) => {
         // Para ser más precisos, podríamos optar por devolver un array vacío o un mensaje si 'networks' no está.
         // O, si se asume que este 'fee' es de retiro:
         resultNetworks.push({
-            network: 'DEFAULT', // O dejarlo como null/undefined
+            network: networkData.network, // O dejarlo como null/undefined
             currency: upperCurrencyCode,
             fee: currencyInfo.fee,
             precision: currencyInfo.precision,
@@ -355,29 +355,22 @@ const getWithdrawalFees = async (req, res) => {
 
 const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
   try {
-    // 1. Inicializar los exchanges
-    const sellExchange = initializeExchange(id_sell);
-    const buyExchange = initializeExchange(id_buy);
-
-    if (!sellExchange || !buyExchange) {
-      throw new Error(`Failed to initialize one or both exchanges: ${id_sell}, ${id_buy}`);
-    }
-
-    
-    // 2. Cargar los mercados de ambos exchanges en paralelo
-    await Promise.all([
-      sellExchange.loadMarkets(),
-      buyExchange.loadMarkets(),
-    ]);
+    console.log('cariables de entrada ',id_sell, id_buy, symbol);
     // 1. Obtener las redes de ambos exchanges usando getSymbolNetworks
     [sellNetworksList, buyNetworksList] = await Promise.all([
       getSymbolNetworks(id_sell, symbol),
       getSymbolNetworks(id_buy, symbol)
     ]);
 
+    console.log('Red de sell --------------------------------')
     console.log(await sellNetworksList)
+    console.log('Red de buy --------------------------------')
+    console.log(await buyNetworksList)
+    
     if (sellNetworksList.length === 0 || buyNetworksList.length === 0) {
       const errorMsg = `No se encontraron redes para el símbolo ${symbol} en uno o ambos exchanges: ${id_sell} (redes: ${sellNetworksList.length}), ${id_buy} (redes: ${buyNetworksList.length}).`;
+      console.warn('leng es igual 0 --------------------------------');
+
       console.warn(errorMsg);
       return {
         commission: null,
@@ -429,25 +422,16 @@ const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
       };
     }
 
-    // 5. Filtrar redes sin fee definido o con fee nulo y encontrar la de menor comisión
-    const validFeeNetworks = commonNetworks.filter(net => net.fee !== null && net.fee !== undefined);
+    const validFeeNetworks = commonNetworks.filter(net => net.fee = undefined ? 0 : net.fee)
+    
+    console.log(commonNetworks)
 
-    if (validFeeNetworks.length === 0) {
-        return {
-            commission: null,
-            network: null,
-            error: "Se encontraron redes comunes, pero ninguna tiene información de comisión de retiro.",
-            sellNetworksAvailable: sellNetworksList.map(n => n.network),
-            buyNetworksAvailable: buyNetworksList.map(n => n.network)
-        };
-    }
-
-    let lowestFeeNetwork = validFeeNetworks.reduce((min, net) => net.fee < min.fee ? net : min, validFeeNetworks[0]);
+    let lowestFeeNetwork = commonNetworks.reduce((min, net) => net.fee < min.fee ? net : min, validFeeNetworks[0]);
 
     console.log(`--- Mejor red encontrada: ${lowestFeeNetwork.name}, Comisión de retiro: ${lowestFeeNetwork.fee} ---`);
 
     return {
-      commission: lowestFeeNetwork.fee,
+      commission: lowestFeeNetwork.fee === undefined ? lowestFeeNetwork.fee:0,
       network: lowestFeeNetwork.name,
       error: null,
       sellNetworksAvailable: sellNetworksList.map(n => n.network),
@@ -457,8 +441,8 @@ const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
   } catch (error) {
     console.error(`Error crítico en getLowestFeeNetwork para ${symbol} en ${id_sell}->${id_buy}:`, error.message);
     return {
-      commission: null,
-      network: null,
+      commission:lowestFeeNetwork.fee === undefined ? lowestFeeNetwork.fee : 0,
+      network: lowestFeeNetwork.network,
       error: error.message,
       sellNetworksAvailable: [],
       buyNetworksAvailable: []
@@ -541,7 +525,7 @@ const getSymbolNetworks = async (id_exchange, id_simbol) => {
       await exchange.fetchCurrencies();
     }
 
-    const market = exchange.markets[id_simbol];
+    const market = await exchange.markets[id_simbol];
     const baseCurrencyCode = market.base;
     const currencyInfo = exchange.currencies[baseCurrencyCode];
 
@@ -552,13 +536,14 @@ const getSymbolNetworks = async (id_exchange, id_simbol) => {
 
     const networks = currencyInfo.networks;
     const formattedNetworks = [];
-
-    for (const [networkCode, networkData] of Object.entries(networks)) {
+    console.log(await networks)
+    console.log('******************************------------------*******************')
+    for ([networkCode, networkData] of Object.entries(await networks)) {
       formattedNetworks.push({
-        network: networkCode, // Nombre de la red (e.g., ERC20, TRC20, BEP20)
-        withdraw: networkData.withdraw === true,
-        deposit: networkData.deposit === true,
-        fee: networkData.fee !== undefined ? networkData.fee : null, // Asegurarse de que la fee exista
+        network: networkData.network, // Nombre de la red (e.g., ERC20, TRC20, BEP20)
+        withdraw: networkData.withdraw,
+        deposit: networkData.deposit,
+        fee: networkData.fee !== undefined ? networkData.fee : 0, // Asegurarse de que la fee exista
       });
     }
 

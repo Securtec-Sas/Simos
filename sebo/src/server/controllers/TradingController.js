@@ -129,6 +129,14 @@ const getRandomSymbols = async (count) => {
   return await symbols;
 };
 
+const getRandomAnalysis = async (count) => {
+  // Fetch random documents from Analysis collection
+  const total = await Analysis.countDocuments();
+  const random = Math.floor(Math.random() * (total - count));
+  const analysis = await Analysis.find().skip(random).limit(count);
+  return analysis;
+};
+
 const createTrainingCSV = async (req, res) => {
   try {
     // 1. Desestructurar el cuerpo de la solicitud sin 'await'
@@ -140,16 +148,16 @@ const createTrainingCSV = async (req, res) => {
       symbols = await ExchangeSymbol.find({ symbolName: { $in: listaSimbolos } });
     } else if (cantidadSimbolos) {
       // Seleccionar símbolos aleatorios
-      symbols = await getRandomSymbols(cantidadSimbolos);
+      // symbols = await getRandomSymbols(cantidadSimbolos);
     } else {
       return res.status(400).json({ error: 'Debe proporcionar cantidadSimbolos o listaSimbolos' });
     }
 
     // 2. Obtener el _id de los símbolos para la consulta
-    const  symbolIds = symbols.map(s => s._id);
+    // const  symbolIds = symbols.map(s => s._id);
 
     // 3. Obtener análisis para los símbolos de forma asíncrona
-    const analysisList = await Analysis.find({ id_exchsymbol: { $in: symbolIds } }).populate('id_exchsymbol');
+    const analysisList = await getRandomAnalysis(cantidadSimbolos)
 
     let balanceConfig = 20;
     const results = [];
@@ -160,6 +168,7 @@ const createTrainingCSV = async (req, res) => {
     // Usamos un bucle for tradicional para poder usar break si se alcanza el límite.
     for (const analysis of analysisList) {
       // Si ya hemos alcanzado el número de operaciones, salimos del bucle.
+      console.log(cantidadSimbolos+'----'+analysisList.length);
       if (operationsCount >= totalOperationsRequested) {
         break;
       }
@@ -170,16 +179,21 @@ const createTrainingCSV = async (req, res) => {
 
       if (!analysis.id_exchsymbol) {
         // Si el símbolo de intercambio no está poblado, salta este registro para evitar un crash.
-        console.warn(`Omitiendo registro de análisis ${analysis._id} por datos de símbolo de intercambio ausentes o inconsistentes.`);
         continue;
       }
 
-      const data = {
-        symbol: analysis.id_exchsymbol.sy_id,
-        buyExchangeId: analysis.id_exdataMin,
-        sellExchangeId: analysis.id_exdataMax,
-        buyFees: analysis.taker_fee_exMin,
-        sellFees: analysis.taker_fee_exMax,
+      let symbolDoc = await ExchangeSymbol.findById(analysis.id_exchsymbol, 'sy_id');
+      if (!symbolDoc) {
+        console.warn(`Advertencia: No se encontró el símbolo con id_exchsymbol ${analysis.id_exchsymbol}`);
+        continue;
+      }
+      console.log(symbolDoc);
+      let data = {
+        symbol: await symbolDoc.sy_id,
+        buyExchangeId: await analysis.id_exdataMin,
+        sellExchangeId: await analysis.id_exdataMax,
+        buyFees: await analysis.taker_fee_exMin,
+        sellFees: await analysis.taker_fee_exMax,
         transferFee: 0.0005, // Valor por defecto
       };
 
@@ -187,6 +201,7 @@ const createTrainingCSV = async (req, res) => {
       // La función `getLowestFeeNetwork` devuelve un objeto o un array, el código original usaba await networks, lo que es incorrecto.
       // Es mejor obtener el resultado directamente.
       const lowestFeeResult = await getLowestFeeNetwork( data.sellExchangeId, data.buyExchangeId, data.symbol);
+      console.log('RESULTADO REDES -----------------');
       console.log(lowestFeeResult);
       if (!lowestFeeResult || lowestFeeResult.error) {
         const errorMessage = lowestFeeResult ? lowestFeeResult.error : "La función getLowestFeeNetwork no devolvió resultado.";

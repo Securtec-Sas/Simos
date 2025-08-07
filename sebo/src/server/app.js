@@ -10,8 +10,9 @@ const { handleSpotAnalysisRequest, getTopSpotOpportunities } = require("./contro
 const http = require("http");
 const { Server } = require("socket.io"); // NOSONAR
 const { setupSpotSocketController } = require("./controllers/spotSocketController");
+const {addSymbolsForExchange} = require("./controllers/symbolController");
 const { connectDB } = require("./data/dataBase/connectio");
-const { addExchanges } = require("./controllers/dbCotroller");
+const { addExchanges,deleteLowCountExchangeSymbols } = require("./controllers/dbCotroller");
 const analyzerController = require("./controllers/analizerController");
 
 dotenv.config();
@@ -67,13 +68,16 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.get("/api/exchanges-status", getExchangesStatus);
 
-app.get("/analyser", analyzerController.addAnalyzeSymbolsAsync);
+app.get("/analyser", analyzerController.addAnalyzeSymbols);
 // app.get("/depure",balanceRoutes.depº)
 
+app.get('/addsymbols',addSymbolsForExchange);
 
 app.get("/api/exchange-unique/:exchangeId?", getExchangeStatusById);
 
 app.get("/addexchanges",addExchanges);
+
+app.get('/depureex,',deleteLowCountExchangeSymbols)
 
 app.get("/api/configured-exchanges", getConfiguredExchanges);
 

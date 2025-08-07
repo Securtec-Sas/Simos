@@ -2,7 +2,7 @@
 
 const express = require('express');
 const router = express.Router();
-const symbolController = require('../controllers/symbolController');
+const {addSymbolsForExchange, getSymbols, getSymbolById, createSymbol, updateSymbol, deleteSymbol} = require('../controllers/symbolController');
 
 /**
  * @swagger
@@ -43,7 +43,7 @@ const symbolController = require('../controllers/symbolController');
  *       500:
  *         description: Error interno del servidor
  */
-router.get('/', symbolController.getSymbols);
+router.get('/', getSymbols);
 
 /**
  * @swagger
@@ -70,7 +70,7 @@ router.get('/', symbolController.getSymbols);
  *       500:
  *         description: Error interno del servidor
  */
-router.get('/:id_sy', symbolController.getSymbolById);
+router.get('/:id_sy', getSymbolById);
 
 /**
  * @swagger
@@ -98,7 +98,7 @@ router.get('/:id_sy', symbolController.getSymbolById);
  *       500:
  *         description: Error interno del servidor
  */
-router.post('/', symbolController.createSymbol);
+router.post('/',createSymbol);
 
 /**
  * @swagger
@@ -139,7 +139,7 @@ router.post('/', symbolController.createSymbol);
  *       500:
  *         description: Error interno del servidor
  */
-router.put('/:id_sy', symbolController.updateSymbol);
+router.put('/:id_sy', updateSymbol);
 
 /**
  * @swagger
@@ -162,7 +162,7 @@ router.put('/:id_sy', symbolController.updateSymbol);
  *       500:
  *         description: Error interno del servidor
  */
-router.delete('/:id_sy', symbolController.deleteSymbol);
+router.delete('/:id_sy', deleteSymbol);
 
 /**
  * @swagger
@@ -193,7 +193,7 @@ router.delete('/:id_sy', symbolController.deleteSymbol);
  *       500:
  *         description: Error crítico durante el proceso
  */
-router.post('/add-for-exchanges', symbolController.addSymbolsForExchange);
+router.get('/add-for-exchanges', addSymbolsForExchange);
 
 module.exports = router;
 

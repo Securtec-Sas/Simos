@@ -257,7 +257,7 @@ const addAnalyzeSymbols = async (req, res) => {
 
                 // 4. Obtener todos los exch_data para este símbolo
                 const exchDataList = group.exchangeSymbols.flatMap(es => es.exch_data || []);
-
+                console.log(exchDataList.length)
                 if (exchDataList.length < 2) {
                     console.warn(`[${exSym.sy_id}] Insuficientes datos de exchange (${exchDataList.length}). Saltando.`);
                     return null;
@@ -334,7 +334,9 @@ const addAnalyzeSymbols = async (req, res) => {
                     id_exdataMax: maxBuyData.id_ex, // Guardar el ID de CCXT estable
                     Val_max_buy: maxBuyData.Val_buy,
                     Val_min_sell: minSellData.Val_sell,
+                    symbol: exSym.sy_id,
                     promedio: promedio,
+                    symbol: exSym.sy_id,
                     id_exchsymbol: exSym._id,
                     taker_fee_exMin: takerFeeExMin,
                     maker_fee_exMin: makerFeeExMin,
@@ -404,78 +406,73 @@ const addAnalyzeSymbolsAsync = async (req, res) => {
 
     console.time("addAnalyzeSymbolsAsync-TotalTime");
     try {
-        // 1. Obtener todos los ExchangeSymbol únicos por sy_id
-        console.log("Fetching unique ExchangeSymbol records...");
-        const uniqueExchangeSymbols = await ExchangeSymbol.aggregate([
-            {
-                $group: {
-                    _id: "$sy_id",
-                    exchangeSymbols: { $push: "$$ROOT" }
-                }
-            }
-        ]);
+        // 1. Obtener todos los documentos de ExchangeSymbol.
+        // Es más eficiente que aggregate si cada sy_id es único, como parece ser el caso con el nuevo esquema.
+        console.log("Fetching all ExchangeSymbol records...");
+        const allExchangeSymbols = await ExchangeSymbol.find({}).lean(); // .lean() para mejor rendimiento
 
-        console.log(`Found ${uniqueExchangeSymbols.length} unique symbols to analyze.`);
+        console.log(`Found ${allExchangeSymbols.length} symbols to analyze.`);
 
         // 2. Cache para instancias de CCXT
         const ccxtInstanceCache = {};
 
-        // 3. Procesar cada símbolo único
-        const analysisPromises = uniqueExchangeSymbols.map(async (group) => {
-            const exSym = group.exchangeSymbols[0]; // Tomar el primer elemento como referencia
+        // 3. Procesar cada símbolo
+        const analysisPromises = allExchangeSymbols.map(async (symbolDoc) => {
             try {
-                console.log(`[${exSym.sy_id}] Analizando símbolo...`);
+                console.log(`[${symbolDoc.sy_id}] Analizando símbolo...`);
 
                 // 4. Obtener todos los exch_data para este símbolo
-                const exchDataList = group.exchangeSymbols.flatMap(es => es.exch_data || []);
-
-                if (exchDataList.length < 2) {
-                    console.warn(`[${exSym.sy_id}] Insuficientes datos de exchange (${exchDataList.length}). Saltando.`);
+                // Con .lean(), symbolDoc.exch_data es un objeto. Obtenemos sus valores.
+                if (!symbolDoc.exch_data || Object.keys(symbolDoc.exch_data).length < 2) {
+                    const count = symbolDoc.exch_data ? Object.keys(symbolDoc.exch_data).length : 0;
+                    console.warn(`[${symbolDoc.sy_id}] Insuficientes datos de exchange (${count}). Saltando.`);
                     return null;
                 }
+                const exchDataList = Object.values(symbolDoc.exch_data);
 
                 // Filtrar datos válidos
-                const validExchData = exchDataList.filter(data => 
+                let validExchData = exchDataList.filter(data => 
                     data.Val_sell > 0 && data.Val_buy > 0
                 );
 
                 if (validExchData.length < 2) {
-                    console.warn(`[${exSym.sy_id}] Insuficientes datos válidos. Saltando.`);
+                    console.warn(`[${symbolDoc.sy_id}] Insuficientes datos válidos (${validExchData.length}). Saltando.`);
                     return null;
                 }
 
                 // Encontrar menor valor de venta y mayor valor de compra
-                const minSellData = validExchData.reduce((min, current) => 
+                let minSellData = validExchData.reduce((min, current) => 
                     current.Val_sell < min.Val_sell ? current : min
                 );
-                const maxBuyData = validExchData.reduce((max, current) => 
+                let maxBuyData = validExchData.reduce((max, current) => 
                     current.Val_buy > max.Val_buy ? current : max
                 );
 
                 // Verificar que los exchanges sean diferentes
                 if (minSellData.id_ex === maxBuyData.id_ex) {
-                    console.warn(`[${exSym.sy_id}] Mismo exchange para compra y venta. Saltando.`);
+                    console.warn(`[${symbolDoc.sy_id}] Mismo exchange para compra y venta. Saltando.`);
                     return null;
                 }
 
                 // Calcular porcentaje de diferencia
-                const promedio = ((minSellData.Val_sell - maxBuyData.Val_buy) / maxBuyData.Val_buy) * 100;
+                let promedio = ((minSellData.Val_sell - maxBuyData.Val_buy) / maxBuyData.Val_buy) * 100;
 
                 if (promedio <= 0) {
-                    console.warn(`[${exSym.sy_id}] Diferencia no rentable (${promedio.toFixed(2)}%). Saltando.`);
+                    console.warn(`[${symbolDoc.sy_id}] Diferencia no rentable (${promedio.toFixed(2)}%). Saltando.`);
                     return null;
                 }
 
-                console.log(`[${exSym.sy_id}] Análisis completado. Promedio: ${promedio.toFixed(2)}%`);
+                console.log(`[${symbolDoc.sy_id}] Análisis completado. Promedio: ${promedio.toFixed(2)}%`);
 
                 // Construir el documento de análisis (sin fees para async)
-                const analysisResult = {
+                let analysisResult = {
                     id_exdataMin: minSellData.id_ex,
                     id_exdataMax: maxBuyData.id_ex,
                     Val_max_buy: maxBuyData.Val_buy,
                     Val_min_sell: minSellData.Val_sell,
+                    symbol: symbolDoc.sy_id,
                     promedio: promedio,
-                    id_exchsymbol: exSym._id,
+                    id_exchsymbol: symbolDoc._id,
                     taker_fee_exMin: 0.001, // Default fee
                     maker_fee_exMin: 0.001, // Default fee
                     taker_fee_exMax: 0.001, // Default fee
@@ -484,7 +481,7 @@ const addAnalyzeSymbolsAsync = async (req, res) => {
                 };
                 return analysisResult;
             } catch (error) {
-                console.error(`Error analizando el símbolo ${exSym.sy_id}: ${error.message}`);
+                console.error(`Error analizando el símbolo ${symbolDoc.sy_id}: ${error.message}`);
                 return null;
             }
         });
@@ -507,6 +504,37 @@ const addAnalyzeSymbolsAsync = async (req, res) => {
     }
 };
 
+
+
+/**
+ * Actualiza los campos de withdrawal, fee y deposit para cada análisis en la base de datos
+ */
+const updateAnalysisWithdrawDepositFee = async () => {
+    try {
+        const analysisList = await Analysis.find({}, { id_exdataMin: 1, id_exdataMax: 1, symbol: 1, _id: 0 });
+        const promises = analysisList.map(async (analysis) => {
+            try {
+                const exMin = ccxt.exchanges[analysis.id_exdataMin];
+                const exMax = ccxt.exchanges[analysis.id_exdataMax];
+                const withdraw = await exMin.fetchWithdrawInfo(analysis.symbol);
+                const deposit = await exMax.fetchDepositInfo(analysis.symbol);
+                const fee = await exMin.fetchFees(analysis.symbol);
+                await Analysis.updateOne({ id_exdataMin: analysis.id_exdataMin, id_exdataMax: analysis.id_exdataMax, symbol: analysis.symbol }, {
+                    withdraw: withdraw,
+                    deposit: deposit,
+                    fee: fee
+                });
+            } catch (error) {
+                console.error(`Error actualizando campos de withdrawal, fee y deposit para el análisis ${analysis.id_exdataMin} - ${analysis.id_exdataMax} - ${analysis.symbol}`, error);
+            }
+        });
+        await Promise.all(promises);
+        console.log(`Actualizados campos de withdrawal, fee y deposit para ${analysisList.length} análisis`);
+
+    } catch (error) {
+        console.error("Critical error in updateAnalysisWithdrawDepositFee:", error);
+    }
+};
 
 
 
@@ -655,7 +683,6 @@ module.exports = {
     getHistoricalOHLCV,
     getFormattedTopAnalysis,
     dataTrainModel,
-    actualizePricetop20
+    actualizePricetop20,
+    updateAnalysisWithdrawDepositFee
 };
-
-
