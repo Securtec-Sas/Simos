@@ -208,7 +208,7 @@ router.get('/promedios', analizerController.addAnalyzeSymbolsAsync); // Usando a
  */
 
 
-
+router.post('/nets',analizerController.updateAnalysisWithdrawDepositFee);
 
 
 module.exports = router;
