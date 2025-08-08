@@ -13,9 +13,10 @@ from utils import get_current_timestamp
 class UIBroadcaster:
     """Maneja la comunicación WebSocket con la interfaz de usuario."""
     
-    def __init__(self):
+    def __init__(self, training_handler=None):
         self.logger = logging.getLogger('V3.UIBroadcaster')
         self.ui_clients: Set[websockets.WebSocketServerProtocol] = set()
+        self.training_handler = training_handler
         self.server = None
         self.is_running = False
         
@@ -88,6 +89,7 @@ class UIBroadcaster:
             # Enviar estado inicial y datos adicionales al cliente
             await self._send_initial_state(websocket)
             await self.send_ai_model_details(websocket)
+            await self._send_current_training_status(websocket) # Enviar estado de entrenamiento actual
             await self.send_latest_balance(websocket)
             await self.send_latest_top20(websocket)
             
@@ -117,6 +119,22 @@ class UIBroadcaster:
             await websocket.send(json.dumps(initial_state))
         except Exception as e:
             self.logger.error(f"Error enviando estado inicial: {e}")
+
+    async def _send_current_training_status(self, websocket):
+        """Envía el estado de entrenamiento actual si hay uno en progreso."""
+        if self.training_handler and self.training_handler.training_in_progress:
+            self.logger.info(f"Enviando estado de entrenamiento en progreso a cliente {websocket.remote_address}")
+            status_payload = {
+                "type": "ai_training_update",
+                "payload": {
+                    "status": "IN_PROGRESS",
+                    "progress": self.training_handler.training_progress
+                }
+            }
+            try:
+                await websocket.send(json.dumps(status_payload))
+            except Exception as e:
+                self.logger.error(f"Error enviando estado de entrenamiento actual: {e}")
     
     async def _process_ui_message(self, websocket, message: str):
         """Procesa mensajes recibidos de la UI."""
