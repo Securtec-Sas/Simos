@@ -157,7 +157,7 @@ const createTrainingCSV = async (req, res) => {
     // const  symbolIds = symbols.map(s => s._id);
 
     // 3. Obtener análisis para los símbolos de forma asíncrona
-    const analysisList = await getRandomAnalysis(cantidadSimbolos)
+    const analysisList = await getRandomAnalysis(cantidadSimbolos);
 
     let balanceConfig = 20;
     const results = [];
@@ -165,56 +165,33 @@ const createTrainingCSV = async (req, res) => {
     const totalOperationsRequested = parseInt(operaciones) || 1000;
 
     // 4. Iterar sobre la lista de análisis.
-    // Usamos un bucle for tradicional para poder usar break si se alcanza el límite.
     for (const analysis of analysisList) {
-      // Si ya hemos alcanzado el número de operaciones, salimos del bucle.
-      console.log(cantidadSimbolos+'----'+analysisList.length);
       if (operationsCount >= totalOperationsRequested) {
         break;
       }
-      
-      // La pausa de 2 segundos es una decisión de diseño. La mantendré, pero considera si es realmente necesaria.
-      // Si la eliminas, el código será más rápido.
-      // await new Promise(resolve => setTimeout(resolve, 2000));
 
       if (!analysis.id_exchsymbol) {
-        // Si el símbolo de intercambio no está poblado, salta este registro para evitar un crash.
         continue;
       }
 
-      let symbolDoc = await ExchangeSymbol.findById(analysis.id_exchsymbol, 'sy_id');
+      const symbolDoc = await ExchangeSymbol.findById(analysis.id_exchsymbol, 'sy_id');
       if (!symbolDoc) {
         console.warn(`Advertencia: No se encontró el símbolo con id_exchsymbol ${analysis.id_exchsymbol}`);
         continue;
       }
-      console.log(symbolDoc);
-      let data = {
-        symbol: await symbolDoc.sy_id,
-        buyExchangeId: await analysis.id_exdataMin,
-        sellExchangeId: await analysis.id_exdataMax,
-        buyFees: await analysis.taker_fee_exMin,
-        sellFees: await analysis.taker_fee_exMax,
-        transferFee: 0.0005, // Valor por defecto
-      };
 
-      // 5. Obtener la red con la comisión más baja de forma asíncrona.
-      // La función `getLowestFeeNetwork` devuelve un objeto o un array, el código original usaba await networks, lo que es incorrecto.
-      // Es mejor obtener el resultado directamente.
-      const lowestFeeResult = await getLowestFeeNetwork( data.sellExchangeId, data.buyExchangeId, data.symbol);
-      console.log('RESULTADO REDES -----------------');
-      console.log(lowestFeeResult);
-      if (!lowestFeeResult || lowestFeeResult.error) {
-        const errorMessage = lowestFeeResult ? lowestFeeResult.error : "La función getLowestFeeNetwork no devolvió resultado.";
-        console.warn(`Advertencia: No se pudo obtener la red de menor comisión para el símbolo ${data.symbol}: ${errorMessage}`);
-        continue;
-      } else {
-        // Asumiendo que getLowestFeeNetwork devuelve un array. Tomamos el primer elemento.
-        data.transferFee = lowestFeeResult.commission;
-        data.network = lowestFeeResult.network;
-      } 
-      // else {
-      //   console.warn(`Advertencia: No se encontró una red común para el símbolo ${data.symbol}`);
-      // }
+      // 5. Usar el fee de retiro almacenado en el documento de análisis.
+      // Se establece un valor por defecto si 'fee' no está presente.
+      const transferFee = analysis.fee || 0.0005;
+
+      let data = {
+        symbol: symbolDoc.sy_id,
+        buyExchangeId: analysis.id_exdataMin,
+        sellExchangeId: analysis.id_exdataMax,
+        buyFees: analysis.taker_fee_exMin,
+        sellFees: analysis.taker_fee_exMax,
+        transferFee: transferFee
+      };
 
       // 6. Obtener datos históricos de forma asíncrona.
       const historicalData = await fetchHistoricalData(data, fecha, intervalo, totalOperationsRequested - operationsCount);
