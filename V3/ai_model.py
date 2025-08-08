@@ -97,7 +97,11 @@ class ArbitrageAIModel:
             self.logger.error(f"Error guardando modelo: {e}")
     
     def prepare_features(self, operation_data: Dict) -> np.ndarray:
+<<<<<<< HEAD
         """Prepara las características para el modelo."""
+=======
+        """Prepara las características para el modelo incluyendo todas las transacciones y fees."""
+>>>>>>> parent of 5b78e8f (prueba)
         try:
             features = {}
             
@@ -115,9 +119,42 @@ class ArbitrageAIModel:
             features['buy_price'] = buy_price
             features['sell_price'] = sell_price
             
+<<<<<<< HEAD
             # Características de volumen e inversión
             features['investment_usdt'] = safe_float(operation_data.get('investment_usdt', 0))
             
+=======
+            # Características de inversión y volumen
+            features['investment_usdt'] = safe_float(operation_data.get('investment_usdt', 0))
+            
+            # Características detalladas de fees y comisiones
+            features['estimated_buy_fee'] = safe_float(operation_data.get('estimated_buy_fee', 0))
+            features['estimated_sell_fee'] = safe_float(operation_data.get('estimated_sell_fee', 0))
+            features['estimated_transfer_fee'] = safe_float(operation_data.get('estimated_transfer_fee', 0))
+            features['total_fees_usdt'] = safe_float(operation_data.get('total_fees_usdt', 0))
+            
+            # Calcular fees totales si no están disponibles
+            if features['total_fees_usdt'] == 0:
+                features['total_fees_usdt'] = (
+                    features['estimated_buy_fee'] + 
+                    features['estimated_sell_fee'] + 
+                    features['estimated_transfer_fee']
+                )
+            
+            # Características de rentabilidad
+            features['net_profit_usdt'] = safe_float(operation_data.get('net_profit_usdt', 0))
+            features['profit_percentage'] = safe_float(operation_data.get('profit_percentage', 0))
+            features['profit_to_investment_ratio'] = (
+                features['net_profit_usdt'] / max(features['investment_usdt'], 1)
+            )
+            
+            # Características de tiempo de ejecución
+            features['execution_time_seconds'] = safe_float(operation_data.get('execution_time_seconds', 0))
+            features['execution_efficiency'] = (
+                features['net_profit_usdt'] / max(features['execution_time_seconds'], 1)
+            )
+            
+>>>>>>> parent of 5b78e8f (prueba)
             # Características de exchanges
             buy_exchange = operation_data.get('buy_exchange_id', 'unknown')
             sell_exchange = operation_data.get('sell_exchange_id', 'unknown')
@@ -139,11 +176,20 @@ class ArbitrageAIModel:
             except ValueError:
                 features['sell_exchange_encoded'] = -1  # Exchange no conocido
             
+<<<<<<< HEAD
             # Características de fees (estimadas)
+=======
+            # Características de diversificación de exchanges
+            features['same_exchange'] = 1 if buy_exchange == sell_exchange else 0
+            features['exchange_pair_risk'] = 1 if buy_exchange == sell_exchange else 0
+            
+            # Características de fees por exchange
+>>>>>>> parent of 5b78e8f (prueba)
             market_data = operation_data.get('market_data', {})
             buy_fees = market_data.get('buy_fees', {})
             sell_fees = market_data.get('sell_fees', {})
             
+<<<<<<< HEAD
             features['estimated_buy_fee_percentage'] = safe_float(buy_fees.get('taker', 0.001)) * 100
             features['estimated_sell_fee_percentage'] = safe_float(sell_fees.get('taker', 0.001)) * 100
             features['total_estimated_fees'] = features['estimated_buy_fee_percentage'] + features['estimated_sell_fee_percentage']
@@ -152,6 +198,33 @@ class ArbitrageAIModel:
             now = datetime.now(timezone.utc)
             features['hour_of_day'] = now.hour
             features['day_of_week'] = now.weekday()
+=======
+            features['buy_fee_percentage'] = safe_float(buy_fees.get('taker', 0.001)) * 100
+            features['sell_fee_percentage'] = safe_float(sell_fees.get('taker', 0.001)) * 100
+            features['total_fee_percentage'] = features['buy_fee_percentage'] + features['sell_fee_percentage']
+            
+            # Características temporales
+            timestamp = operation_data.get('timestamp')
+            if timestamp:
+                try:
+                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    features['hour_of_day'] = dt.hour
+                    features['day_of_week'] = dt.weekday()
+                    features['is_weekend'] = 1 if dt.weekday() >= 5 else 0
+                    features['is_business_hours'] = 1 if 9 <= dt.hour <= 17 else 0
+                except:
+                    now = datetime.now(timezone.utc)
+                    features['hour_of_day'] = now.hour
+                    features['day_of_week'] = now.weekday()
+                    features['is_weekend'] = 1 if now.weekday() >= 5 else 0
+                    features['is_business_hours'] = 1 if 9 <= now.hour <= 17 else 0
+            else:
+                now = datetime.now(timezone.utc)
+                features['hour_of_day'] = now.hour
+                features['day_of_week'] = now.weekday()
+                features['is_weekend'] = 1 if now.weekday() >= 5 else 0
+                features['is_business_hours'] = 1 if 9 <= now.hour <= 17 else 0
+>>>>>>> parent of 5b78e8f (prueba)
             
             # Características del símbolo
             symbol = operation_data.get('symbol', 'UNKNOWN/USDT')
@@ -162,12 +235,28 @@ class ArbitrageAIModel:
             features['is_popular_currency'] = 1 if base_currency in popular_currencies else 0
             features['is_btc'] = 1 if base_currency == 'BTC' else 0
             features['is_eth'] = 1 if base_currency == 'ETH' else 0
+<<<<<<< HEAD
+=======
+            features['is_stablecoin'] = 1 if base_currency in ['USDT', 'USDC', 'BUSD', 'DAI'] else 0
+>>>>>>> parent of 5b78e8f (prueba)
             
             # Características de balance
             balance_config = operation_data.get('balance_config', {})
             current_balance = safe_float(balance_config.get('balance_usdt', 0))
             features['current_balance_usdt'] = current_balance
             features['investment_to_balance_ratio'] = features['investment_usdt'] / max(current_balance, 1)
+<<<<<<< HEAD
+=======
+            features['balance_after_investment'] = current_balance - features['investment_usdt']
+            features['balance_utilization'] = features['investment_usdt'] / max(current_balance, 1)
+            
+            # Características de riesgo
+            features['risk_score'] = self._calculate_risk_score(features)
+            features['profit_potential'] = max(0, features['price_difference_percentage'] - features['total_fee_percentage'])
+            features['fee_to_profit_ratio'] = (
+                features['total_fee_percentage'] / max(abs(features['price_difference_percentage']), 0.01)
+            )
+>>>>>>> parent of 5b78e8f (prueba)
             
             # Convertir a array numpy
             if not self.feature_names:
@@ -183,7 +272,37 @@ class ArbitrageAIModel:
         except Exception as e:
             self.logger.error(f"Error preparando características: {e}")
             # Retornar vector de ceros como fallback
+<<<<<<< HEAD
             return np.zeros((1, len(self.feature_names) if self.feature_names else 10))
+=======
+            return np.zeros((1, len(self.feature_names) if self.feature_names else 20))
+    
+    def _calculate_risk_score(self, features: Dict) -> float:
+        """Calcula un score de riesgo basado en múltiples factores."""
+        risk_score = 0.0
+        
+        # Riesgo por fees altos
+        if features.get('total_fee_percentage', 0) > 1.0:
+            risk_score += 0.3
+        
+        # Riesgo por mismo exchange
+        if features.get('same_exchange', 0) == 1:
+            risk_score += 0.2
+        
+        # Riesgo por baja diferencia de precio
+        if features.get('price_difference_percentage', 0) < 0.5:
+            risk_score += 0.4
+        
+        # Riesgo por alta utilización de balance
+        if features.get('balance_utilization', 0) > 0.8:
+            risk_score += 0.3
+        
+        # Riesgo por horario
+        if features.get('is_weekend', 0) == 1:
+            risk_score += 0.1
+        
+        return min(risk_score, 1.0)
+>>>>>>> parent of 5b78e8f (prueba)
     
     def train(self, training_data: List[Dict]) -> Dict:
         """Entrena el modelo con datos históricos."""

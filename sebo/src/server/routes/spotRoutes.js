@@ -3,7 +3,11 @@ const router = express.Router();
 
 const { getLastSpotArb } = require('../controllers/spotSocketController');
 const { handleSpotAnalysisRequest } = require('../controllers/spotController');
+<<<<<<< HEAD
 const { addExchangesSymbols, exchangesymbolsNewAdd } = require('../controllers/dbCotroller');
+=======
+const { addExchangesSymbols, exchangesymbolsNewAdd,deleteLowCountExchangeSymbols } = require('../controllers/dbCotroller');
+>>>>>>> parent of 5b78e8f (prueba)
 const analizerController = require('../controllers/analizerController');
 const symbolController = require('../controllers/symbolController');
 // const {analyzeSymbols} = require('../controllers/analizerController'); // Comentada para usar el objeto completo
@@ -170,6 +174,10 @@ router.get('/exchangesymbol', exchangesymbolsNewAdd);
  */
 // router.get('/depure', analizerController.depuredExchangeSymbolData);
 
+<<<<<<< HEAD
+=======
+router.get('/depureex,',deleteLowCountExchangeSymbols)
+>>>>>>> parent of 5b78e8f (prueba)
 
 /**
  * @swagger
@@ -207,7 +215,11 @@ router.get('/promedios', analizerController.addAnalyzeSymbolsAsync); // Usando a
  */
 
 
+<<<<<<< HEAD
 
+=======
+router.post('/nets',analizerController.updateAnalysisWithdrawDepositFee);
+>>>>>>> parent of 5b78e8f (prueba)
 
 
 module.exports = router;

@@ -5,6 +5,10 @@ import logging
 import signal
 import sys
 from typing import Dict, Any
+<<<<<<< HEAD
+=======
+from flask import Flask
+>>>>>>> parent of 5b78e8f (prueba)
 
 # Importar módulos de V3
 from config_v3 import LOG_LEVEL, LOG_FILE_PATH
@@ -16,6 +20,11 @@ from data_persistence import DataPersistence
 from trading_logic import TradingLogic
 from ai_model import ArbitrageAIModel
 from simulation_engine import SimulationEngine
+<<<<<<< HEAD
+=======
+from api_v3_routes import APIv3Routes
+from socket_optimizer import SocketOptimizer
+>>>>>>> parent of 5b78e8f (prueba)
 
 class CryptoArbitrageV3:
     """Aplicación principal de arbitraje de criptomonedas V3."""
@@ -25,6 +34,12 @@ class CryptoArbitrageV3:
         self.logger = setup_logging(LOG_LEVEL, LOG_FILE_PATH)
         self.logger.info("Iniciando Crypto Arbitrage V3")
         
+<<<<<<< HEAD
+=======
+        # Inicializar Flask app para API v3
+        self.flask_app = Flask(__name__)
+        
+>>>>>>> parent of 5b78e8f (prueba)
         # Inicializar componentes
         self.sebo_connector = SeboConnector()
         self.ui_broadcaster = UIBroadcaster()
@@ -34,6 +49,25 @@ class CryptoArbitrageV3:
         self.trading_logic = TradingLogic(self.exchange_manager, self.data_persistence, self.ai_model)
         self.simulation_engine = SimulationEngine(self.ai_model, self.data_persistence)
         
+<<<<<<< HEAD
+=======
+        # Inicializar API v3
+        self.api_v3 = APIv3Routes(
+            self.flask_app, 
+            self.sebo_connector, 
+            self.ai_model, 
+            self.data_persistence,
+            self.ui_broadcaster
+        )
+        
+        # Inicializar optimizador de socket
+        self.socket_optimizer = SocketOptimizer(
+            self.ui_broadcaster,
+            self.sebo_connector,
+            self.data_persistence
+        )
+        
+>>>>>>> parent of 5b78e8f (prueba)
         # Estado de la aplicación
         self.is_running = False
         self.shutdown_event = asyncio.Event()
@@ -53,6 +87,10 @@ class CryptoArbitrageV3:
         self.ui_broadcaster.set_trading_stop_callback(self._on_trading_stop_request)
         self.ui_broadcaster.set_ui_message_callback(self._on_ui_message)
         self.ui_broadcaster.set_get_ai_model_details_callback(self._on_get_ai_model_details_request)
+<<<<<<< HEAD
+=======
+        self.ui_broadcaster.set_get_latest_balance_callback(self.data_persistence.get_balance_cache)
+>>>>>>> parent of 5b78e8f (prueba)
         
         # Callbacks de TradingLogic
         self.trading_logic.set_operation_complete_callback(self._on_operation_complete)
@@ -71,6 +109,12 @@ class CryptoArbitrageV3:
             # Iniciar servidor UI
             await self.ui_broadcaster.start_server()
             
+<<<<<<< HEAD
+=======
+            # Iniciar optimizador de socket
+            await self.socket_optimizer.start()
+            
+>>>>>>> parent of 5b78e8f (prueba)
             self.logger.info("Todos los componentes inicializados correctamente")
             
         except Exception as e:
@@ -135,6 +179,10 @@ class CryptoArbitrageV3:
             
             # Cerrar componentes en orden inverso
             await self.ui_broadcaster.stop_server()
+<<<<<<< HEAD
+=======
+            await self.socket_optimizer.stop()
+>>>>>>> parent of 5b78e8f (prueba)
             await self.sebo_connector.disconnect_from_sebo()
             await self.trading_logic.cleanup()
             await self.exchange_manager.cleanup()
@@ -338,6 +386,12 @@ class CryptoArbitrageV3:
             # Actualizar estadísticas en UI
             self.ui_broadcaster.update_trading_stats(operation_result)
             
+<<<<<<< HEAD
+=======
+            # Notificar al optimizador de socket para actualizar balance
+            await self.socket_optimizer.on_operation_completed(operation_result)
+            
+>>>>>>> parent of 5b78e8f (prueba)
             # Log de la operación
             symbol = operation_result.get('symbol', 'N/A')
             decision = operation_result.get('decision_outcome', 'N/A')

@@ -25,8 +25,13 @@ let lastSpotArbData = []; // Stays as an array, will store data from DB
 const SPOT_ARB_DATA_NAMESPACE =
   process.env.SPOT_ARB_DATA_NAMESPACE || "/api/spot/arb"; // CORREGIDO
 
+<<<<<<< HEAD
 // Función para obtener y emitir los datos cada 5 segundos
 async function emitSpotPricesLoop(io) {
+=======
+// Función para configurar los manejadores de eventos del socket
+async function setupSpotSocketController(io) {
+>>>>>>> parent of 5b78e8f (prueba)
   // ioInstance = io; // ioInstance no se utiliza en otras partes de este archivo
 
   // Get a handle to the specific namespace
@@ -38,7 +43,11 @@ async function emitSpotPricesLoop(io) {
   targetNamespace.on('connection', async (socket) => {
     console.log(`SpotSocketController: Cliente conectado al namespace ${SPOT_ARB_DATA_NAMESPACE} con ID: ${socket.id}`);
 
+<<<<<<< HEAD
     // Enviar el último balance al cliente recién conectado
+=======
+    // Enviar el último balance una vez al cliente recién conectado
+>>>>>>> parent of 5b78e8f (prueba)
     try {
       const latestBalance = await getLatestBalanceDocument();
       if (latestBalance) { // latestBalance puede ser null si no hay documentos
@@ -52,6 +61,43 @@ async function emitSpotPricesLoop(io) {
       socket.emit('balances-update', { error: 'Error al obtener el último balance del servidor.' }); // Informar al cliente del error
     }
 
+<<<<<<< HEAD
+=======
+    // Escuchar solicitud de datos Top 20 y enviar una sola vez
+    socket.on('request_top_20_data', async () => {
+      console.log(`SpotSocketController: Recibida solicitud 'request_top_20_data' de ${socket.id}`);
+      try {
+        const detailedOpportunities = await getFormattedTopAnalysis();
+        if (detailedOpportunities && detailedOpportunities.length > 0) {
+          lastSpotArbData = detailedOpportunities; // Actualizar caché
+          socket.emit("top_20_data", detailedOpportunities);
+        } else {
+          lastSpotArbData = [];
+          socket.emit("top_20_data", []);
+        }
+      } catch (err) {
+        console.error(`SpotSocketController: Error procesando 'request_top_20_data' para ${socket.id}:`, err);
+        socket.emit("top_20_data", { error: 'Error obteniendo datos del servidor.' });
+      }
+    });
+
+    // Escuchar solicitud de actualización de balance y enviar una sola vez
+    socket.on('request_balance_update', async () => {
+      console.log(`SpotSocketController: Recibida solicitud 'request_balance_update' de ${socket.id}`);
+      try {
+        const latestBalance = await getLatestBalanceDocument();
+        if (latestBalance) {
+          socket.emit("balances-update", latestBalance);
+        } else {
+          socket.emit('balances-update', {});
+        }
+      } catch (error) {
+        console.error(`SpotSocketController: Error procesando 'request_balance_update' para ${socket.id}:`, error);
+        socket.emit('balances-update', { error: 'Error al obtener el último balance del servidor.' });
+      }
+    });
+
+>>>>>>> parent of 5b78e8f (prueba)
     // Listener for training data requests from the Python V3 client
     socket.on('train_ai_model', async (payload) => {
       try {
@@ -81,6 +127,7 @@ async function emitSpotPricesLoop(io) {
 
   });
 
+<<<<<<< HEAD
   console.log(
     `SpotSocketController: Iniciando bucle de emisión /'spot-arb/' para el namespace: ${SPOT_ARB_DATA_NAMESPACE}`
   );
@@ -118,12 +165,43 @@ async function emitSpotPricesLoop(io) {
     }
     await new Promise((r) => setTimeout(r, 5000)); // Interval remains 5 seconds
   }
+=======
+  // Iniciar bucle de emisión para top_20_data cada 5 segundos
+  console.log(
+    `SpotSocketController: Iniciando bucle de emisión de 'top_20_data' para el namespace: ${SPOT_ARB_DATA_NAMESPACE}`
+  );
+
+  (async () => {
+    while (true) {
+      try {
+        const detailedOpportunities = await getFormattedTopAnalysis();
+        if (detailedOpportunities && detailedOpportunities.length > 0) {
+          lastSpotArbData = detailedOpportunities; // Actualizar caché
+          targetNamespace.emit("top_20_data", detailedOpportunities);
+        } else {
+          lastSpotArbData = [];
+          targetNamespace.emit("top_20_data", []); // Emitir lista vacía si no hay oportunidades
+        }
+      } catch (err) {
+        console.error(
+          `Error en el bucle de emisión de top_20_data (namespace: ${SPOT_ARB_DATA_NAMESPACE}):`,
+          err
+        );
+      }
+      await new Promise((r) => setTimeout(r, 5000)); // Esperar 5 segundos
+    }
+  })();
+>>>>>>> parent of 5b78e8f (prueba)
 }
 
 const getLastSpotArb = (req, res) => {
   res.status(200).json(lastSpotArbData);
 };
 
+<<<<<<< HEAD
 module.exports = { emitSpotPricesLoop, getLastSpotArb };
 
 
+=======
+module.exports = { setupSpotSocketController, getLastSpotArb };
+>>>>>>> parent of 5b78e8f (prueba)

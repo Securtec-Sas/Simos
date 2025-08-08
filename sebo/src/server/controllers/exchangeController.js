@@ -35,7 +35,11 @@ const initializeExchange = (exchangeId) => {
 
         // Para este ejemplo, solo inicializamos sin credenciales para probar conectividad pública
         return new ccxt[exchangeId]({
+<<<<<<< HEAD
             'timeout': 10000,
+=======
+            'timeout': 30000,
+>>>>>>> parent of 5b78e8f (prueba)
             'enableRateLimit': true,
         });
 
@@ -271,12 +275,20 @@ const updateExchangeConexionStatus = async (exchangeId, status) => {
 const getWithdrawalFees = async (req, res) => {
   const { exchangeId, currencyCode } = req.params;
 
+<<<<<<< HEAD
   if (!ccxt.exchanges.includes(exchangeId)) {
     return res.status(400).json({ message: `Exchange ID '${exchangeId}' is not supported by CCXT or is invalid.` });
   }
 
   try {
     const exchange = new ccxt[exchangeId]();
+=======
+  try {
+    const exchange = initializeExchange(exchangeId);
+    if (!exchange) {
+      return res.status(400).json({ message: `Exchange ID '${exchangeId}' is not supported by CCXT or is invalid.` });
+    }
+>>>>>>> parent of 5b78e8f (prueba)
     // No es estrictamente necesario tener API keys para fetchCurrencies en la mayoría de los exchanges,
     // pero si se requieren para alguno en particular, esta llamada fallará o devolverá datos limitados.
 
@@ -304,7 +316,11 @@ const getWithdrawalFees = async (req, res) => {
     if (networks && Object.keys(networks).length > 0) {
       for (const [networkCode, networkData] of Object.entries(networks)) {
         resultNetworks.push({
+<<<<<<< HEAD
           network: networkCode.toUpperCase(), // Nombre de la red (e.g., ERC20, TRC20, BEP20)
+=======
+          network: networkData.network, // Nombre de la red (e.g., ERC20, TRC20, BEP20)
+>>>>>>> parent of 5b78e8f (prueba)
           currency: upperCurrencyCode,
           fee: networkData.fee,
           precision: networkData.precision, // Precisión para el fee y monto de retiro
@@ -321,7 +337,11 @@ const getWithdrawalFees = async (req, res) => {
         // Para ser más precisos, podríamos optar por devolver un array vacío o un mensaje si 'networks' no está.
         // O, si se asume que este 'fee' es de retiro:
         resultNetworks.push({
+<<<<<<< HEAD
             network: 'DEFAULT', // O dejarlo como null/undefined
+=======
+            network: networkData.network, // O dejarlo como null/undefined
+>>>>>>> parent of 5b78e8f (prueba)
             currency: upperCurrencyCode,
             fee: currencyInfo.fee,
             precision: currencyInfo.precision,
@@ -356,6 +376,7 @@ const getWithdrawalFees = async (req, res) => {
 
 const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
   try {
+<<<<<<< HEAD
     const ccxt = require('ccxt');
 
     // Initialize exchanges
@@ -415,10 +436,215 @@ const getLowestFeeNetwork = async (id_sell, id_buy, symbol) => {
   } catch (error) {
     console.error('Error in getLowestFeeNetwork:', error.message);
     return { commission: null, network: null, error: error.message };
+=======
+    console.log('cariables de entrada ',id_sell, id_buy, symbol);
+    // 1. Obtener las redes de ambos exchanges usando getSymbolNetworks
+    [sellNetworksList, buyNetworksList] = await Promise.all([
+      getSymbolNetworks(id_sell, symbol),
+      getSymbolNetworks(id_buy, symbol)
+    ]);
+
+    console.log('Red de sell --------------------------------')
+    console.log(await sellNetworksList)
+    console.log('Red de buy --------------------------------')
+    console.log(await buyNetworksList)
+    
+    if (sellNetworksList.length === 0 || buyNetworksList.length === 0) {
+      const errorMsg = `No se encontraron redes para el símbolo ${symbol} en uno o ambos exchanges: ${id_sell} (redes: ${sellNetworksList.length}), ${id_buy} (redes: ${buyNetworksList.length}).`;
+      console.warn('leng es igual 0 --------------------------------');
+
+      console.warn(errorMsg);
+      return {
+        commission: null,
+        network: null,
+        error: errorMsg,
+        sellNetworksAvailable: sellNetworksList.map(n => n.network),
+        buyNetworksAvailable: buyNetworksList.map(n => n.network)
+      };
+    }
+
+    const commonNetworks = [];
+    console.log(`--- Buscando redes comunes para ${symbol} entre ${id_sell} y ${id_buy} ---`);
+
+    // 2. Recorrer las redes de id_buy (outer loop)
+    for (const buyNetwork of buyNetworksList) {
+      // 3. Recorrer las redes de id_sell (inner loop)
+      for (const sellNetwork of sellNetworksList) {
+        // Imprimir por consola la comparación
+        console.log(`Comparando red de compra: ${buyNetwork.network} con red de venta: ${sellNetwork.network}`);
+
+        // 4. Buscar una red en común
+        if (buyNetwork.network === sellNetwork.network) {
+          console.log(`--> Red en común encontrada: ${buyNetwork.network}`);
+          
+          // Verificar que el retiro esté habilitado en el exchange de venta y el depósito en el de compra
+          if (sellNetwork.withdraw && buyNetwork.deposit) {
+            console.log(`    - Retiro habilitado en ${id_sell}: ${sellNetwork.withdraw}`);
+            console.log(`    - Depósito habilitado en ${id_buy}: ${buyNetwork.deposit}`);
+            commonNetworks.push({
+              name: sellNetwork.network,
+              withdraw: sellNetwork.withdraw,
+              fee: sellNetwork.fee, // La comisión de retiro es del exchange de venta
+              deposit: buyNetwork.deposit
+            });
+          } else {
+            console.log(`    - La red ${sellNetwork.network} no es viable (retiro: ${sellNetwork.withdraw}, depósito: ${buyNetwork.deposit})`);
+          }
+        }
+      }
+    }
+
+    if (commonNetworks.length === 0) {
+      return {
+        commission: null,
+        network: null,
+        error: "No se encontró una red común con retiro y depósito habilitados.",
+        sellNetworksAvailable: sellNetworksList.map(n => n.network),
+        buyNetworksAvailable: buyNetworksList.map(n => n.network)
+      };
+    }
+
+    const validFeeNetworks = commonNetworks.filter(net => net.fee = undefined ? 0 : net.fee)
+    
+    console.log(commonNetworks)
+
+    let lowestFeeNetwork = commonNetworks.reduce((min, net) => net.fee < min.fee ? net : min, validFeeNetworks[0]);
+
+    console.log(`--- Mejor red encontrada: ${lowestFeeNetwork.name}, Comisión de retiro: ${lowestFeeNetwork.fee} ---`);
+
+    return {
+      commission: lowestFeeNetwork.fee === undefined ? lowestFeeNetwork.fee:0,
+      network: lowestFeeNetwork.name,
+      error: null,
+      sellNetworksAvailable: sellNetworksList.map(n => n.network),
+      buyNetworksAvailable: buyNetworksList.map(n => n.network)
+    };
+
+  } catch (error) {
+    console.error(`Error crítico en getLowestFeeNetwork para ${symbol} en ${id_sell}->${id_buy}:`, error.message);
+    return {
+      commission:lowestFeeNetwork.fee === undefined ? lowestFeeNetwork.fee : 0,
+      network: lowestFeeNetwork.network,
+      error: error.message,
+      sellNetworksAvailable: [],
+      buyNetworksAvailable: []
+    };
+  }
+};
+
+const canTransferSymbol = async (id_sell, id_buy, symbol) => {
+  try {
+    const sellExchange = initializeExchange(id_sell);
+    const buyExchange = initializeExchange(id_buy);
+
+    if (!sellExchange || !buyExchange) {
+      console.error(`Failed to initialize one or both exchanges for canTransferSymbol: ${id_sell}, ${id_buy}`);
+      return false;
+    }
+
+    await Promise.all([
+      sellExchange.loadMarkets(),
+      buyExchange.loadMarkets()
+    ]);
+
+    const sellMarket = await sellExchange.market(symbol);
+    const buyMarket = await buyExchange.market(symbol);
+
+    const baseCurrencysell = await sellMarket.base;
+    const baseCurrencybuy = await buyMarket.base;
+
+    if (baseCurrencysell !== baseCurrencybuy) {
+      console.error(`Los símbolos de moneda base no coinciden: ${baseCurrencysell} vs ${baseCurrencybuy}`);
+      return false;
+    }
+
+    const sellCurrencyInfo = await sellExchange.currency(baseCurrencysell);
+    const buyCurrencyInfo = await buyExchange.currency(baseCurrencybuy);
+
+    if (!sellCurrencyInfo || !buyCurrencyInfo || !sellCurrencyInfo.networks || !buyCurrencyInfo.networks) {
+      console.error(`Información de red para '${baseCurrencysell}' no encontrada en uno o ambos exchanges.`);
+      return false;
+    }
+
+    const sellNetworks = sellCurrencyInfo.networks;
+    const buyNetworks = buyCurrencyInfo.networks;
+
+    for (const networkName in sellNetworks) {
+      if (buyNetworks.hasOwnProperty(networkName)) {
+        const sellNetwork = sellNetworks[networkName];
+        const buyNetwork = buyNetworks[networkName];
+
+        if (sellNetwork.withdraw && buyNetwork.deposit) {
+          return true; // Found a common, active network
+        }
+      }
+    }
+
+    return false; // No common, active network found
+  } catch (error) {
+    console.error(`Error en canTransferSymbol para ${symbol} en ${id_sell}->${id_buy}:`, error.message);
+    return false;
+  }
+};
+
+const getSymbolNetworks = async (id_exchange, id_simbol) => {
+  try {
+    const exchange = initializeExchange(id_exchange);
+    if (!exchange) {
+      console.error(`[getSymbolNetworks] Failed to initialize exchange: ${id_exchange}`);
+      return [];
+    }
+    await exchange.loadMarkets();
+
+    // Validar que el símbolo existe en el exchange
+    if (!exchange.markets[id_simbol]) {
+      console.warn(`[getSymbolNetworks] Símbolo '${id_simbol}' no encontrado en el exchange '${id_exchange}'.`);
+      return [];
+    }
+
+    // Es crucial para obtener información detallada de las redes.
+    if (exchange.has['fetchCurrencies']) {
+      await exchange.fetchCurrencies();
+    }
+
+    const market = await exchange.markets[id_simbol];
+    const baseCurrencyCode = market.base;
+    const currencyInfo = exchange.currencies[baseCurrencyCode];
+
+    if (!currencyInfo || !currencyInfo.networks || Object.keys(currencyInfo.networks).length === 0) {
+      console.log(`[getSymbolNetworks] No se encontró información de redes para la moneda '${baseCurrencyCode}' en '${id_exchange}'.`);
+      return [];
+    }
+
+    const networks = currencyInfo.networks;
+    const formattedNetworks = [];
+    console.log(await networks)
+    console.log('******************************------------------*******************')
+    for ([networkCode, networkData] of Object.entries(await networks)) {
+      formattedNetworks.push({
+        network: networkData.network, // Nombre de la red (e.g., ERC20, TRC20, BEP20)
+        withdraw: networkData.withdraw,
+        deposit: networkData.deposit,
+        fee: networkData.fee !== undefined ? networkData.fee : 0, // Asegurarse de que la fee exista
+      });
+    }
+
+    return formattedNetworks;
+
+  } catch (error) {
+    console.error(`[getSymbolNetworks] Error fetching networks for ${id_simbol} on ${id_exchange}:`, error);
+    // En caso de un error inesperado (ej. de red), devolvemos un array vacío
+    // para mantener la consistencia del tipo de retorno.
+    return [];
+>>>>>>> parent of 5b78e8f (prueba)
   }
 };
 
 module.exports = {
+<<<<<<< HEAD
+=======
+    initializeExchange,
+>>>>>>> parent of 5b78e8f (prueba)
     getExchangesStatus,
     // getAvailableExchanges, // Replaced
     getConfiguredExchanges,
@@ -426,6 +652,12 @@ module.exports = {
     updateExchangeActiveStatus,
     getWithdrawalFees, // Placeholder, will be defined below
     getLowestFeeNetwork,
+<<<<<<< HEAD
 };
 
 
+=======
+    canTransferSymbol,
+    getSymbolNetworks,
+};
+>>>>>>> parent of 5b78e8f (prueba)

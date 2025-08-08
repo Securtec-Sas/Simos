@@ -6,6 +6,10 @@ import Layout from './components/Layout/Layout.jsx';
 import ActiveExchangesTable from './components/ActiveExchangesTable/ActiveExchangesTable.jsx';
 import SpotsMenu from './components/SpotsMenu/SpotsMenu.jsx';
 import Top20DetailedPage from './components/Top20DetailedPage/Top20DetailedPage.jsx';
+<<<<<<< HEAD
+=======
+import TrainingPage from './components/TrainingPage/TrainingPage.jsx';
+>>>>>>> parent of 5b78e8f (prueba)
 import ExchangeAPIsPage from './pages/exchangesApis/ExchangeAPIsPage.jsx';
 import DataViewPage from './pages/DataViewPage/DataViewPage.jsx';
 import AIDataPage from './pages/aiDataPage.jsx';
@@ -50,8 +54,14 @@ function App() {
           <Route path="exchange-apis" element={<ExchangeAPIsPage />} />
           <Route path="top20" element={
             <Top20DetailedPage 
+<<<<<<< HEAD
               sendV3Command={sendV3Command}
               v3Data={v3Data}
+=======
+              opportunities={v3Data?.top20_data || []}
+              activeTrades={v3Data?.active_trades || {}}
+              sendV3Command={sendV3Command}
+>>>>>>> parent of 5b78e8f (prueba)
             />
           } />
           <Route path="datos" element={<DataViewPage />} />
@@ -61,6 +71,15 @@ function App() {
               sendV3Command={sendV3Command}
             />
           } />
+<<<<<<< HEAD
+=======
+          <Route path="entrenamiento" element={
+            <TrainingPage
+              v3Data={v3Data}
+              sendV3Command={sendV3Command}
+            />
+          } />
+>>>>>>> parent of 5b78e8f (prueba)
           <Route path="config-data" element={<ConfigDataPage />} />
           <Route index element={
             <div style={{ padding: '20px' }}>

@@ -38,6 +38,15 @@ const Sidebar = ({ allExchanges, setAllExchanges }) => {
         >
           Data View & Model
         </button>
+<<<<<<< HEAD
+=======
+        <button
+          className={styles.menuHeader}
+          onClick={() => navigate('/entrenamiento')}
+        >
+          Entrenamiento IA
+        </button>
+>>>>>>> parent of 5b78e8f (prueba)
                 <button
           className={styles.menuHeader}
           onClick={() => navigate('/exchanges/apis')}

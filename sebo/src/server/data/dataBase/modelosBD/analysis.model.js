@@ -5,6 +5,10 @@ const analysisSchema = new mongoose.Schema({
   id_exdataMax: { type: String, required: true }, // Cambiado a String para guardar el id_ex de CCXT
   Val_max_buy: { type: Number, default: 0 }, // Renombrado para consistencia
   Val_min_sell: { type: Number, default: 0 }, // Renombrado para consistencia
+<<<<<<< HEAD
+=======
+  symbol: { type: String, required: false },
+>>>>>>> parent of 5b78e8f (prueba)
   promedio: { type: Number, default: 0 },
   id_exchsymbol: { type: mongoose.Schema.Types.ObjectId, ref: 'ExchangeSymbol' },
   // Fee fields
@@ -12,6 +16,12 @@ const analysisSchema = new mongoose.Schema({
   maker_fee_exMin: { type: Number, default: 0 },
   taker_fee_exMax: { type: Number, default: 0 },
   maker_fee_exMax: { type: Number, default: 0 },
+<<<<<<< HEAD
+=======
+  withdraw: { type: Boolean, default: false },
+  deposit: { type: Boolean, default: false },
+  fee: { type: Number, default: 0 },
+>>>>>>> parent of 5b78e8f (prueba)
   timestamp: { type: Date, default: Date.now }
 }, {
   collection: 'analysis' // Especifica explícitamente el nombre de la colección
