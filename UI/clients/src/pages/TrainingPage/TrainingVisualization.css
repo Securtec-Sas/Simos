@@ -1,0 +1,218 @@
+.training-visualization {
+  margin-top: 30px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.visualization-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.visualization-header h3 {
+  margin: 0;
+  color: #495057;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.status-indicators {
+  display: flex;
+  gap: 15px;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.status-indicator.idle {
+  background: #e9ecef;
+  color: #6c757d;
+}
+
+.status-indicator.training {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-indicator.completed {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 2s infinite;
+}
+
+.status-indicator.idle .status-dot {
+  animation: none;
+  background: #6c757d;
+}
+
+.status-indicator.completed .status-dot {
+  animation: none;
+  background: #28a745;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.chart-container {
+  padding: 30px;
+  display: flex;
+  justify-content: center;
+  background: #ffffff;
+}
+
+.training-chart {
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.training-metrics {
+  padding: 20px 30px;
+  background: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.metric-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.metric-item label {
+  font-weight: 600;
+  color: #495057;
+  margin: 0;
+}
+
+.metric-value {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.metric-value.accuracy {
+  color: #28a745;
+}
+
+.metric-value.loss {
+  color: #dc3545;
+}
+
+.metric-value.epoch {
+  color: #007bff;
+}
+
+.metric-value.progress {
+  color: #6f42c1;
+}
+
+.completion-message {
+  padding: 20px 30px;
+  background: linear-gradient(135deg, #d4edda, #c3e6cb);
+  border-top: 1px solid #c3e6cb;
+  text-align: center;
+}
+
+.completion-message h4 {
+  margin: 0 0 10px 0;
+  color: #155724;
+  font-size: 18px;
+}
+
+.completion-message p {
+  margin: 0;
+  color: #155724;
+  font-size: 14px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .visualization-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  
+  .chart-container {
+    padding: 15px;
+  }
+  
+  .training-chart {
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+  }
+  
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .metric-item {
+    flex-direction: column;
+    gap: 5px;
+    text-align: center;
+  }
+}
+
+/* Animaciones para transiciones suaves */
+.metric-value {
+  transition: all 0.3s ease;
+}
+
+.metric-item {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.metric-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Estilos para el canvas cuando no hay datos */
+.training-chart[data-empty="true"] {
+  background: #f8f9fa;
+  border-style: dashed;
+}
+
