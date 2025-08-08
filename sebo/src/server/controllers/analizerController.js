@@ -509,95 +509,100 @@ const addAnalyzeSymbolsAsync = async (req, res) => {
 const updateAnalysisFee = async (req, res) => {
     console.time("updateAnalysisFee-ExecutionTime");
     try {
-        // 1. Obtener todos los análisis necesarios. El _id es crucial para las actualizaciones.
         const analysisList = await Analysis.find({}, { _id: 1, id_exdataMin: 1, id_exdataMax: 1, symbol: 1 }).lean();
         console.log(`Iniciando actualización de fees para ${analysisList.length} análisis.`);
 
-        const exchangeCache = {}; // 2. Cache para instancias de exchange
+        const exchangeCache = {};
+        const allBulkOps = [];
+        const CHUNK_SIZE = 10; // Procesar en lotes de 10 para evitar rate limits
+        const DELAY_BETWEEN_CHUNKS = 1000; // 1 segundo de espera entre lotes
 
-        // 3. Procesar cada análisis en paralelo
-        const updatePromises = analysisList.map(async (analysis) => {
-            try {
-                // Función auxiliar para obtener y cachear un exchange
-                const getCachedExchange = async (exchangeId) => {
-                    if (exchangeCache[exchangeId]) {
-                        return exchangeCache[exchangeId];
+        // Función auxiliar para obtener y cachear un exchange
+        const getCachedExchange = async (exchangeId) => {
+            if (exchangeCache[exchangeId]) {
+                return exchangeCache[exchangeId];
+            }
+            const exchange = initializeExchange(exchangeId);
+            if (exchange) {
+                await exchange.loadMarkets(true);
+                if (exchange.has['fetchCurrencies']) {
+                    await exchange.fetchCurrencies();
+                }
+                exchangeCache[exchangeId] = exchange;
+            }
+            return exchange;
+        };
+
+        for (let i = 0; i < analysisList.length; i += CHUNK_SIZE) {
+            const chunk = analysisList.slice(i, i + CHUNK_SIZE);
+            console.log(`Procesando lote ${i / CHUNK_SIZE + 1} de ${Math.ceil(analysisList.length / CHUNK_SIZE)}...`);
+
+            const chunkPromises = chunk.map(async (analysis) => {
+                try {
+                    const [exMin, exMax] = await Promise.all([
+                        getCachedExchange(analysis.id_exdataMin),
+                        getCachedExchange(analysis.id_exdataMax)
+                    ]);
+
+                    if (!exMin || !exMax) {
+                        console.warn(`[SKIP] Análisis para ${analysis.symbol} debido a ID de exchange inválido.`);
+                        return null;
                     }
-                    const exchange = initializeExchange(exchangeId);
-                    if (exchange) {
-                        await exchange.loadMarkets(true); // Forzar recarga para datos frescos
-                        if (exchange.has['fetchCurrencies']) {
-                            await exchange.fetchCurrencies(); // Obtener datos de monedas y redes
-                        }
-                        exchangeCache[exchangeId] = exchange;
+
+                    const marketMin = exMin.markets[analysis.symbol];
+                    if (!marketMin || !marketMin.base || !exMin.currencies[marketMin.base]) {
+                        console.warn(`[SKIP] Símbolo o moneda base no encontrado para ${analysis.symbol} en ${exMin.id}.`);
+                        return null;
                     }
-                    return exchange;
-                };
+                    const currencyInfoMin = exMin.currencies[marketMin.base];
 
-                // Obtener instancias de exchange (desde cache o nuevas)
-                const [exMin, exMax] = await Promise.all([
-                    getCachedExchange(analysis.id_exdataMin),
-                    getCachedExchange(analysis.id_exdataMax)
-                ]);
+                    const marketMax = exMax.markets[analysis.symbol];
+                    if (!marketMax || !marketMax.base || !exMax.currencies[marketMax.base]) {
+                        console.warn(`[SKIP] Símbolo o moneda base no encontrado para ${analysis.symbol} en ${exMax.id}.`);
+                        return null;
+                    }
+                    const currencyInfoMax = exMax.currencies[marketMax.base];
 
-                if (!exMin || !exMax) {
-                    console.warn(`[SKIP] Análisis para ${analysis.symbol} debido a ID de exchange inválido: ${!exMin ? analysis.id_exdataMin : ''} ${!exMax ? analysis.id_exdataMax : ''}`);
-                    return null;
-                }
-
-                // Validar que el símbolo y la moneda base existan
-                const marketMin = exMin.markets[analysis.symbol];
-                if (!marketMin || !marketMin.base || !exMin.currencies[marketMin.base]) {
-                    console.warn(`[SKIP] Símbolo o moneda base no encontrado para ${analysis.symbol} en ${exMin.id}.`);
-                    return null;
-                }
-                const currencyInfoMin = exMin.currencies[marketMin.base];
-
-                const marketMax = exMax.markets[analysis.symbol];
-                if (!marketMax || !marketMax.base || !exMax.currencies[marketMax.base]) {
-                    console.warn(`[SKIP] Símbolo o moneda base no encontrado para ${analysis.symbol} en ${exMax.id}.`);
-                    return null;
-                }
-                const currencyInfoMax = exMax.currencies[marketMax.base];
-
-                // Construir la operación de actualización para bulkWrite
-                return {
-                    updateOne: {
-                        filter: { _id: analysis._id },
-                        update: {
-                            $set: {
-                                withdraw: currencyInfoMin.withdraw === true, // Asegurar booleano
-                                fee: typeof currencyInfoMin.fee === 'number' ? currencyInfoMin.fee : null, // Validar tipo
-                                deposit: currencyInfoMax.deposit === true // Asegurar booleano
+                    return {
+                        updateOne: {
+                            filter: { _id: analysis._id },
+                            update: {
+                                $set: {
+                                    withdraw: currencyInfoMin.withdraw === true,
+                                    fee: typeof currencyInfoMin.fee === 'number' ? currencyInfoMin.fee : null,
+                                    deposit: currencyInfoMax.deposit === true
+                                }
                             }
                         }
-                    }
-                };
-            } catch (error) {
-                // 4. Manejo de errores robusto por cada análisis
-                console.error(`Error procesando análisis para ${analysis.symbol} (${analysis._id}): ${error.message}`);
-                return null; // Devolver null para que no rompa Promise.all
+                    };
+                } catch (error) {
+                    console.error(`Error procesando análisis para ${analysis.symbol} (${analysis._id}): ${error.message}`);
+                    return null;
+                }
+            });
+
+            const chunkResults = await Promise.all(chunkPromises);
+            allBulkOps.push(...chunkResults.filter(Boolean));
+
+            // Esperar antes del siguiente lote para no saturar las APIs
+            if (i + CHUNK_SIZE < analysisList.length) {
+                await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_CHUNKS));
             }
-        });
+        }
 
-        // Esperar a que todas las promesas se resuelvan
-        const resolvedUpdates = await Promise.all(updatePromises);
-        const bulkOps = resolvedUpdates.filter(Boolean); // Filtrar los nulos de operaciones fallidas
-
-        // 5. Ejecutar todas las actualizaciones en una sola operación de bulkWrite
-        if (bulkOps.length > 0) {
-            await Analysis.bulkWrite(bulkOps);
-            console.log(`Operación bulkWrite completada para ${bulkOps.length} análisis.`);
+        if (allBulkOps.length > 0) {
+            await Analysis.bulkWrite(allBulkOps);
+            console.log(`Operación bulkWrite completada para ${allBulkOps.length} análisis.`);
         } else {
             console.log("No se realizaron actualizaciones en la base de datos.");
         }
 
         console.timeEnd("updateAnalysisFee-ExecutionTime");
-        const successMessage = `Actualización de fees completada. ${bulkOps.length} de ${analysisList.length} análisis procesados exitosamente.`;
+        const successMessage = `Actualización de fees completada. ${allBulkOps.length} de ${analysisList.length} análisis procesados exitosamente.`;
         console.log(successMessage);
 
         if (!res.headersSent) {
-            res.status(200).json({ message: successMessage, processedCount: bulkOps.length, total: analysisList.length });
+            res.status(200).json({ message: successMessage, processedCount: allBulkOps.length, total: analysisList.length });
         }
 
     } catch (error) {
