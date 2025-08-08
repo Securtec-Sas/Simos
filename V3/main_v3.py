@@ -74,7 +74,7 @@ class CryptoArbitrageV3:
         
         # Callbacks de UIBroadcaster
         self.ui_broadcaster.set_trading_start_callback(self._on_trading_start_request)
-        self.ui_broadcaster.set_start_training_callback(self.training_handler.start_training) # Conectar UI a TrainingHandler
+        self.ui_broadcaster.set_start_ai_training_callback(self.training_handler.start_training)
         self.ui_broadcaster.set_trading_stop_callback(self._on_trading_stop_request)
         self.ui_broadcaster.set_ui_message_callback(self._on_ui_message)
         self.ui_broadcaster.set_get_ai_model_details_callback(self._on_get_ai_model_details_request)
