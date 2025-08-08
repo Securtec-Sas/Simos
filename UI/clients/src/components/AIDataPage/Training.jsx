@@ -14,6 +14,7 @@ const Training = ({
   const [selectedCsv, setSelectedCsv] = useState('');
   const [trainingStatus, setTrainingStatus] = useState('idle'); // idle, training, completed
   const [trainingProgress, setTrainingProgress] = useState(0);
+  const [trainingResults, setTrainingResults] = useState(null); // Nuevo estado para los resultados
 
   // 1. Cargar la lista de archivos CSV disponibles al montar el componente
   useEffect(() => {
@@ -67,7 +68,7 @@ const Training = ({
 
       if (status === 'COMPLETED') {
         setTrainingStatus('completed');
-        // Aquí podrías manejar los 'results' para mostrarlos
+        setTrainingResults(results); // Guardar los resultados
       } else if (status === 'IN_PROGRESS') {
         setTrainingStatus('training');
       } else if (status === 'FAILED') {
@@ -76,6 +77,21 @@ const Training = ({
       }
     }
   }, [v3Data]);
+
+  const renderTrainingResults = () => {
+    if (!trainingResults) {
+      return <p>No hay resultados de entrenamiento para mostrar.</p>;
+    }
+
+    return (
+      <div style={{ marginTop: '20px' }}>
+        <h4>Resultados del Entrenamiento:</h4>
+        <pre style={preStyle}>
+          {JSON.stringify(trainingResults, null, 2)}
+        </pre>
+      </div>
+    );
+  };
 
   return (
     <div className="training-page">
@@ -143,7 +159,7 @@ const Training = ({
         {trainingStatus === 'completed' && (
           <div style={statusBoxStyle('COMPLETED')}>
             <p>✅ Entrenamiento completado exitosamente.</p>
-            {/* Aquí se podrían mostrar los resultados finales del entrenamiento */}
+            {renderTrainingResults()}
           </div>
         )}
       </div>

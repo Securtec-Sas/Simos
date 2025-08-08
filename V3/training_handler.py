@@ -294,15 +294,57 @@ class TrainingHandler:
             if not training_data:
                 await self._broadcast_training_error("Los datos de entrenamiento están vacíos.")
                 return
-            
+
+            # --- Transformación de Datos ---
+            # Los datos del CSV se leen como strings, hay que convertirlos a los tipos correctos.
+            transformed_data = []
+            for record in training_data:
+                try:
+                    # El campo market_data y balance_config son strings JSON, hay que parsearlos.
+                    market_data_str = record.get('market_data', '{}')
+                    balance_config_str = record.get('balance_config', '{}')
+
+                    transformed_record = {
+                        'buy_exchange_id': record.get('buy_exchange_id'),
+                        'sell_exchange_id': record.get('sell_exchange_id'),
+                        'symbol': record.get('symbol'),
+                        'decision_outcome': record.get('decision_outcome'),
+                        'net_profit_usdt': safe_float(record.get('net_profit_usdt')),
+                        'current_price_buy': safe_float(record.get('current_price_buy')),
+                        'current_price_sell': safe_float(record.get('current_price_sell')),
+                        'investment_usdt': safe_float(record.get('investment_usdt')),
+                        'estimated_buy_fee': safe_float(record.get('estimated_buy_fee')),
+                        'estimated_sell_fee': safe_float(record.get('estimated_sell_fee')),
+                        'estimated_transfer_fee': safe_float(record.get('estimated_transfer_fee')),
+                        'total_fees_usdt': safe_float(record.get('total_fees_usdt')),
+                        'profit_percentage': safe_float(record.get('profit_percentage')),
+                        'execution_time_seconds': safe_float(record.get('execution_time_seconds')),
+                        'timestamp': record.get('timestamp'),
+                        'market_data': json.loads(market_data_str.replace("'", "\"")),
+                        'balance_config': json.loads(balance_config_str.replace("'", "\"")),
+                    }
+                    transformed_data.append(transformed_record)
+                except (json.JSONDecodeError, TypeError) as e:
+                    self.logger.warning(f"Omitiendo registro debido a un error de parseo: {e} - Registro: {record}")
+                    continue
+
+            if not transformed_data:
+                await self._broadcast_training_error("No se pudieron transformar los datos de entrenamiento.")
+                return
+
+            # Imprimir los primeros registros para verificación, como se solicitó.
+            self.logger.info("Primeros registros de datos transformados para el entrenamiento:")
+            for i, record in enumerate(transformed_data[:3]):
+                self.logger.info(f"Registro {i+1}: {record}")
+
             # Simular progreso de entrenamiento
             for progress in range(0, 101, 10):
                 self.training_progress = progress
                 await self._broadcast_training_progress(progress)
-                await asyncio.sleep(1)  # Simular tiempo de procesamiento
+                await asyncio.sleep(0.5)  # Simular tiempo de procesamiento
             
-            # Ejecutar entrenamiento real
-            results = self.ai_model.train(training_data)
+            # Ejecutar entrenamiento real con los datos transformados
+            results = self.ai_model.train(transformed_data)
             
             # Completar entrenamiento
             self.training_in_progress = False
