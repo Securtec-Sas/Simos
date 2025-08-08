@@ -75,7 +75,7 @@ class CryptoArbitrageV3:
         self.ui_broadcaster.set_trading_stop_callback(self._on_trading_stop_request)
         self.ui_broadcaster.set_ui_message_callback(self._on_ui_message)
         self.ui_broadcaster.set_get_ai_model_details_callback(self._on_get_ai_model_details_request)
-        self.ui_broadcaster.set_get_latest_balance_callback(self.data_persistence.get_balance_cache)
+        self.ui_broadcaster.set_get_latest_balance_callback(self.data_persistence.load_balance_cache)
         
         # Callbacks de TradingLogic
         self.trading_logic.set_operation_complete_callback(self._on_operation_complete)

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Box from '@mui/material/Box';
@@ -7,6 +7,7 @@ import Training from '../../components/AIDataPage/Training'
 import Test from '../../components/AIDataPage/Test'
 import Simulation from '../../components/AIDataPage/Simulation'
 import useWebSocketController from '../../hooks/useWebSocketController.jsx';
+
 
 const ConfigDataPage = () => {
   const { sendV3Command, v3Data } = useWebSocketController();
@@ -17,6 +18,10 @@ const ConfigDataPage = () => {
   const [simulationStatus, setSimulationStatus] = useState({ status: "IDLE", data: {} });
   const [simulationDuration, setSimulationDuration] = useState(30); // en minutos
   const [dataUpdateRequested, setDataUpdateRequested] = useState(false);
+  
+  // Ref para controlar si ya se cargaron los datos iniciales
+  const initialDataLoaded = useRef(false);
+  const lastDataUpdate = useRef(null);
 
   // Estilos básicos (copiados de AIDataPage)
   const buttonStyle = { padding: '10px 15px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '10px', fontSize: '14px', minWidth: '150px' };
@@ -52,7 +57,10 @@ const ConfigDataPage = () => {
   const handleRequest = (command, payload = {}) => {
     if (sendV3Command) {
       sendV3Command(command, payload);
-      if (command === 'get_ai_model_details') setIsLoading(true);
+      if (command === 'get_ai_model_details') {
+        setIsLoading(true);
+        setDataUpdateRequested(true);
+      }
       // Resetear estados visuales para nuevas acciones
       if (command === 'start_ai_simulation') {
         setSimulationStatus({ status: "REQUESTED", data: {} });
@@ -64,25 +72,96 @@ const ConfigDataPage = () => {
   };
 
   const handleUpdateDataAI = () => {
+    // Solo permitir actualización manual si han pasado al menos 5 segundos desde la última actualización
+    const now = Date.now();
+    if (lastDataUpdate.current && (now - lastDataUpdate.current) < 5000) {
+      console.log("Esperando antes de la próxima actualización...");
+      return;
+    }
+    
+    lastDataUpdate.current = now;
     handleRequest('get_ai_model_details');
   };
 
   // Cargar datos AI solo una vez al montar el componente
   useEffect(() => {
-    handleRequest('get_ai_model_details');
+    if (!initialDataLoaded.current) {
+      console.log("Cargando datos iniciales del modelo AI...");
+      handleRequest('get_ai_model_details');
+      initialDataLoaded.current = true;
+    }
   }, []);
 
   // Actualizar el estado cuando se reciben datos desde V3
   useEffect(() => {
-    if (v3Data && v3Data.ai_model_details) {
-      setAiModelDetails(v3Data.ai_model_details);
-      setIsLoading(false);
-    }
-    // Actualizar otros estados según los datos recibidos
-    if (v3Data && v3Data.ai_simulation_update) {
-      setSimulationStatus(v3Data.ai_simulation_update);
+    if (v3Data) {
+      // Procesar datos del modelo AI
+      if (v3Data.type === 'ai_model_details' && v3Data.payload) {
+        console.log("Recibidos nuevos datos del modelo AI:", v3Data.payload);
+        setAiModelDetails(prevDetails => {
+          // Solo actualizar si los datos son diferentes o si no hay datos previos
+          if (!prevDetails || JSON.stringify(prevDetails) !== JSON.stringify(v3Data.payload)) {
+            return v3Data.payload;
+          }
+          return prevDetails;
+        });
+        setIsLoading(false);
+        setDataUpdateRequested(false);
+      }
+      
+      // Procesar actualizaciones de simulación
+      if (v3Data.type === 'ai_simulation_update' && v3Data.payload) {
+        console.log("Recibida actualización de simulación:", v3Data.payload);
+        setSimulationStatus(prevStatus => {
+          // Solo actualizar si el estado ha cambiado
+          if (prevStatus.status !== v3Data.payload.status || 
+              JSON.stringify(prevStatus.data) !== JSON.stringify(v3Data.payload.data)) {
+            return v3Data.payload;
+          }
+          return prevStatus;
+        });
+      }
+
+      // Procesar otros tipos de datos si es necesario
+      if (v3Data.ai_model_details && !v3Data.type) {
+        // Compatibilidad con formato anterior
+        console.log("Recibidos datos del modelo AI (formato anterior):", v3Data.ai_model_details);
+        setAiModelDetails(prevDetails => {
+          if (!prevDetails || JSON.stringify(prevDetails) !== JSON.stringify(v3Data.ai_model_details)) {
+            return v3Data.ai_model_details;
+          }
+          return prevDetails;
+        });
+        setIsLoading(false);
+        setDataUpdateRequested(false);
+      }
+
+      if (v3Data.ai_simulation_update && !v3Data.type) {
+        // Compatibilidad con formato anterior
+        console.log("Recibida actualización de simulación (formato anterior):", v3Data.ai_simulation_update);
+        setSimulationStatus(prevStatus => {
+          if (prevStatus.status !== v3Data.ai_simulation_update.status || 
+              JSON.stringify(prevStatus.data) !== JSON.stringify(v3Data.ai_simulation_update.data)) {
+            return v3Data.ai_simulation_update;
+          }
+          return prevStatus;
+        });
+      }
     }
   }, [v3Data]);
+
+  // Timeout para resetear el estado de carga si no se reciben datos
+  useEffect(() => {
+    if (isLoading) {
+      const timeout = setTimeout(() => {
+        console.log("Timeout: No se recibieron datos del modelo AI");
+        setIsLoading(false);
+        setDataUpdateRequested(false);
+      }, 10000); // 10 segundos de timeout
+
+      return () => clearTimeout(timeout);
+    }
+  }, [isLoading]);
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -97,29 +176,68 @@ const ConfigDataPage = () => {
           <h2>Detalles del Modelo AI</h2>
           <div style={controlGroupStyle}>
             <button 
-              style={buttonStyle} 
+              style={{
+                ...buttonStyle,
+                backgroundColor: isLoading || dataUpdateRequested ? '#6c757d' : '#007bff',
+                cursor: isLoading || dataUpdateRequested ? 'not-allowed' : 'pointer'
+              }}
               onClick={handleUpdateDataAI}
               disabled={isLoading || dataUpdateRequested}
             >
               {isLoading || dataUpdateRequested ? 'Actualizando...' : 'Actualizar Datos'}
             </button>
+            {aiModelDetails && (
+              <span style={{ 
+                fontSize: '12px', 
+                color: '#666', 
+                marginLeft: '10px' 
+              }}>
+                Última actualización: {new Date().toLocaleTimeString()}
+              </span>
+            )}
           </div>
-          {isLoading ? (
-            <p>Cargando detalles del modelo AI...</p>
+          
+          {isLoading && !aiModelDetails ? (
+            <div style={{ 
+              padding: '20px', 
+              textAlign: 'center', 
+              backgroundColor: '#f8f9fa', 
+              borderRadius: '4px',
+              border: '1px solid #dee2e6'
+            }}>
+              <p>🔄 Cargando detalles del modelo AI...</p>
+              <p style={{ fontSize: '12px', color: '#666' }}>
+                Conectando con V3 para obtener información del modelo
+              </p>
+            </div>
           ) : aiModelDetails ? (
             <div>
-              <div style={chartPlaceholderStyle}>
+              <div style={{
+                ...chartPlaceholderStyle,
+                backgroundColor: aiModelDetails.is_trained ? '#e6ffed' : '#fff3e0',
+                borderColor: aiModelDetails.is_trained ? '#28a745' : '#ffc107'
+              }}>
                 <div>
-                  <h3>Visualización de Datos del Modelo</h3>
-                  <p>Estado: {aiModelDetails.is_trained ? 'Entrenado' : 'No entrenado'}</p>
-                  <p>Características: {aiModelDetails.feature_count || 0}</p>
-                  <p>Última actualización: {aiModelDetails.last_updated || 'N/A'}</p>
-                  <p>Umbral de confianza: {aiModelDetails.confidence_threshold || 'N/A'}</p>
+                  <h3>📊 Estado del Modelo de IA</h3>
+                  <p><strong>Estado:</strong> {aiModelDetails.is_trained ? '✅ Entrenado' : '⚠️ No entrenado'}</p>
+                  <p><strong>Características:</strong> {aiModelDetails.feature_count || 0}</p>
+                  <p><strong>Última actualización:</strong> {aiModelDetails.last_updated || 'N/A'}</p>
+                  <p><strong>Umbral de confianza:</strong> {aiModelDetails.confidence_threshold || 'N/A'}</p>
+                  {aiModelDetails.training_history && (
+                    <p><strong>Último entrenamiento:</strong> {aiModelDetails.training_history.last_training || 'N/A'}</p>
+                  )}
                 </div>
               </div>
               <details style={{ marginTop: '20px' }}>
-                <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>
-                  Ver detalles completos del modelo
+                <summary style={{ 
+                  cursor: 'pointer', 
+                  fontWeight: 'bold',
+                  padding: '10px',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '4px',
+                  border: '1px solid #dee2e6'
+                }}>
+                  🔍 Ver detalles completos del modelo
                 </summary>
                 <pre style={preStyle}>
                   {JSON.stringify(aiModelDetails, null, 2)}
@@ -127,7 +245,18 @@ const ConfigDataPage = () => {
               </details>
             </div>
           ) : (
-            <p>No hay detalles disponibles del modelo AI.</p>
+            <div style={{ 
+              padding: '20px', 
+              textAlign: 'center', 
+              backgroundColor: '#f8f9fa', 
+              borderRadius: '4px',
+              border: '1px solid #dee2e6'
+            }}>
+              <p>ℹ️ No hay detalles disponibles del modelo AI.</p>
+              <p style={{ fontSize: '12px', color: '#666' }}>
+                Presiona "Actualizar Datos" para cargar la información del modelo
+              </p>
+            </div>
           )}
           <DataAI aiModelDetails={aiModelDetails} isLoading={isLoading} handleRequest={handleRequest} />
         </Box>
@@ -181,3 +310,4 @@ const ConfigDataPage = () => {
 };
 
 export default ConfigDataPage;
+

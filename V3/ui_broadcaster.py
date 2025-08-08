@@ -19,6 +19,12 @@ class UIBroadcaster:
         self.server = None
         self.is_running = False
         
+        # Cache para evitar envío de datos vacíos
+        self.last_valid_top20_data = None
+        self.last_valid_balance_data = None
+        self.last_top20_timestamp = None
+        self.last_balance_timestamp = None
+        
         # Callbacks para mensajes de la UI
         self.on_trading_start_callback: Optional[Callable] = None
         self.on_trading_stop_callback: Optional[Callable] = None
@@ -82,6 +88,7 @@ class UIBroadcaster:
             await self._send_initial_state(websocket)
             await self.send_ai_model_details(websocket)
             await self.send_latest_balance(websocket)
+            await self.send_latest_top20(websocket)
             
             # Escuchar mensajes del cliente
             async for message in websocket:
@@ -200,6 +207,23 @@ class UIBroadcaster:
         except Exception as e:
             self.logger.error(f"Error enviando pong: {e}")
     
+    def _is_valid_data(self, data: Any, min_size: int = 1) -> bool:
+        """Valida que los datos no estén vacíos."""
+        try:
+            if not data:
+                return False
+            
+            if isinstance(data, list):
+                return len(data) >= min_size and all(item is not None for item in data[:min_size])
+            elif isinstance(data, dict):
+                return len(data) > 0 and any(value is not None for value in data.values())
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error validando datos: {e}")
+            return False
+    
     # Métodos públicos para broadcasting
     
     async def broadcast_message(self, message_data: Dict):
@@ -224,26 +248,70 @@ class UIBroadcaster:
             self.ui_clients.discard(client)
     
     async def broadcast_top20_data(self, top20_data: list):
-        """Retransmite datos del top 20 a la UI."""
+        """Retransmite datos del top 20 a la UI solo si son válidos."""
+        # Validar que los datos no estén vacíos
+        if not self._is_valid_data(top20_data, min_size=5):
+            self.logger.debug("Datos Top 20 vacíos o inválidos, no se envían a la UI")
+            return
+        
+        # Verificar si los datos han cambiado significativamente
+        if self.last_valid_top20_data:
+            # Comparación simple para evitar envíos innecesarios
+            if len(top20_data) == len(self.last_valid_top20_data):
+                # Si el tamaño es igual, verificar algunos elementos clave
+                same_data = True
+                for i in range(min(3, len(top20_data))):
+                    if (top20_data[i].get('symbol') != self.last_valid_top20_data[i].get('symbol') or
+                        abs(top20_data[i].get('price', 0) - self.last_valid_top20_data[i].get('price', 0)) > 0.01):
+                        same_data = False
+                        break
+                
+                if same_data:
+                    self.logger.debug("Datos Top 20 sin cambios significativos, no se reenvían")
+                    return
+        
+        # Actualizar cache con datos válidos
+        self.last_valid_top20_data = top20_data
+        self.last_top20_timestamp = get_current_timestamp()
+        
         message = {
             "type": "top20_data",
             "payload": top20_data,
-            "timestamp": get_current_timestamp()
+            "timestamp": self.last_top20_timestamp
         }
         
         await self.broadcast_message(message)
-        self.logger.debug(f"Top 20 data retransmitido a {len(self.ui_clients)} clientes UI")
+        self.logger.debug(f"Top 20 data válido retransmitido a {len(self.ui_clients)} clientes UI ({len(top20_data)} elementos)")
     
     async def broadcast_balance_update(self, balance_data: Dict):
-        """Retransmite actualizaciones de balance a la UI."""
+        """Retransmite actualizaciones de balance a la UI solo si son válidas."""
+        # Validar que los datos no estén vacíos
+        if not self._is_valid_data(balance_data):
+            self.logger.debug("Datos de balance vacíos o inválidos, no se envían a la UI")
+            return
+        
+        # Verificar si los datos han cambiado
+        if self.last_valid_balance_data:
+            # Comparación de campos clave
+            current_total = balance_data.get('total_usdt', 0)
+            last_total = self.last_valid_balance_data.get('total_usdt', 0)
+            
+            if abs(current_total - last_total) < 0.01:  # Cambio menor a 1 centavo
+                self.logger.debug("Balance sin cambios significativos, no se reenvía")
+                return
+        
+        # Actualizar cache con datos válidos
+        self.last_valid_balance_data = balance_data
+        self.last_balance_timestamp = get_current_timestamp()
+        
         message = {
             "type": "balance_update",
             "payload": balance_data,
-            "timestamp": get_current_timestamp()
+            "timestamp": self.last_balance_timestamp
         }
         
         await self.broadcast_message(message)
-        self.logger.debug(f"Balance update retransmitido a {len(self.ui_clients)} clientes UI")
+        self.logger.debug(f"Balance update válido retransmitido a {len(self.ui_clients)} clientes UI")
     
     async def broadcast_operation_result(self, operation_data: Dict):
         """Envía el resultado de una operación a la UI."""
@@ -289,27 +357,61 @@ class UIBroadcaster:
         if self.get_ai_model_details_callback:
             try:
                 model_info = self.get_ai_model_details_callback()
-                message = {
-                    "type": "ai_model_details",
-                    "payload": model_info
-                }
-                await websocket.send(json.dumps(message))
+                if self._is_valid_data(model_info):
+                    message = {
+                        "type": "ai_model_details",
+                        "payload": model_info
+                    }
+                    await websocket.send(json.dumps(message))
+                else:
+                    self.logger.debug("Detalles del modelo de IA vacíos, no se envían")
             except Exception as e:
                 self.logger.error(f"Error enviando detalles del modelo de IA: {e}")
 
     async def send_latest_balance(self, websocket):
         """Envía el último balance cacheado a un cliente específico."""
-        if self.get_latest_balance_callback:
-            try:
+        try:
+            # Usar cache si está disponible
+            if self.last_valid_balance_data:
+                message = {
+                    "type": "balance_update",
+                    "payload": self.last_valid_balance_data,
+                    "timestamp": self.last_balance_timestamp
+                }
+                await websocket.send(json.dumps(message))
+                return
+            
+            # Si no hay cache, intentar obtener desde callback
+            if self.get_latest_balance_callback:
                 balance_data = self.get_latest_balance_callback()
-                if balance_data:
+                if self._is_valid_data(balance_data):
+                    self.last_valid_balance_data = balance_data
+                    self.last_balance_timestamp = get_current_timestamp()
+                    
                     message = {
                         "type": "balance_update",
-                        "payload": balance_data
+                        "payload": balance_data,
+                        "timestamp": self.last_balance_timestamp
                     }
                     await websocket.send(json.dumps(message))
-            except Exception as e:
-                self.logger.error(f"Error enviando el último balance: {e}")
+                else:
+                    self.logger.debug("Balance desde callback vacío, no se envía")
+        except Exception as e:
+            self.logger.error(f"Error enviando el último balance: {e}")
+
+    async def send_latest_top20(self, websocket):
+        """Envía los últimos datos del Top 20 cacheados a un cliente específico."""
+        try:
+            if self.last_valid_top20_data:
+                message = {
+                    "type": "top20_data",
+                    "payload": self.last_valid_top20_data,
+                    "timestamp": self.last_top20_timestamp
+                }
+                await websocket.send(json.dumps(message))
+                self.logger.debug("Últimos datos Top 20 enviados a cliente recién conectado")
+        except Exception as e:
+            self.logger.error(f"Error enviando últimos datos Top 20: {e}")
     
     # Callback setters
     
@@ -357,3 +459,15 @@ class UIBroadcaster:
     def is_trading_active(self) -> bool:
         """Retorna si el trading está activo."""
         return self.trading_active
+    
+    def get_cache_stats(self) -> Dict:
+        """Obtiene estadísticas del cache."""
+        return {
+            "has_top20_cache": self.last_valid_top20_data is not None,
+            "top20_cache_size": len(self.last_valid_top20_data) if self.last_valid_top20_data else 0,
+            "last_top20_timestamp": self.last_top20_timestamp,
+            "has_balance_cache": self.last_valid_balance_data is not None,
+            "last_balance_timestamp": self.last_balance_timestamp,
+            "connected_clients": len(self.ui_clients)
+        }
+
