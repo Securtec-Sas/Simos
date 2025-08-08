@@ -173,7 +173,7 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus, balances }) =
               onClick={() => setShowBalanceDetails(!showBalanceDetails)}
             >
               <span style={{ marginRight: '10px', fontSize: '12px', fontWeight: 'bold' }}>
-                USDT: {balances?.balance_usdt?.toFixed(2) || '0.00'}
+                USDT: {balances?.USDT?.total?.toFixed(2) || '0.00'}
               </span>
               {/* Indicador de dropdown (opcional) */}
               <span style={{ fontSize: '10px' }}>▼</span>
@@ -193,21 +193,19 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus, balances }) =
                   boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
                 }}>
                   <h5 style={{ marginTop: 0, marginBottom: '10px', borderBottom: '1px solid #5a6268', paddingBottom: '5px' }}>Detalles del Balance</h5>
-                  {/* Adaptado para la nueva estructura de datos de balance */}
-                  {balances && balances.balance_usdt !== undefined ? (
-                    <div style={{ fontSize: '12px' }}>
-                      <div style={{ marginBottom: '8px' }}>
-                        <strong>Exchange:</strong>
-                        <span style={{ float: 'right' }}>{balances.exchange_name || 'N/A'}</span>
-                      </div>
-                      <div>
-                        <strong>Balance USDT:</strong>
-                        <span style={{ float: 'right' }}>{balances.balance_usdt?.toFixed(4) || 'N/A'}</span>
+                  {Object.entries(balances).map(([currency, details]) => (
+                    <div key={currency} style={{ marginBottom: '8px', fontSize: '12px' }}>
+                      <strong>{currency}:</strong>
+                      <div style={{ paddingLeft: '10px' }}>
+                        <div>Total: {details.total?.toFixed(4) || 'N/A'}</div>
+                        <div>Libre: {details.free?.toFixed(4) || 'N/A'}</div>
+                        <div>Usado: {details.used?.toFixed(4) || 'N/A'}</div>
+                        {details.value_usdt && currency !== "USDT" && (
+                           <div>Valor USDT: {details.value_usdt?.toFixed(2) || 'N/A'}</div>
+                        )}
                       </div>
                     </div>
-                  ) : (
-                    <div style={{ fontSize: '12px' }}>No hay datos de balance disponibles.</div>
-                  )}
+                  ))}
                 </div>
               )}
             </div>

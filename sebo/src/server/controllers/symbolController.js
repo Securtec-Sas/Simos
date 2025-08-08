@@ -1,7 +1,6 @@
 /** crea todo el crud para symbol */
 const Symbol = require('../data/dataBase/modelosBD/symbol.model');
 const Exchange = require('../data/dataBase/modelosBD/exchange.model'); // Importar el modelo Exchange correctamente
-const { initializeExchange } = require('./exchangeController');
 const ccxt = require('ccxt');
 
 // Obtener todos los símbolos
@@ -50,12 +49,11 @@ for (const dbExchange of activeDbExchanges) {
 
   try {
     // 3. Crear instancia de CCXT y cargar mercados
-    const exchange = initializeExchange(exchangeId);
-    if (!exchange) {
-      // initializeExchange ya loguea una advertencia, así que podemos continuar.
-      // Opcionalmente, podemos agregar nuestro propio log o error.
-      throw new Error(`Failed to initialize exchange: ${exchangeId}`);
+    if (!ccxt.hasOwnProperty(exchangeId)) {
+      throw new Error(`CCXT no soporta el exchange: ${exchangeId}`);
     }
+    // CORRECCIÓN: Instanciación dinámica usando notación de corchetes
+    const exchange = new ccxt[exchangeId]();
     await exchange.loadMarkets(true); // Forzar recarga para obtener los datos más recientes
     const markets = exchange.markets;
 
@@ -166,4 +164,3 @@ exports.deleteSymbol = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-

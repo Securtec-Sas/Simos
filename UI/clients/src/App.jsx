@@ -6,7 +6,6 @@ import Layout from './components/Layout/Layout.jsx';
 import ActiveExchangesTable from './components/ActiveExchangesTable/ActiveExchangesTable.jsx';
 import SpotsMenu from './components/SpotsMenu/SpotsMenu.jsx';
 import Top20DetailedPage from './components/Top20DetailedPage/Top20DetailedPage.jsx';
-import TrainingPage from './components/TrainingPage/TrainingPage.jsx';
 import ExchangeAPIsPage from './pages/exchangesApis/ExchangeAPIsPage.jsx';
 import DataViewPage from './pages/DataViewPage/DataViewPage.jsx';
 import AIDataPage from './pages/aiDataPage.jsx';
@@ -51,20 +50,13 @@ function App() {
           <Route path="exchange-apis" element={<ExchangeAPIsPage />} />
           <Route path="top20" element={
             <Top20DetailedPage 
-              opportunities={v3Data?.top20_data || []}
-              activeTrades={v3Data?.active_trades || {}}
               sendV3Command={sendV3Command}
+              v3Data={v3Data}
             />
           } />
           <Route path="datos" element={<DataViewPage />} />
           <Route path="ai-data" element={
             <AIDataPage
-              v3Data={v3Data}
-              sendV3Command={sendV3Command}
-            />
-          } />
-          <Route path="entrenamiento" element={
-            <TrainingPage
               v3Data={v3Data}
               sendV3Command={sendV3Command}
             />

@@ -25,8 +25,7 @@ start_sebo() {
 # Function to stop sebo server
 stop_sebo() {
   print_msg last_sebo_msg "Stopping sebo server..."
-  # Reemplazar pkill con una alternativa más compatible
-  ps aux | grep "[n]ode.*sebo" | awk '{print $2}' | xargs -r kill
+  pkill -f "node.*sebo"
   print_msg last_sebo_msg "sebo server stopped."
 }
 
@@ -46,8 +45,7 @@ start_ui() {
 # Function to stop UI client
 stop_ui() {
   print_msg last_ui_msg "Stopping UI client..."
-  # Reemplazar pkill con una alternativa más compatible
-  ps aux | grep "[n]ode.*UI/clients" | awk '{print $2}' | xargs -r kill
+  pkill -f "node.*UI/clients"
   print_msg last_ui_msg "UI client stopped."
 }
 
@@ -57,19 +55,21 @@ restart_ui() {
   start_ui
 }
 
-# Function to start V3 python script
+# Function to activate venv and start V3 python script
 start_v3() {
-  print_msg last_v3_msg "Starting V3 python script..."
-  # Run Python script directly in background without opening new terminal
-  (cd V3 && python start_v3.py) &
+  print_msg last_v3_msg "Activating Python venv and starting V3..."
+  if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+    start cmd /k "cd V3 && cd ..\\..\\simo\\V1\\venv\\Scripts && activate && cd ..\\..\\V3 && python start_v3.py"
+  else
+    gnome-terminal -- bash -c "source ./../simo/V1/venv/bin/activate && cd V3 && python start_v3.py; exec bash"
+  fi
   print_msg last_v3_msg "V3 started."
 }
 
 # Function to stop V3 python script
 stop_v3() {
   print_msg last_v3_msg "Stopping V3 python script..."
-  # Reemplazar pkill con una alternativa más compatible
-  ps aux | grep "[p]ython.*V3/start_v3.py" | awk '{print $2}' | xargs -r kill
+  pkill -f "python.*V3/start_v3.py"
   print_msg last_v3_msg "V3 stopped."
 }
 
