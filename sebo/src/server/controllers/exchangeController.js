@@ -11,7 +11,7 @@ const Exchange = require('../data/dataBase/modelosBD/exchange.model');
 // ensureDataDirExists, local readExchangeConfig, and writeExchangeConfig are removed.
 
 // Función para inicializar un exchange con ccxt
-const initializeExchange = (exchangeId) => {
+const initializeExchange = async(exchangeId) => {
     try {
         // Asegúrate de que el ID del exchange es válido para ccxt
         if (!ccxt.exchanges.includes(exchangeId)) {

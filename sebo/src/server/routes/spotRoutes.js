@@ -196,6 +196,31 @@ router.get('/promedios', analizerController.addAnalyzeSymbolsAsync); // Usando a
 
 /**
  * @swagger
+ * /api/spot/update-fees:
+ *   get:
+ *     summary: Inicia la actualización en segundo plano de las comisiones de retiro y depósito para todos los análisis.
+ *     tags:
+ *       - Spot
+ *       - Maintenance
+ *     responses:
+ *       202:
+ *         description: El proceso de actualización ha comenzado en segundo plano.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: El proceso para actualizar la información de retiro/depósito ha comenzado en segundo plano.
+ *       500:
+ *         description: Error al iniciar el proceso.
+ */
+router.get('/update-fees', analizerController.updateAnalysisFee);
+
+
+/**
+ * @swagger
  * /api/spot/spotanalyzer:
  *   post:
  *     summary: Inicia el análisis de spot y actualiza el archivo de monedas.

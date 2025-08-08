@@ -509,32 +509,148 @@ const addAnalyzeSymbolsAsync = async (req, res) => {
 /**
  * Actualiza los campos de withdrawal, fee y deposit para cada análisis en la base de datos
  */
-const updateAnalysisWithdrawDepositFee = async () => {
-    try {
-        const analysisList = await Analysis.find({}, { id_exdataMin: 1, id_exdataMax: 1, symbol: 1, _id: 0 });
-        const promises = analysisList.map(async (analysis) => {
-            try {
-                const exMin = ccxt.exchanges[analysis.id_exdataMin];
-                const exMax = ccxt.exchanges[analysis.id_exdataMax];
-                const withdraw = await exMin.fetchWithdrawInfo(analysis.symbol);
-                const deposit = await exMax.fetchDepositInfo(analysis.symbol);
-                const fee = await exMin.fetchFees(analysis.symbol);
-                await Analysis.updateOne({ id_exdataMin: analysis.id_exdataMin, id_exdataMax: analysis.id_exdataMax, symbol: analysis.symbol }, {
-                    withdraw: withdraw,
-                    deposit: deposit,
-                    fee: fee
-                });
-            } catch (error) {
-                console.error(`Error actualizando campos de withdrawal, fee y deposit para el análisis ${analysis.id_exdataMin} - ${analysis.id_exdataMax} - ${analysis.symbol}`, error);
-            }
-        });
-        await Promise.all(promises);
-        console.log(`Actualizados campos de withdrawal, fee y deposit para ${analysisList.length} análisis`);
+const updateAnalysisFee = async (req, res) => {
+  try {
+    const analysisList = await Analysis.find({}, { id_exdataMin: 1, id_exdataMax: 1, symbol: 1 }).lean();
+    console.log(`Iniciando actualización de withdrawal/fee/deposit para ${analysisList.length} análisis.`);
 
-    } catch (error) {
-        console.error("Critical error in updateAnalysisWithdrawDepositFee:", error);
+    for (const analysis of analysisList) {
+
+      let exMin = await initializeExchange(analysis.id_exdataMin);
+      let exMax = await initializeExchange(analysis.id_exdataMax);
+
+      if (!exMin || !exMax) {
+        console.warn(`Skipping analysis for symbol ${analysis.symbol} due to invalid exchange ID: ${!exMin ? analysis.id_exdataMin : ''} ${!exMax ? analysis.id_exdataMax : ''}`);
+        return; // Skip this iteration
+      }
+      console.log(analysis.id_exdataMin);
+      console.log(analysis.id_exdataMax);
+    //   console.log(exMin)
+
+      // Cargar mercados para obtener la moneda base
+      const [marketsMin, marketsMax] = await Promise.all([exMin.loadMarkets(true), exMax.loadMarkets(true)]);
+
+      if (!marketsMin || !marketsMax) {
+        console.warn(`Error cargando mercados para ${exMin.id} o ${exMax.id}. Saltando análisis para ${analysis.symbol}`);
+        continue; // Skip this iteration
+      }
+
+      // Validar que el símbolo existe en ambos exchanges
+      if (!exMin.markets[analysis.symbol] || !exMax.markets[analysis.symbol]) {
+        console.warn(`Símbolo '${analysis.symbol}' no encontrado en alguno de los exchanges: ${exMin.id} o ${exMax.id}`);
+        
+      }
+
+      // Es crucial para obtener información detallada de las redes.
+      if (exMin.has['fetchCurrencies'] && exMax.has['fetchCurrencies']) {
+        await Promise.all([exMin.fetchCurrencies(), exMax.fetchCurrencies()]);
+        
+      }
+
+      const marketMin = await exMin.markets[analysis.symbol];
+      const marketMax = await exMax.markets[analysis.symbol];
+      const baseCurrencyCodeMin = marketMin.base;
+      const baseCurrencyCodeMax = marketMax.base;
+      const currencyInfoMin = exMin.currencies[baseCurrencyCodeMin];
+      const currencyInfoMax = exMax.currencies[baseCurrencyCodeMax];
+      console.log(`Actualizando análisis para ${analysis.symbol} en ${exMin.id} y ${exMax.id}`);
+      console.log(currencyInfoMin);
+// Update the analysis with withdrawal and fee from currencyInfoMin and deposit from currencyInfoMax
+await Analysis.updateOne(
+  { _id: analysis._id },
+  {
+    $set: {
+      withdraw: currencyInfoMin.withdraw || false,
+      fee: currencyInfoMin.fee || 0,
+      deposit: currencyInfoMax.deposit || false
     }
+  }
+);
+
+
+    // Obtener información de redes para cada exchange
+
+    }
+
+    console.log(`Actualización de withdrawal/fee/deposit completada para ${analysisList.length} análisis.`);
+    res.status(200).json({ message: `Actualización de withdrawal/fee/deposit completada para ${analysisList.length} análisis.` }); 
+}catch (error) {
+    console.error(`Error fetching networks for analysis:`, error);
+    // En caso de un error inesperado (ej. de red), saltamos a la siguiente iteración
+    // para no afectar la ejecución global.
+    res.status(500).json({ message: `Error fetching networks for analysis: ${error.message}` });
+  }
 };
+const updateAnalysisWithdrawDepositFee = async (req, res) => { //NOSONAR
+    // Responder inmediatamente para no bloquear la solicitud
+    if (res && !res.headersSent) {
+        res.status(202).json({ message: "El proceso para actualizar la información de retiro/depósito ha comenzado en segundo plano." });
+    }
+
+    // Ejecutar la lógica pesada en segundo plano
+    (async () => {
+        try {
+            // Se necesita el _id para actualizar el documento correcto de forma segura
+            const analysisList = await Analysis.find({}, { id_exdataMin: 1, id_exdataMax: 1, symbol: 1, _id: 1 }).lean();
+            console.log(`Iniciando actualización de withdrawal/fee/deposit para ${analysisList.length} análisis.`);
+
+            const promises = analysisList.map(async (analysis) => {
+                try {
+                    // CORRECCIÓN: `ccxt.exchanges` es un array de strings. Se debe instanciar el exchange.
+                    const exMin = initializeExchange(analysis.id_exdataMin);
+                    const exMax = initializeExchange(analysis.id_exdataMax);
+
+                    if (!exMin || !exMax) {
+                        console.warn(`[Update Fees] Skipping analysis for symbol ${analysis.symbol} due to invalid exchange ID: ${!exMin ? analysis.id_exdataMin : ''} ${!exMax ? analysis.id_exdataMax : ''}`);
+                        return; // Skip this iteration
+                    }
+
+                    // Cargar mercados para obtener la moneda base
+                    await Promise.all([exMin.loadMarkets(), exMax.loadMarkets()]);                    
+
+                    // Es crucial para obtener información detallada de las monedas y redes.
+                    if (exMin.has['fetchCurrencies']) {
+                        await exMin.fetchCurrencies();
+                    }
+                    if (exMax.has['fetchCurrencies']) {
+                        await exMax.fetchCurrencies();
+                    }
+                    const market = exMin.markets[analysis.symbol];
+                    if (!market || !market.base) {
+                        console.warn(`[Update Fees] Skipping analysis for symbol ${analysis.symbol} on ${analysis.id_exdataMin}: Market or base currency not found.`);
+                        return;
+                    }
+                    const currencyCode = market.base;
+
+                    // Obtener la información de la moneda para cada exchange
+                    const currencyInfoMin = exMin.currencies ? exMin.currencies[currencyCode] : null;
+                    const currencyInfoMax = exMax.currencies ? exMax.currencies[currencyCode] : null;
+
+                    // Construir el payload con los datos específicos solicitados
+                    const updatePayload = {};
+                    if (currencyInfoMin) {
+                        updatePayload.withdraw = currencyInfoMin.withdraw === true;
+                        updatePayload.fee = (typeof currencyInfoMin.fee === 'number') ? currencyInfoMin.fee : null;
+                    }
+                    if (currencyInfoMax) {
+                        updatePayload.deposit = currencyInfoMax.deposit === true;
+                    }
+
+                    // Actualizar el documento solo si hay algo que actualizar
+                    if (Object.keys(updatePayload).length > 0) {
+                        await Analysis.updateOne({ _id: analysis._id }, { $set: updatePayload });
+                    }
+                } catch (error) {
+                    console.error(`[Update Fees] Error updating analysis for symbol ${analysis.symbol} (${analysis._id}):`, error.message);
+                }
+            });
+            await Promise.all(promises);
+            console.log(`[Update Fees] Finished updating withdrawal/fee/deposit for all applicable analyses.`);
+        } catch (error) {
+            console.error("Critical error in updateAnalysisWithdrawDepositFee:", error);
+        }
+    })();
+}
 
 
 
@@ -684,5 +800,7 @@ module.exports = {
     getFormattedTopAnalysis,
     dataTrainModel,
     actualizePricetop20,
-    updateAnalysisWithdrawDepositFee
+    updateAnalysisWithdrawDepositFee,
+    updateAnalysisFee
+
 };
