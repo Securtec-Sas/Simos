@@ -108,7 +108,7 @@ const Training = ({
     setTrainingResults(null);
 
     try {
-      const response = await fetch('/api/v3/start-training', {
+      const response = await fetch('http://localhost:3002/api/v3/start-training', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ csv_filename: selectedCsv })
