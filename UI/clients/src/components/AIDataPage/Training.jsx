@@ -25,6 +25,7 @@ const Training = ({
   const [trainingProgress, setTrainingProgress] = useState(0);
   const [isCreatingCsv, setIsCreatingCsv] = useState(false);
   const [trainingResults, setTrainingResults] = useState(null);
+  const [trainingError, setTrainingError] = useState(null);
 
   const [csvFiles, setCsvFiles] = useState([]);
   const [selectedCsv, setSelectedCsv] = useState('');
@@ -109,8 +110,8 @@ const Training = ({
       setTrainingStatus('training');
       setTrainingProgress(0);
       setTrainingResults(null);
+      setTrainingError(null); // Resetear error al iniciar
 
-      // Enviar el comando a V3 con el nombre del archivo via WebSocket
       sendV3Command('start_ai_training', {
         csv_filename: selectedCsv
       });
@@ -122,16 +123,16 @@ const Training = ({
 
   useEffect(() => {
     if (v3Data && v3Data.type === 'ai_training_update') {
-      const { progress, status, results } = v3Data.payload;
+      const { progress, status, results, error } = v3Data.payload;
       setTrainingProgress(progress || 0);
+      setTrainingStatus(status); // Directamente usar el estado del backend
+
       if (status === 'COMPLETED') {
-        setTrainingStatus('completed');
         setTrainingResults(results);
-      } else if (status === 'IN_PROGRESS') {
-        setTrainingStatus('training');
+        setTrainingError(null);
       } else if (status === 'FAILED') {
-        setTrainingStatus('idle');
-        alert(`Training failed: ${v3Data.payload.error}`);
+        setTrainingResults(null);
+        setTrainingError(error || 'Ocurrió un error desconocido durante el entrenamiento.');
       }
     }
   }, [v3Data]);
@@ -220,15 +221,25 @@ const Training = ({
               {trainingStatus === 'training' ? `Entrenando... (${trainingProgress.toFixed(0)}%)` : 'Iniciar Entrenamiento'}
             </button>
           </div>
-          {trainingStatus === 'training' && (
+          {trainingStatus === 'STARTING' && <div style={statusBoxStyle('IN_PROGRESS')}><p>Iniciando entrenamiento...</p></div>}
+
+          {trainingStatus === 'IN_PROGRESS' && (
             <div className="training-progress" style={{ marginTop: '20px' }}>
-              <p>Progreso: {trainingProgress.toFixed(2)}%</p>
+              <p>Entrenamiento en progreso: {trainingProgress.toFixed(2)}%</p>
               <div style={{ width: '100%', backgroundColor: '#e0e0e0', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{ width: `${trainingProgress}%`, height: '20px', backgroundColor: '#4caf50', transition: 'width 0.3s ease-in-out' }}></div>
               </div>
             </div>
           )}
-          {trainingStatus === 'completed' && (
+
+          {trainingStatus === 'FAILED' && trainingError && (
+            <div style={statusBoxStyle('FAILED')}>
+              <p>❌ Error en el entrenamiento:</p>
+              <p>{trainingError}</p>
+            </div>
+          )}
+
+          {trainingStatus === 'COMPLETED' && (
             <div style={statusBoxStyle('COMPLETED')}>
               <p>✅ Entrenamiento completado exitosamente.</p>
               {renderTrainingResults()}

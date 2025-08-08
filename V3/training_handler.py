@@ -290,8 +290,10 @@ class TrainingHandler:
         """Ejecuta el proceso de entrenamiento en background."""
         try:
             self.logger.info(f"Iniciando proceso de entrenamiento con {len(training_data)} registros.")
-            
+            await self._broadcast_training_status("STARTING", 0)
+
             if not training_data:
+                self.logger.error("Error de entrenamiento: Los datos de entrenamiento están vacíos.")
                 await self._broadcast_training_error("Los datos de entrenamiento están vacíos.")
                 return
 
@@ -337,27 +339,31 @@ class TrainingHandler:
             for i, record in enumerate(transformed_data[:3]):
                 self.logger.info(f"Registro {i+1}: {record}")
 
+            self.logger.info("Iniciando bucle de entrenamiento simulado y notificación a la UI.")
             # Simular progreso de entrenamiento
             for progress in range(0, 101, 10):
                 self.training_progress = progress
-                await self._broadcast_training_progress(progress)
-                await asyncio.sleep(0.5)  # Simular tiempo de procesamiento
+                self.logger.info(f"Progreso del entrenamiento: {progress}%")
+                await self._broadcast_training_status("IN_PROGRESS", progress)
+                await asyncio.sleep(0.5)
             
             # Ejecutar entrenamiento real con los datos transformados
+            self.logger.info("Ejecutando self.ai_model.train()...")
             results = self.ai_model.train(transformed_data)
+            self.logger.info("self.ai_model.train() completado.")
             
             # Completar entrenamiento
             self.training_in_progress = False
             self.training_progress = 100
             
-            await self._broadcast_training_complete(results)
+            await self._broadcast_training_status("COMPLETED", 100, results=results)
             
-            self.logger.info("Entrenamiento completado exitosamente")
+            self.logger.info(f"Entrenamiento completado exitosamente. Resultados: {results}")
             
         except Exception as e:
-            self.logger.error(f"Error en proceso de entrenamiento: {e}")
+            self.logger.error(f"Error en proceso de entrenamiento: {e}", exc_info=True)
             self.training_in_progress = False
-            await self._broadcast_training_error(str(e))
+            await self._broadcast_training_status("FAILED", self.training_progress, error=str(e))
     
     async def _load_csv_file(self, file_path_or_file) -> List[Dict]:
         """Carga datos desde un archivo CSV."""
@@ -411,38 +417,20 @@ class TrainingHandler:
             self.logger.error(f"Error ejecutando pruebas del modelo: {e}")
             return {"error": str(e)}
     
-    async def _broadcast_training_progress(self, progress: int):
-        """Envía progreso de entrenamiento vía WebSocket."""
+    async def _broadcast_training_status(self, status: str, progress: int, results: Optional[Dict] = None, error: Optional[str] = None):
+        """Helper para enviar actualizaciones de estado de entrenamiento a la UI."""
         if self.ui_broadcaster:
+            payload = {
+                "status": status,
+                "progress": progress
+            }
+            if results is not None:
+                payload["results"] = results
+            if error is not None:
+                payload["error"] = error
+
             await self.ui_broadcaster.broadcast_message({
                 "type": "ai_training_update",
-                "payload": {
-                    "progress": progress,
-                    "status": "IN_PROGRESS"
-                }
-            })
-    
-    async def _broadcast_training_complete(self, results: Dict):
-        """Envía notificación de entrenamiento completado."""
-        if self.ui_broadcaster:
-            await self.ui_broadcaster.broadcast_message({
-                "type": "ai_training_update",
-                "payload": {
-                    "progress": 100,
-                    "status": "COMPLETED",
-                    "results": results
-                }
-            })
-    
-    async def _broadcast_training_error(self, error_message: str):
-        """Envía notificación de error en entrenamiento."""
-        if self.ui_broadcaster:
-            await self.ui_broadcaster.broadcast_message({
-                "type": "ai_training_update",
-                "payload": {
-                    "progress": 0,
-                    "status": "FAILED",
-                    "error": error_message
-                }
+                "payload": payload
             })
 
