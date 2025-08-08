@@ -13,24 +13,7 @@ const fetchHistoricalData = async (data, fecha_inicio, intervalo, cantidad_opera
   // CCXT limit is per request, and often capped at 1000 by exchanges.
   const limit = cantidad_operaciones ? parseInt(cantidad_operaciones) : 100;
 
-  const buyIntervalo = getExchangeTimeframe(buyExchangeId, intervalo);
-  const sellIntervalo = getExchangeTimeframe(sellExchangeId, intervalo);
-
   try {
-/*************  ✨ Windsurf Command ⭐  *************/
-  /**
-   * Simulate trade logic as per description
-   * @param {Object} dataPoint - Data point with buyPrice and sellPrice
-   * @param {Number} balanceConfig - Balance configuration value
-   * @param {Number} buyFees - Buy fees percentage
-   * @param {Number} sellFees - Sell fees percentage
-   * @param {Number} transferFee - Transfer fee value
-   * @param {String} buyExchangeId - Buy exchange ID
-   * @param {String} sellExchangeId - Sell exchange ID
-   * @param {String} symbol - Symbol name
-   * @returns {Object} - Simulated trade result object
-   */
-/*******  7c46ac28-1539-4b58-aac6-add2e7b948d2  *******/   
     const buyExchange = initializeExchange(buyExchangeId);
     const sellExchange = initializeExchange(sellExchangeId);
 
@@ -38,6 +21,9 @@ const fetchHistoricalData = async (data, fecha_inicio, intervalo, cantidad_opera
       console.error(`Failed to initialize one or both exchanges for fetchHistoricalData: ${buyExchangeId}, ${sellExchangeId}`);
       return [];
     }
+
+    const buyIntervalo = getExchangeTimeframe(buyExchange, intervalo);
+    const sellIntervalo = getExchangeTimeframe(sellExchange, intervalo);
 
 
     if (!buyExchange.has['fetchOHLCV'] || !sellExchange.has['fetchOHLCV']) {
