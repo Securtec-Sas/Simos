@@ -43,3 +43,4 @@ migrations/
 .tmp.drivedownload/
 
 V3/data/
+V3/log/
