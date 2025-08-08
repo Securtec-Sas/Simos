@@ -8,5 +8,5 @@ source simo/v1/venv/Scripts/activate
 # Run frontend client
 (cd UI/clients && npm run dev) &
 
-# Run V3 python script
-python V3/start_v3.py
+# Run V3 python script with hot-reloading
+python V3/run_dev.py

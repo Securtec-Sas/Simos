@@ -40,7 +40,11 @@ class CryptoArbitrageV3:
         self.ai_model = ArbitrageAIModel()
         self.trading_logic = TradingLogic(self.exchange_manager, self.data_persistence, self.ai_model)
         self.simulation_engine = SimulationEngine(self.ai_model, self.data_persistence)
-        self.training_handler = TrainingHandler(self.sebo_connector, self.ai_model, self.data_persistence, self.ui_broadcaster)
+        self.training_handler = TrainingHandler(self.sebo_connector, self.ai_model, self.data_persistence)
+
+        # Romper dependencia circular
+        self.ui_broadcaster.training_handler = self.training_handler
+        self.training_handler.ui_broadcaster = self.ui_broadcaster
         
         # Inicializar API v3
         self.api_v3 = APIv3Routes(
