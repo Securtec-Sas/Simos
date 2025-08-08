@@ -104,18 +104,22 @@ class TrainingHandler:
             self.training_in_progress = True
             self.training_progress = 0
             
-            # Obtener datos del CSV
-            csv_data = request_data.get('csvData')
-            if not csv_data:
-                return {"status": "error", "message": "Datos CSV requeridos"}
-            
-            # Cargar datos desde el archivo CSV
-            filepath = csv_data.get('filepath')
-            if not filepath or not os.path.exists(filepath):
-                return {"status": "error", "message": "Archivo CSV no encontrado"}
-            
+            # Determinar la fuente de datos
+            use_existing = request_data.get('use_existing_data', False)
+            csv_filename = request_data.get('csv_filename')
+
+            if use_existing and csv_filename:
+                self.logger.info(f"Usando archivo CSV existente para el entrenamiento: {csv_filename}")
+                # Cargar datos desde el CSV especificado
+                training_data = await self.data_persistence.load_training_data_from_csv(csv_filename)
+                if not training_data:
+                    return {"status": "error", "message": f"No se pudo cargar el archivo CSV: {csv_filename}"}
+            else:
+                # Lógica para generar nuevos datos si es necesario (no implementada en esta versión)
+                return {"status": "error", "message": "Modo de entrenamiento no soportado o archivo CSV no especificado"}
+
             # Iniciar entrenamiento en background
-            asyncio.create_task(self._run_training_process(filepath))
+            asyncio.create_task(self._run_training_process(training_data))
             
             return {
                 "status": "success",
@@ -282,16 +286,13 @@ class TrainingHandler:
             writer.writeheader()
             writer.writerows(data)
     
-    async def _run_training_process(self, filepath: str):
+    async def _run_training_process(self, training_data: List[Dict]):
         """Ejecuta el proceso de entrenamiento en background."""
         try:
-            self.logger.info(f"Iniciando proceso de entrenamiento con {filepath}")
-            
-            # Cargar datos del CSV
-            training_data = await self._load_csv_file(filepath)
+            self.logger.info(f"Iniciando proceso de entrenamiento con {len(training_data)} registros.")
             
             if not training_data:
-                await self._broadcast_training_error("No se pudieron cargar los datos de entrenamiento")
+                await self._broadcast_training_error("Los datos de entrenamiento están vacíos.")
                 return
             
             # Simular progreso de entrenamiento
@@ -372,10 +373,10 @@ class TrainingHandler:
         """Envía progreso de entrenamiento vía WebSocket."""
         if self.ui_broadcaster:
             await self.ui_broadcaster.broadcast_message({
-                "type": "training_progress",
+                "type": "ai_training_update",
                 "payload": {
                     "progress": progress,
-                    "completed": False
+                    "status": "IN_PROGRESS"
                 }
             })
     
@@ -383,10 +384,10 @@ class TrainingHandler:
         """Envía notificación de entrenamiento completado."""
         if self.ui_broadcaster:
             await self.ui_broadcaster.broadcast_message({
-                "type": "training_progress",
+                "type": "ai_training_update",
                 "payload": {
                     "progress": 100,
-                    "completed": True,
+                    "status": "COMPLETED",
                     "results": results
                 }
             })
@@ -395,8 +396,10 @@ class TrainingHandler:
         """Envía notificación de error en entrenamiento."""
         if self.ui_broadcaster:
             await self.ui_broadcaster.broadcast_message({
-                "type": "training_error",
+                "type": "ai_training_update",
                 "payload": {
+                    "progress": 0,
+                    "status": "FAILED",
                     "error": error_message
                 }
             })

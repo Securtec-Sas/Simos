@@ -31,6 +31,7 @@ class UIBroadcaster:
         self.on_ui_message_callback: Optional[Callable] = None
         self.on_get_ai_model_details_callback: Optional[Callable] = None
         self.on_train_ai_model_callback: Optional[Callable] = None
+        self.on_start_training_callback: Optional[Callable] = None # Nuevo callback
         self.get_latest_balance_callback: Optional[Callable] = None
         self.get_ai_model_details_callback: Optional[Callable] = None
         
@@ -135,6 +136,10 @@ class UIBroadcaster:
             elif message_type == 'get_ai_model_details':
                 if self.on_get_ai_model_details_callback:
                     await self.on_get_ai_model_details_callback()
+            elif message_type == 'start_training':
+                # Este es el nuevo manejador para el entrenamiento
+                if self.on_start_training_callback:
+                    await self.on_start_training_callback(payload)
             elif message_type == 'train_ai_model':
                 if self.on_train_ai_model_callback:
                     await self.on_train_ai_model_callback(payload)
@@ -435,6 +440,10 @@ class UIBroadcaster:
     def set_train_ai_model_callback(self, callback: Callable):
         """Establece el callback para la solicitud de entrenamiento del modelo de IA."""
         self.on_train_ai_model_callback = callback
+
+    def set_start_training_callback(self, callback: Callable):
+        """Establece el callback para la solicitud de inicio de entrenamiento."""
+        self.on_start_training_callback = callback
 
     def set_get_latest_balance_callback(self, callback: Callable):
         """Establece el callback para obtener el último balance cacheado."""

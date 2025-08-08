@@ -260,6 +260,23 @@ const createTrainingCSV = async (req, res) => {
   }
 };
 
+const getTrainingCSVFiles = async (req, res) => {
+  try {
+    const dataDir = path.join(__dirname, '..', './../data/');
+    const files = await fs.readdir(dataDir);
+    const csvFiles = files.filter(file => file.endsWith('.csv'));
+    res.status(200).json(csvFiles);
+  } catch (error) {
+    console.error('Error listing training CSV files:', error);
+    if (error.code === 'ENOENT') {
+      // Si el directorio no existe, retornar una lista vacía
+      return res.status(200).json([]);
+    }
+    res.status(500).json({ error: 'Error interno del servidor al listar los archivos CSV.' });
+  }
+};
+
 module.exports = {
   createTrainingCSV,
+  getTrainingCSVFiles,
 };

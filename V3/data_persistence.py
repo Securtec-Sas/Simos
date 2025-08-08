@@ -4,6 +4,7 @@ import asyncio
 import logging
 import csv
 import os
+import pandas as pd
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from config_v3 import CSV_LOG_PATH, TRADING_STATE_FILE, BALANCE_CACHE_FILE
@@ -231,6 +232,30 @@ class DataPersistence:
             
         except Exception as e:
             self.logger.error(f"Error cargando datos de entrenamiento: {e}")
+            return None
+
+    async def load_training_data_from_csv(self, filename: str) -> Optional[List[Dict]]:
+        """Carga datos de entrenamiento desde un archivo CSV específico en el directorio de sebo."""
+        try:
+            # Construir la ruta relativa al directorio de datos de sebo
+            # La estructura es V3 -> sebo/src/data
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            filepath = os.path.join(base_dir, '..', 'sebo', 'src', 'data', filename)
+
+            if not os.path.exists(filepath):
+                self.logger.error(f"Archivo CSV de entrenamiento no encontrado: {filepath}")
+                return None
+
+            df = pd.read_csv(filepath)
+
+            # Convertir el DataFrame a una lista de diccionarios
+            training_data = df.to_dict('records')
+
+            self.logger.info(f"Datos de entrenamiento cargados desde {filename}: {len(training_data)} registros")
+            return training_data
+
+        except Exception as e:
+            self.logger.error(f"Error cargando datos de entrenamiento desde CSV {filename}: {e}")
             return None
     
     # Análisis de logs
