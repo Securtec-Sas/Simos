@@ -1,5 +1,26 @@
 // UI/clients/src/components/Top20DetailedPage/Top20DetailedPage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
+// Utility function for deep comparison
+const deepEqual = (obj1, obj2) => {
+  if (obj1 === obj2) return true;
+  
+  if (obj1 == null || obj2 == null) return false;
+  
+  if (typeof obj1 !== 'object' || typeof obj2 !== 'object') return false;
+  
+  const keys1 = Object.keys(obj1);
+  const keys2 = Object.keys(obj2);
+  
+  if (keys1.length !== keys2.length) return false;
+  
+  for (let key of keys1) {
+    if (!keys2.includes(key)) return false;
+    if (!deepEqual(obj1[key], obj2[key])) return false;
+  }
+  
+  return true;
+};
 
 const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
   const [opportunities, setOpportunities] = useState([]);
@@ -11,15 +32,26 @@ const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
     investment_percentage: 10,
     fixed_investment_usdt: 100
   });
+  
+  // Refs to store previous values for comparison
+  const prevTop20DataRef = useRef();
+  const prevSystemStatusRef = useRef();
 
   // Monitorear datos de top20 y estado de trading desde V3
+  // Only update opportunities when top20_data actually changes
   useEffect(() => {
     if (v3Data) {
-      if (v3Data.top20_data) {
-        setOpportunities(v3Data.top20_data);
+      // Check if top20_data has actually changed
+      // Only update if the new data is a non-empty array to prevent flickering
+      if (v3Data.top20_data && v3Data.top20_data.length > 0 && !deepEqual(v3Data.top20_data, prevTop20DataRef.current)) {
+        setOpportunities(v3Data.top20_data.filter(op => op)); // Filter out nulls just in case
+        prevTop20DataRef.current = v3Data.top20_data;
       }
-      if (v3Data.system_status) {
+      
+      // Check if system_status has actually changed
+      if (v3Data.system_status && !deepEqual(v3Data.system_status, prevSystemStatusRef.current)) {
         setTradingStatus(v3Data.system_status.trading_active ? 'active' : 'inactive');
+        prevSystemStatusRef.current = v3Data.system_status;
       }
     }
   }, [v3Data]);
@@ -404,4 +436,3 @@ const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
 };
 
 export default Top20DetailedPage;
-

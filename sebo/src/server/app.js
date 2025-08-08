@@ -8,10 +8,11 @@ const swaggerJsdoc = require("swagger-jsdoc");
 const { getExchangesStatus, getExchangeStatusById, getConfiguredExchanges, updateExchangeActiveStatus } = require("./controllers/exchangeController");
 const { handleSpotAnalysisRequest, getTopSpotOpportunities } = require("./controllers/spotController");
 const http = require("http");
-const { Server } = require("socket.io");
-const { emitSpotPricesLoop } = require("./controllers/spotSocketController");
+const { Server } = require("socket.io"); // NOSONAR
+const { setupSpotSocketController } = require("./controllers/spotSocketController");
+const {addSymbolsForExchange} = require("./controllers/symbolController");
 const { connectDB } = require("./data/dataBase/connectio");
-const { addExchanges } = require("./controllers/dbCotroller");
+const { addExchanges,deleteLowCountExchangeSymbols } = require("./controllers/dbCotroller");
 const analyzerController = require("./controllers/analizerController");
 
 dotenv.config();
@@ -67,13 +68,16 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.get("/api/exchanges-status", getExchangesStatus);
 
-app.get("/analyser", analyzerController.addAnalyzeSymbolsAsync);
+app.get("/analyser", analyzerController.addAnalyzeSymbols);
 // app.get("/depure",balanceRoutes.depº)
 
+app.get('/addsymbols',addSymbolsForExchange);
 
 app.get("/api/exchange-unique/:exchangeId?", getExchangeStatusById);
 
 app.get("/addexchanges",addExchanges);
+
+app.get('/depureex,',deleteLowCountExchangeSymbols)
 
 app.get("/api/configured-exchanges", getConfiguredExchanges);
 
@@ -111,6 +115,9 @@ app.use("/api/exchanges", exchangeRoutes);
 const tradingRoutes = require("./routes/tradingRoutes");
 app.use("/api/trading", tradingRoutes);
 
+const symbolRoutes = require("./routes/symbolRoutes");
+app.use("/api/symbols", symbolRoutes);
+
 // Nueva ruta para datos históricos de OHLCV
 app.get("/api/historical-ohlcv", analyzerController.getHistoricalOHLCV);
 
@@ -118,10 +125,6 @@ serveri.listen(PORT, () => {
     console.log(`Servidor Express corriendo en http://localhost:${PORT}`);
     console.log(`Documentación Swagger disponible en http://localhost:${PORT}/api-docs`);
     console.log("Accede al frontend en http://localhost:3000");
-    loopActualizePricetop20();
-    emitSpotPricesLoop(io);
+    // loopActualizePricetop20();
+    setupSpotSocketController(io);
 });
-
-
-
-

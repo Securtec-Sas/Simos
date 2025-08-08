@@ -3,7 +3,7 @@ const router = express.Router();
 
 const { getLastSpotArb } = require('../controllers/spotSocketController');
 const { handleSpotAnalysisRequest } = require('../controllers/spotController');
-const { addExchangesSymbols, exchangesymbolsNewAdd } = require('../controllers/dbCotroller');
+const { addExchangesSymbols, exchangesymbolsNewAdd,deleteLowCountExchangeSymbols } = require('../controllers/dbCotroller');
 const analizerController = require('../controllers/analizerController');
 const symbolController = require('../controllers/symbolController');
 // const {analyzeSymbols} = require('../controllers/analizerController'); // Comentada para usar el objeto completo
@@ -170,6 +170,7 @@ router.get('/exchangesymbol', exchangesymbolsNewAdd);
  */
 // router.get('/depure', analizerController.depuredExchangeSymbolData);
 
+router.get('/depureex,',deleteLowCountExchangeSymbols)
 
 /**
  * @swagger
@@ -207,7 +208,7 @@ router.get('/promedios', analizerController.addAnalyzeSymbolsAsync); // Usando a
  */
 
 
-
+router.post('/nets',analizerController.updateAnalysisWithdrawDepositFee);
 
 
 module.exports = router;

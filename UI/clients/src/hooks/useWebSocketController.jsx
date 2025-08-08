@@ -50,15 +50,7 @@ const useWebSocketController = () => {
               case 'top20_data':
               case 'log_message':
               case 'ai_model_details':
-                // Only set ai_model_details once when first received
-                setV3Data(prev => {
-                  // If ai_model_details already exists, don't update it
-                  if (prev && prev.ai_model_details) {
-                    return prev;
-                  }
-                  // Otherwise, set it with the new payload
-                  return { ...prev, [message.type]: message.payload };
-                });
+                setV3Data(prev => ({ ...prev, [message.type]: message.payload }));
                 break;
               case 'ai_training_update':
               case 'ai_test_results':

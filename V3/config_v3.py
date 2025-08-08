@@ -17,7 +17,7 @@ API_KEYS = {
 # Poner a True para operar contra los testnets/sandboxes de los exchanges.
 # Se deben configurar las SANDBOX_API_KEYS correspondientes.
 EXCHANGE_SANDBOX_MODE = False # O True para pruebas en sandbox
-
+DATA_DIR ='./data'
 SANDBOX_API_KEYS = {
     "BINANCE_API_KEY": "your_binance_testnet_api_key", # Binance Testnet
     "BINANCE_SECRET_KEY": "your_binance_testnet_secret_key",
