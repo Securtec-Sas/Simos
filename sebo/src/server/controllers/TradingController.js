@@ -60,49 +60,61 @@ const fetchHistoricalData = async (data, fecha_inicio, intervalo, cantidad_opera
   }
 };
 
-const simulateTrade = (dataPoint, balanceConfig, buyFees, sellFees, transferFee, buyExchangeId, sellExchangeId, symbol) => {
-  // Calculate investment_usdt based on balanceConfig
-  let investment_usdt = balanceConfig < 40 ? balanceConfig : balanceConfig * 0.2;
-
-  // Prices from historical data point
+const simulateTrade = (dataPoint, balanceConfig, buyFeeRate, sellFeeRate, transferFee, buyExchangeId, sellExchangeId, symbol) => {
+  const investment_usdt = balanceConfig < 40 ? balanceConfig : balanceConfig * 0.2;
   const current_price_buy = dataPoint.buyPrice;
   const current_price_sell = dataPoint.sellPrice;
 
-  // If prices are invalid, can't simulate
   if (!current_price_buy || !current_price_sell || current_price_buy <= 0) {
-    return null; // Or return a 'FAILED' trade
+    return null;
   }
 
-  // Correct profit calculation
-  // 1. Amount of asset we can buy with our investment
-  const amount_of_asset = investment_usdt / (current_price_buy * (1 + buyFees));
-  // 2. Revenue in USDT from selling that asset
-  const revenue_from_sell = amount_of_asset * (current_price_sell * (1 - sellFees));
-  // 3. Net profit is revenue minus initial investment and transfer fee
-  const net_profit = revenue_from_sell - investment_usdt - transferFee;
+  // Lógica de cálculo de profit basada en porcentajes
+  const gross_profit_percentage = (current_price_sell - current_price_buy) / current_price_buy;
+  const transfer_fee_percentage = transferFee / investment_usdt;
+  const total_fees_percentage = buyFeeRate + sellFeeRate + transfer_fee_percentage;
 
-  const decision_outcome = net_profit > (investment_usdt * 0.005) ? 'EJECUTADA' : 'NO_EJECUTADA';
-  const net_profit_usdt = decision_outcome === 'EJECUTADA' ? net_profit : 0;
+  const net_profit_percentage = gross_profit_percentage - total_fees_percentage;
 
-  // id_exch_balance is the buyExchangeId as per simulation description
-  const id_exch_balance = buyExchangeId;
+  // Decisión basada en el umbral de 0.6%
+  const decision_outcome = net_profit_percentage > 0.006 ? 'EJECUTADA' : 'NO_EJECUTADA';
 
+  const net_profit_usdt = decision_outcome === 'EJECUTADA' ? net_profit_percentage * investment_usdt : 0;
+
+  // Estructurar el objeto de retorno para que coincida con lo que espera `ai_model.py`
   return {
+    // --- Campos Originales Requeridos ---
     buy_exchange_id: buyExchangeId,
     sell_exchange_id: sellExchangeId,
-    current_price_buy,
-    current_price_sell,
-    investment_usdt,
+    symbol: symbol,
+    decision_outcome: decision_outcome,
+    net_profit_usdt: net_profit_usdt,
+
+    // --- Nuevos Campos para ai_model.py ---
+    current_price_buy: current_price_buy,
+    current_price_sell: current_price_sell,
+    investment_usdt: investment_usdt,
+
+    // Fees detallados
+    estimated_buy_fee: investment_usdt * buyFeeRate,
+    estimated_sell_fee: (investment_usdt * (1 + gross_profit_percentage)) * sellFeeRate,
+    estimated_transfer_fee: transferFee,
+    total_fees_usdt: (investment_usdt * buyFeeRate) + ((investment_usdt * (1 + gross_profit_percentage)) * sellFeeRate) + transferFee,
+
+    profit_percentage: net_profit_percentage * 100, // Enviar como porcentaje
+
+    // Datos de mercado en la estructura esperada
     market_data: {
-      buy_fees: buyFees,
-      sell_fees: sellFees,
+      buy_fees: { taker: buyFeeRate, maker: buyFeeRate }, // Asumimos taker/maker son iguales
+      sell_fees: { taker: sellFeeRate, maker: sellFeeRate },
       transferFee: transferFee,
     },
-    symbol,
-    balance_config: balanceConfig,
-    decision_outcome,
-    net_profit_usdt,
-    id_exch_balance,
+
+    // Campos adicionales con valores por defecto o placeholders
+    execution_time_seconds: Math.random() * (120 - 30) + 30, // Simular tiempo entre 30-120s
+    timestamp: new Date(dataPoint.timestamp).toISOString(),
+    balance_config: { balance_usdt: balanceConfig },
+    id_exch_balance: buyExchangeId, // Campo del esquema anterior
   };
 };
 
@@ -205,14 +217,21 @@ const createTrainingCSV = async (req, res) => {
     const fields = [
       'buy_exchange_id',
       'sell_exchange_id',
+      'symbol',
+      'decision_outcome',
+      'net_profit_usdt',
       'current_price_buy',
       'current_price_sell',
       'investment_usdt',
+      'estimated_buy_fee',
+      'estimated_sell_fee',
+      'estimated_transfer_fee',
+      'total_fees_usdt',
+      'profit_percentage',
       'market_data',
-      'symbol',
+      'execution_time_seconds',
+      'timestamp',
       'balance_config',
-      'decision_outcome',
-      'net_profit_usdt',
       'id_exch_balance'
     ];
     const json2csvParser = new Parser({ fields });
