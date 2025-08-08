@@ -719,23 +719,25 @@ const getFormattedTopAnalysis = async () => {
     }
 };
 
+const { Parser } = require('json2csv');
+
+// ... (other code)
+
 /**
- * Función para obtener datos de entrenamiento para el modelo de IA
- * Basada en los parámetros recibidos desde V3
+ * Genera un archivo CSV con datos de entrenamiento para el modelo de IA.
+ * Utiliza los fees de trading y retiro almacenados en la base de datos.
  */
-const dataTrainModel = async (req) => {
+const dataTrainModel = async (req, res) => {
     try {
-        const { payload } = req;
         const { 
             start_date, 
             end_date, 
             limit = 1000, 
-            epochs = 100,
-            include_fees = true 
-        } = payload || {};
+            include_fees = 'true' // El valor por defecto desde query es string
+        } = req.query;
 
-        console.log('Obteniendo datos de entrenamiento con parámetros:', {
-            start_date, end_date, limit, epochs, include_fees
+        console.log('Generando CSV de entrenamiento con parámetros:', {
+            start_date, end_date, limit, include_fees
         });
 
         // Construir filtro de fecha
@@ -744,27 +746,32 @@ const dataTrainModel = async (req) => {
             dateFilter.timestamp = { $gte: new Date(start_date) };
         }
         if (end_date) {
-            if (dateFilter.timestamp) {
-                dateFilter.timestamp.$lte = new Date(end_date);
-            } else {
-                dateFilter.timestamp = { $lte: new Date(end_date) };
-            }
+            dateFilter.timestamp = { ...dateFilter.timestamp, $lte: new Date(end_date) };
         }
 
-        // Obtener datos de análisis históricos
+        // Obtener datos de análisis históricos, incluyendo el 'fee' de retiro
         const historicalData = await Analysis.find(dateFilter)
             .populate('id_exchsymbol', 'sy_id')
             .sort({ timestamp: -1 })
-            .limit(parseInt(limit));
+            .limit(parseInt(limit))
+            .lean(); // Usar .lean() para un rendimiento más rápido
 
         // Formatear datos para entrenamiento
         const trainingData = historicalData.map(record => {
-            // Calcular rentabilidad neta considerando fees
             let netProfit = record.promedio;
-            if (include_fees) {
-                const totalFees = (record.taker_fee_exMax || 0.001) + 
-                                 (record.taker_fee_exMin || 0.001);
-                netProfit = record.promedio - (totalFees * 100);
+            const withdrawalFee = record.fee || 0; // Fee de retiro
+
+            // El cálculo de fees solo se aplica si el parámetro `include_fees` es 'true'
+            if (include_fees === 'true') {
+                const tradingFees = (record.taker_fee_exMax || 0) + (record.taker_fee_exMin || 0);
+
+                // Convertir el fee de retiro a un impacto porcentual
+                // Asumiendo que `promedio` es un porcentaje y `fee` es un costo en USDT
+                // Se necesita el precio de compra para una conversión precisa
+                const buyPrice = record.Val_max_buy;
+                const withdrawalFeePercentage = buyPrice > 0 ? (withdrawalFee / buyPrice) * 100 : 0;
+
+                netProfit = record.promedio - (tradingFees * 100) - withdrawalFeePercentage;
             }
 
             // Clasificar el nivel de riesgo basado en la rentabilidad
@@ -780,27 +787,38 @@ const dataTrainModel = async (req) => {
                 sell_price: record.Val_min_sell,
                 gross_profit_percentage: record.promedio,
                 net_profit_percentage: netProfit,
-                taker_fee_buy: record.taker_fee_exMax || 0.001,
-                maker_fee_buy: record.maker_fee_exMax || 0.001,
-                taker_fee_sell: record.taker_fee_exMin || 0.001,
-                maker_fee_sell: record.maker_fee_exMin || 0.001,
+                taker_fee_buy: record.taker_fee_exMax || 0,
+                maker_fee_buy: record.maker_fee_exMax || 0,
+                taker_fee_sell: record.taker_fee_exMin || 0,
+                maker_fee_sell: record.maker_fee_exMin || 0,
+                withdrawal_fee: withdrawalFee,
                 risk_level: riskLevel,
-                is_profitable: netProfit > 0.1, // Rentable si es mayor a 0.1%
+                is_profitable: netProfit > 0.1, // Umbral de rentabilidad
                 timestamp: record.timestamp,
-                // Características adicionales para el modelo
                 price_spread: record.Val_min_sell - record.Val_max_buy,
-                price_ratio: record.Val_min_sell / record.Val_max_buy,
-                volume_indicator: Math.random() * 100, // Placeholder - se puede mejorar con datos reales
-                market_volatility: Math.abs(record.promedio) / 10 // Indicador simple de volatilidad
+                price_ratio: record.Val_max_buy > 0 ? record.Val_min_sell / record.Val_max_buy : 0,
+                volume_indicator: Math.random() * 100, // Placeholder
+                market_volatility: Math.abs(record.promedio) / 10 // Placeholder
             };
         });
 
-        console.log(`Datos de entrenamiento generados: ${trainingData.length} registros`);
-        return trainingData;
+        console.log(`Datos de entrenamiento generados: ${trainingData.length} registros.`);
+
+        // Convertir JSON a CSV
+        const json2csvParser = new Parser();
+        const csv = json2csvParser.parse(trainingData);
+
+        // Enviar el archivo CSV como respuesta
+        res.header('Content-Type', 'text/csv');
+        res.attachment('training_data.csv');
+        res.status(200).send(csv);
 
     } catch (error) {
-        console.error('Error generando datos de entrenamiento:', error);
-        throw error;
+        console.error('Error generando CSV de entrenamiento:', error);
+        res.status(500).json({
+            message: 'Error generando el archivo CSV de entrenamiento.',
+            error: error.message
+        });
     }
 };
 
