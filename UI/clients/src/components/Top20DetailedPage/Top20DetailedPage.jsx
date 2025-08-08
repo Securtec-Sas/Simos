@@ -32,17 +32,6 @@ const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
     investment_percentage: 10,
     fixed_investment_usdt: 100
   });
-<<<<<<< HEAD
-
-  // Monitorear datos de top20 y estado de trading desde V3
-  useEffect(() => {
-    if (v3Data) {
-      if (v3Data.top20_data) {
-        setOpportunities(v3Data.top20_data);
-      }
-      if (v3Data.system_status) {
-        setTradingStatus(v3Data.system_status.trading_active ? 'active' : 'inactive');
-=======
   
   // Refs to store previous values for comparison
   const prevTop20DataRef = useRef();
@@ -63,7 +52,6 @@ const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
       if (v3Data.system_status && !deepEqual(v3Data.system_status, prevSystemStatusRef.current)) {
         setTradingStatus(v3Data.system_status.trading_active ? 'active' : 'inactive');
         prevSystemStatusRef.current = v3Data.system_status;
->>>>>>> parent of 5b78e8f (prueba)
       }
     }
   }, [v3Data]);
