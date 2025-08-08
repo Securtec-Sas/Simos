@@ -51,8 +51,7 @@ function App() {
           <Route path="exchange-apis" element={<ExchangeAPIsPage />} />
           <Route path="top20" element={
             <Top20DetailedPage 
-              opportunities={v3Data?.top20_data || []}
-              activeTrades={v3Data?.active_trades || {}}
+              v3Data={v3Data}
               sendV3Command={sendV3Command}
             />
           } />

@@ -42,7 +42,7 @@ class SocketOptimizer:
             self.logger.info("Iniciando optimizador de socket")
             
             # Iniciar tarea de Top 20 cada 5 segundos
-            self.top20_task = asyncio.create_task(self._top20_broadcast_loop())
+            # self.top20_task = asyncio.create_task(self._top20_broadcast_loop())
             
             # Enviar balance inicial al cargar
             if self.BALANCE_UPDATE_ON_LOAD:
