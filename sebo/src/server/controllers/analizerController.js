@@ -506,112 +506,80 @@ const addAnalyzeSymbolsAsync = async (req, res) => {
 
 
 
+/**
+ * Actualiza los campos de withdrawal, fee y deposit para cada análisis en la base de datos
+ */
 const updateAnalysisFee = async (req, res) => {
-    console.time("updateAnalysisFee-ExecutionTime");
-    try {
-        const analysisList = await Analysis.find({}, { _id: 1, id_exdataMin: 1, id_exdataMax: 1, symbol: 1 }).lean();
-        console.log(`Iniciando actualización de fees para ${analysisList.length} análisis.`);
+  try {
+    const analysisList = await Analysis.find({}, { id_exdataMin: 1, id_exdataMax: 1, symbol: 1 }).lean();
+    console.log(`Iniciando actualización de withdrawal/fee/deposit para ${analysisList.length} análisis.`);
 
-        const exchangeCache = {};
-        const allBulkOps = [];
-        const CHUNK_SIZE = 10; // Procesar en lotes de 10 para evitar rate limits
-        const DELAY_BETWEEN_CHUNKS = 1000; // 1 segundo de espera entre lotes
+    for (const analysis of analysisList) {
 
-        // Función auxiliar para obtener y cachear un exchange
-        const getCachedExchange = async (exchangeId) => {
-            if (exchangeCache[exchangeId]) {
-                return exchangeCache[exchangeId];
-            }
-            const exchange = initializeExchange(exchangeId);
-            if (exchange) {
-                await exchange.loadMarkets(true);
-                if (exchange.has['fetchCurrencies']) {
-                    await exchange.fetchCurrencies();
-                }
-                exchangeCache[exchangeId] = exchange;
-            }
-            return exchange;
-        };
+      let exMin = await initializeExchange(analysis.id_exdataMin);
+      let exMax = await initializeExchange(analysis.id_exdataMax);
 
-        for (let i = 0; i < analysisList.length; i += CHUNK_SIZE) {
-            const chunk = analysisList.slice(i, i + CHUNK_SIZE);
-            console.log(`Procesando lote ${i / CHUNK_SIZE + 1} de ${Math.ceil(analysisList.length / CHUNK_SIZE)}...`);
+      if (!exMin || !exMax) {
+        console.warn(`Skipping analysis for symbol ${analysis.symbol} due to invalid exchange ID: ${!exMin ? analysis.id_exdataMin : ''} ${!exMax ? analysis.id_exdataMax : ''}`);
+        return; // Skip this iteration
+      }
+      console.log(analysis.id_exdataMin);
+      console.log(analysis.id_exdataMax);
+    //   console.log(exMin)
 
-            const chunkPromises = chunk.map(async (analysis) => {
-                try {
-                    const [exMin, exMax] = await Promise.all([
-                        getCachedExchange(analysis.id_exdataMin),
-                        getCachedExchange(analysis.id_exdataMax)
-                    ]);
+      // Cargar mercados para obtener la moneda base
+      const [marketsMin, marketsMax] = await Promise.all([exMin.loadMarkets(true), exMax.loadMarkets(true)]);
 
-                    if (!exMin || !exMax) {
-                        console.warn(`[SKIP] Análisis para ${analysis.symbol} debido a ID de exchange inválido.`);
-                        return null;
-                    }
+      if (!marketsMin || !marketsMax) {
+        console.warn(`Error cargando mercados para ${exMin.id} o ${exMax.id}. Saltando análisis para ${analysis.symbol}`);
+        continue; // Skip this iteration
+      }
 
-                    const marketMin = exMin.markets[analysis.symbol];
-                    if (!marketMin || !marketMin.base || !exMin.currencies[marketMin.base]) {
-                        console.warn(`[SKIP] Símbolo o moneda base no encontrado para ${analysis.symbol} en ${exMin.id}.`);
-                        return null;
-                    }
-                    const currencyInfoMin = exMin.currencies[marketMin.base];
+      // Validar que el símbolo existe en ambos exchanges
+      if (!exMin.markets[analysis.symbol] || !exMax.markets[analysis.symbol]) {
+        console.warn(`Símbolo '${analysis.symbol}' no encontrado en alguno de los exchanges: ${exMin.id} o ${exMax.id}`);
 
-                    const marketMax = exMax.markets[analysis.symbol];
-                    if (!marketMax || !marketMax.base || !exMax.currencies[marketMax.base]) {
-                        console.warn(`[SKIP] Símbolo o moneda base no encontrado para ${analysis.symbol} en ${exMax.id}.`);
-                        return null;
-                    }
-                    const currencyInfoMax = exMax.currencies[marketMax.base];
+      }
 
-                    return {
-                        updateOne: {
-                            filter: { _id: analysis._id },
-                            update: {
-                                $set: {
-                                    withdraw: currencyInfoMin.withdraw === true,
-                                    fee: typeof currencyInfoMin.fee === 'number' ? currencyInfoMin.fee : null,
-                                    deposit: currencyInfoMax.deposit === true
-                                }
-                            }
-                        }
-                    };
-                } catch (error) {
-                    console.error(`Error procesando análisis para ${analysis.symbol} (${analysis._id}): ${error.message}`);
-                    return null;
-                }
-            });
+      // Es crucial para obtener información detallada de las redes.
+      if (exMin.has['fetchCurrencies'] && exMax.has['fetchCurrencies']) {
+        await Promise.all([exMin.fetchCurrencies(), exMax.fetchCurrencies()]);
 
-            const chunkResults = await Promise.all(chunkPromises);
-            allBulkOps.push(...chunkResults.filter(Boolean));
+      }
 
-            // Esperar antes del siguiente lote para no saturar las APIs
-            if (i + CHUNK_SIZE < analysisList.length) {
-                await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_CHUNKS));
-            }
-        }
-
-        if (allBulkOps.length > 0) {
-            await Analysis.bulkWrite(allBulkOps);
-            console.log(`Operación bulkWrite completada para ${allBulkOps.length} análisis.`);
-        } else {
-            console.log("No se realizaron actualizaciones en la base de datos.");
-        }
-
-        console.timeEnd("updateAnalysisFee-ExecutionTime");
-        const successMessage = `Actualización de fees completada. ${allBulkOps.length} de ${analysisList.length} análisis procesados exitosamente.`;
-        console.log(successMessage);
-
-        if (!res.headersSent) {
-            res.status(200).json({ message: successMessage, processedCount: allBulkOps.length, total: analysisList.length });
-        }
-
-    } catch (error) {
-        console.timeEnd("updateAnalysisFee-ExecutionTime");
-        console.error("Error crítico en updateAnalysisFee:", error);
-        if (!res.headersSent) {
-            res.status(500).json({ message: `Error crítico durante la actualización de fees: ${error.message}` });
-        }
+      const marketMin = await exMin.markets[analysis.symbol];
+      const marketMax = await exMax.markets[analysis.symbol];
+      const baseCurrencyCodeMin = marketMin.base;
+      const baseCurrencyCodeMax = marketMax.base;
+      const currencyInfoMin = exMin.currencies[baseCurrencyCodeMin];
+      const currencyInfoMax = exMax.currencies[baseCurrencyCodeMax];
+      console.log(`Actualizando análisis para ${analysis.symbol} en ${exMin.id} y ${exMax.id}`);
+      console.log(currencyInfoMin);
+// Update the analysis with withdrawal and fee from currencyInfoMin and deposit from currencyInfoMax
+await Analysis.updateOne(
+  { _id: analysis._id },
+  {
+    $set: {
+      withdraw: currencyInfoMin.withdraw || false,
+      fee: currencyInfoMin.fee || 0,
+      deposit: currencyInfoMax.deposit || false
     }
+  }
+);
+
+
+    // Obtener información de redes para cada exchange
+
+    }
+
+    console.log(`Actualización de withdrawal/fee/deposit completada para ${analysisList.length} análisis.`);
+    res.status(200).json({ message: `Actualización de withdrawal/fee/deposit completada para ${analysisList.length} análisis.` });
+}catch (error) {
+    console.error(`Error fetching networks for analysis:`, error);
+    // En caso de un error inesperado (ej. de red), saltamos a la siguiente iteración
+    // para no afectar la ejecución global.
+    res.status(500).json({ message: `Error fetching networks for analysis: ${error.message}` });
+  }
 };
 const updateAnalysisWithdrawDepositFee = async (req, res) => { //NOSONAR
     // Responder inmediatamente para no bloquear la solicitud
@@ -719,25 +687,23 @@ const getFormattedTopAnalysis = async () => {
     }
 };
 
-const { Parser } = require('json2csv');
-
-// ... (other code)
-
 /**
- * Genera un archivo CSV con datos de entrenamiento para el modelo de IA.
- * Utiliza los fees de trading y retiro almacenados en la base de datos.
+ * Función para obtener datos de entrenamiento para el modelo de IA
+ * Basada en los parámetros recibidos desde V3
  */
-const dataTrainModel = async (req, res) => {
+const dataTrainModel = async (req) => {
     try {
+        const { payload } = req;
         const { 
             start_date, 
             end_date, 
             limit = 1000, 
-            include_fees = 'true' // El valor por defecto desde query es string
-        } = req.query;
+            epochs = 100,
+            include_fees = true
+        } = payload || {};
 
-        console.log('Generando CSV de entrenamiento con parámetros:', {
-            start_date, end_date, limit, include_fees
+        console.log('Obteniendo datos de entrenamiento con parámetros:', {
+            start_date, end_date, limit, epochs, include_fees
         });
 
         // Construir filtro de fecha
@@ -746,32 +712,27 @@ const dataTrainModel = async (req, res) => {
             dateFilter.timestamp = { $gte: new Date(start_date) };
         }
         if (end_date) {
-            dateFilter.timestamp = { ...dateFilter.timestamp, $lte: new Date(end_date) };
+            if (dateFilter.timestamp) {
+                dateFilter.timestamp.$lte = new Date(end_date);
+            } else {
+                dateFilter.timestamp = { $lte: new Date(end_date) };
+            }
         }
 
-        // Obtener datos de análisis históricos, incluyendo el 'fee' de retiro
+        // Obtener datos de análisis históricos
         const historicalData = await Analysis.find(dateFilter)
             .populate('id_exchsymbol', 'sy_id')
             .sort({ timestamp: -1 })
-            .limit(parseInt(limit))
-            .lean(); // Usar .lean() para un rendimiento más rápido
+            .limit(parseInt(limit));
 
         // Formatear datos para entrenamiento
         const trainingData = historicalData.map(record => {
+            // Calcular rentabilidad neta considerando fees
             let netProfit = record.promedio;
-            const withdrawalFee = record.fee || 0; // Fee de retiro
-
-            // El cálculo de fees solo se aplica si el parámetro `include_fees` es 'true'
-            if (include_fees === 'true') {
-                const tradingFees = (record.taker_fee_exMax || 0) + (record.taker_fee_exMin || 0);
-
-                // Convertir el fee de retiro a un impacto porcentual
-                // Asumiendo que `promedio` es un porcentaje y `fee` es un costo en USDT
-                // Se necesita el precio de compra para una conversión precisa
-                const buyPrice = record.Val_max_buy;
-                const withdrawalFeePercentage = buyPrice > 0 ? (withdrawalFee / buyPrice) * 100 : 0;
-
-                netProfit = record.promedio - (tradingFees * 100) - withdrawalFeePercentage;
+            if (include_fees) {
+                const totalFees = (record.taker_fee_exMax || 0.001) +
+                                 (record.taker_fee_exMin || 0.001);
+                netProfit = record.promedio - (totalFees * 100);
             }
 
             // Clasificar el nivel de riesgo basado en la rentabilidad
@@ -787,38 +748,27 @@ const dataTrainModel = async (req, res) => {
                 sell_price: record.Val_min_sell,
                 gross_profit_percentage: record.promedio,
                 net_profit_percentage: netProfit,
-                taker_fee_buy: record.taker_fee_exMax || 0,
-                maker_fee_buy: record.maker_fee_exMax || 0,
-                taker_fee_sell: record.taker_fee_exMin || 0,
-                maker_fee_sell: record.maker_fee_exMin || 0,
-                withdrawal_fee: withdrawalFee,
+                taker_fee_buy: record.taker_fee_exMax || 0.001,
+                maker_fee_buy: record.maker_fee_exMax || 0.001,
+                taker_fee_sell: record.taker_fee_exMin || 0.001,
+                maker_fee_sell: record.maker_fee_exMin || 0.001,
                 risk_level: riskLevel,
-                is_profitable: netProfit > 0.1, // Umbral de rentabilidad
+                is_profitable: netProfit > 0.1, // Rentable si es mayor a 0.1%
                 timestamp: record.timestamp,
+                // Características adicionales para el modelo
                 price_spread: record.Val_min_sell - record.Val_max_buy,
-                price_ratio: record.Val_max_buy > 0 ? record.Val_min_sell / record.Val_max_buy : 0,
-                volume_indicator: Math.random() * 100, // Placeholder
-                market_volatility: Math.abs(record.promedio) / 10 // Placeholder
+                price_ratio: record.Val_min_sell / record.Val_max_buy,
+                volume_indicator: Math.random() * 100, // Placeholder - se puede mejorar con datos reales
+                market_volatility: Math.abs(record.promedio) / 10 // Indicador simple de volatilidad
             };
         });
 
-        console.log(`Datos de entrenamiento generados: ${trainingData.length} registros.`);
-
-        // Convertir JSON a CSV
-        const json2csvParser = new Parser();
-        const csv = json2csvParser.parse(trainingData);
-
-        // Enviar el archivo CSV como respuesta
-        res.header('Content-Type', 'text/csv');
-        res.attachment('training_data.csv');
-        res.status(200).send(csv);
+        console.log(`Datos de entrenamiento generados: ${trainingData.length} registros`);
+        return trainingData;
 
     } catch (error) {
-        console.error('Error generando CSV de entrenamiento:', error);
-        res.status(500).json({
-            message: 'Error generando el archivo CSV de entrenamiento.',
-            error: error.message
-        });
+        console.error('Error generando datos de entrenamiento:', error);
+        throw error;
     }
 };
 
