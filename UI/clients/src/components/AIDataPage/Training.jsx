@@ -98,32 +98,25 @@ const Training = ({
     }
   };
 
-  const handleStartTraining = async () => {
+  const handleStartTraining = () => {
     if (!selectedCsv) {
-      alert('Please select a CSV file for training.');
+      alert('Por favor, seleccione un archivo CSV para el entrenamiento.');
       return;
     }
-    setTrainingStatus('training');
-    setTrainingProgress(0);
-    setTrainingResults(null);
 
-    try {
-      const response = await fetch('http://localhost:3002/api/v3/start-training', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ csv_filename: selectedCsv })
+    if (sendV3Command) {
+      console.log(`Iniciando entrenamiento con el archivo: ${selectedCsv}`);
+      setTrainingStatus('training');
+      setTrainingProgress(0);
+      setTrainingResults(null);
+
+      // Enviar el comando a V3 con el nombre del archivo via WebSocket
+      sendV3Command('start_ai_training', {
+        csv_filename: selectedCsv
       });
-      const result = await response.json();
-      if (response.ok && result.status === 'success') {
-        console.log('Training request sent successfully.');
-      } else {
-        setTrainingStatus('idle');
-        alert(`Error starting training: ${result.message}`);
-      }
-    } catch (error) {
-      console.error('Network error starting training:', error);
-      setTrainingStatus('idle');
-      alert('Network error starting training.');
+    } else {
+      console.error("No se pudo enviar el comando a V3.");
+      alert("Error: No se puede enviar el comando a V3.");
     }
   };
 
