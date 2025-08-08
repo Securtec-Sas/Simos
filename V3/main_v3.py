@@ -19,6 +19,7 @@ from ai_model import ArbitrageAIModel
 from simulation_engine import SimulationEngine
 from api_v3_routes import APIv3Routes
 from socket_optimizer import SocketOptimizer
+from training_handler import TrainingHandler
 
 class CryptoArbitrageV3:
     """Aplicación principal de arbitraje de criptomonedas V3."""
@@ -39,6 +40,7 @@ class CryptoArbitrageV3:
         self.ai_model = ArbitrageAIModel()
         self.trading_logic = TradingLogic(self.exchange_manager, self.data_persistence, self.ai_model)
         self.simulation_engine = SimulationEngine(self.ai_model, self.data_persistence)
+        self.training_handler = TrainingHandler(self.sebo_connector, self.ai_model, self.data_persistence, self.ui_broadcaster)
         
         # Inicializar API v3
         self.api_v3 = APIv3Routes(
@@ -72,6 +74,7 @@ class CryptoArbitrageV3:
         
         # Callbacks de UIBroadcaster
         self.ui_broadcaster.set_trading_start_callback(self._on_trading_start_request)
+        self.ui_broadcaster.set_start_training_callback(self.training_handler.start_training) # Conectar UI a TrainingHandler
         self.ui_broadcaster.set_trading_stop_callback(self._on_trading_stop_request)
         self.ui_broadcaster.set_ui_message_callback(self._on_ui_message)
         self.ui_broadcaster.set_get_ai_model_details_callback(self._on_get_ai_model_details_request)

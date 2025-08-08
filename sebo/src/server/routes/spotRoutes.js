@@ -6,6 +6,7 @@ const { handleSpotAnalysisRequest } = require('../controllers/spotController');
 const { addExchangesSymbols, exchangesymbolsNewAdd,deleteLowCountExchangeSymbols } = require('../controllers/dbCotroller');
 const analizerController = require('../controllers/analizerController');
 const symbolController = require('../controllers/symbolController');
+const tradingController = require('../controllers/TradingController');
 // const {analyzeSymbols} = require('../controllers/analizerController'); // Comentada para usar el objeto completo
 
 
@@ -218,6 +219,27 @@ router.get('/promedios', analizerController.addAnalyzeSymbolsAsync); // Usando a
  */
 router.get('/update-fees', analizerController.updateAnalysisFee);
 
+/**
+ * @swagger
+ * /api/spot/training-files:
+ *   get:
+ *     summary: Obtiene la lista de archivos CSV de entrenamiento disponibles.
+ *     tags:
+ *       - Training
+ *     responses:
+ *       200:
+ *         description: Una lista de nombres de archivos CSV.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: string
+ *                 example: "realData_2025-08-08_1h.csv"
+ *       500:
+ *         description: Error interno del servidor.
+ */
+router.get('/training-files', tradingController.getTrainingCSVFiles);
 
 /**
  * @swagger
