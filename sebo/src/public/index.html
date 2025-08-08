@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exchange Status Checker</title>
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+    <div class="page-container">
+        <div class="main-content">
+            <h1>Active Exchange Status</h1>
+            <table id="activeExchangesTable">
+                <thead>
+                    <tr>
+                        <th id="exchangeNameHeader">Exchange Name</th>
+                        <th>Status</th>
+                        <th id="apiAccessHeaderIcons">
+                            <span class="api-header-icon" title="Acceso API Pública">👤</span>
+                            <span class="api-header-icon" title="Acceso API Privada">🔒</span>
+                        </th>
+                        <th>Error Message</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Rows for active/selected exchanges will be populated here -->
+                    <tr id="noActiveExchangesMessage"><td colspan="4">No exchanges selected. Check an exchange in the sidebar.</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="sidebar">
+            <button id="toggleSidebarButton" title="Toggle Menu">
+                <span class="button-main-title-group"> <!-- Nuevo span para agrupar icono y título -->
+                    <span class="menu-main-icon">☰</span> SEBO
+                </span>
+                <span id="mainMenuStatus" class="main-menu-status-indicator">no ok</span> <!-- Este se alineará a la derecha -->
+            </button>
+            <div class="sidebar-content">
+                <div class="menu-section">
+                    <h2 class="menu-header" id="exchangesHeader">Exchanges ▼</h2>
+                    <ul id="allExchangesList" class="menu-list">
+                        <li>Loading exchanges...</li>
+                    </ul>
+                </div>
+                <div class="menu-section">
+                    <h2 class="menu-header" id="spotsHeader">
+                                                <span class="menu-title-text">SPOTS</span>
+                        <span id="spotAnalysisSpinner" class="spinner spot-spinner" style="display: none;"></span>
+                        <span id="spotAnalysisDisplay" class="spot-analysis-display" style="display: none;">
+                            <!-- Exchange name will be shown here -->
+                        </span>
+                        <span class="arrow-indicator">▼</span>
+                    </h2>
+                    <div id="spotsContentContainer" class="menu-list collapsed-list">
+                        <ul id="spotsOptionsList" class="submenu-list">
+                            <li><button id="reanalyzeButton" class="submenu-button">Reanalizar</button></li>
+                            <!-- Aquí se pueden agregar más opciones de SPOTS en el futuro -->
+                        </ul>
+                    </div>
+                    <!-- Content for SPOTS can be added here later -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Sidebar elements
+            const allExchangesList = document.getElementById('allExchangesList');
+            const toggleSidebarButton = document.getElementById('toggleSidebarButton');
+            const sidebar = document.querySelector('.sidebar');
+            const sidebarContent = document.querySelector('.sidebar-content');
+
+            // Main table elements
+            const activeExchangesTableBody = document.querySelector('#activeExchangesTable tbody');
+            const noActiveExchangesMessageRow = document.getElementById('noActiveExchangesMessage');
+
+            // Menu accordion elements
+            const exchangesHeader = document.getElementById('exchangesHeader');
+            const spotsHeader = document.getElementById('spotsHeader');
+            // const spotsContent = document.getElementById('spotsContent'); // Old ID
+            const spotsContentContainer = document.getElementById('spotsContentContainer'); // New ID for the container
+            const reanalyzeButton = document.getElementById('reanalyzeButton'); // Re-added
+            const mainMenuStatus = document.getElementById('mainMenuStatus'); // For "ok" text
+            const spotAnalysisDisplay = document.getElementById('spotAnalysisDisplay');
+            const spotAnalysisSpinner = document.getElementById('spotAnalysisSpinner');
+
+            async function fetchAndInitializeExchanges() {
+                try {
+                    const response = await fetch('/api/configured-exchanges?t=' + new Date().getTime()); // Cache-busting
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const exchanges = await response.json();
+                    populateSidebar(exchanges);
+                } catch (error) {
+                    console.error('Failed to fetch available exchanges for sidebar:', error);
+                    if (allExchangesList) allExchangesList.innerHTML = `<li>Error loading exchanges: ${error.message}</li>`;
+                }
+            }
+
+            function populateSidebar(exchanges) {
+                if (!allExchangesList) return;
+                allExchangesList.innerHTML = ''; // Clear
+                if (!exchanges || exchanges.length === 0) {
+                    allExchangesList.innerHTML = `<li>No exchanges available.</li>`;
+                    return;
+                }
+                exchanges.forEach(async exchange => { // Added async for initial check
+                    const listItem = document.createElement('li');
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.dataset.exchangeId = exchange.id;
+                    checkbox.dataset.exchangeName = exchange.name; // Store name
+                    checkbox.dataset.ccxtSupported = exchange.ccxtSupported;
+                    checkbox.dataset.isCoreExchange = exchange.isCoreExchange;
+                    checkbox.dataset.connectionType = exchange.connectionType;
+                    checkbox.id = `cb-sidebar-${exchange.id}`;
+                    checkbox.addEventListener('change', handleSidebarCheckboxChange);
+
+                    const label = document.createElement('label');
+                    label.htmlFor = `cb-sidebar-${exchange.id}`;
+                    label.textContent = exchange.name;
+
+                    listItem.appendChild(checkbox);
+                    listItem.appendChild(label);
+                    allExchangesList.appendChild(listItem);
+
+                    // Pre-check and load if active and supported, or show error if active but not supported
+                    if (exchange.isActive) {
+                        checkbox.checked = true;
+                        // For core exchanges, always add to table if active.
+                        // For non-core, only add if ccxtSupported.
+                        if (exchange.isCoreExchange || exchange.ccxtSupported) {
+                            // Trigger the status check and table update
+                            await handleSidebarCheckboxChange({ target: checkbox }, true); // Pass true for isInitialLoad
+                        } else {
+                            // This case should be rare if logic is correct, but as a fallback:
+                            addOrUpdateActiveExchangeRow(exchange.id, exchange.name, {
+                                status: 'Error',
+                                error: `Exchange '${exchange.name}' is not CCXT supported and not a core exchange for direct display.`
+                            });
+                        }
+                    }
+                });
+            }
+
+            async function handleSidebarCheckboxChange(event, isInitialLoad = false) {
+                const checkbox = event.target;
+                const exchangeId = checkbox.dataset.exchangeId;
+                const exchangeName = checkbox.dataset.exchangeName;
+                const ccxtSupported = checkbox.dataset.ccxtSupported === 'true';
+                const connectionType = checkbox.dataset.connectionType;
+
+                if (!isInitialLoad) { // Only send update to server on user interaction or non-initial calls
+                    // Update server about the active status change
+                    try {
+                        await fetch('/api/update-exchange-active-status', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ exchangeId: exchangeId, isActive: checkbox.checked, exchangeName: exchangeName })
+                        });
+                    } catch (error) {
+                        console.error('Failed to update exchange active status on server:', error);
+                        // Optionally revert checkbox state or notify user
+                    }
+                }
+
+                updateNoActiveMessageVisibility();
+
+                if (checkbox.checked) {
+                    // If it's a CCXT type connection and not supported, show error.
+                    // For other connection types (manual, etc.), they might still be added to the table
+                    // but won't attempt a CCXT connection.
+                    if (connectionType === "ccxt" && !ccxtSupported) {
+                        addOrUpdateActiveExchangeRow(exchangeId, exchangeName, { status: 'Error', error: `Exchange '${exchangeName}' (CCXT type) not supported or misconfigured.` });
+                        return; // Don't try to fetch status if not supported
+                    }
+                    addOrUpdateActiveExchangeRow(exchangeId, exchangeName, { status: 'Connecting...', error: null });
+                    try {
+                        const response = await fetch(`/api/exchange-status/${exchangeId}`);
+                        const data = await response.json(); 
+
+                        if (!response.ok) {
+                            throw new Error(data.error || `Failed to connect. Status: ${response.status}`);
+                        }
+
+                        const statusText = data.connected ? 'Online' : 'Offline';
+                        const errorMessage = data.connected ? null : (data.error || 'Failed to connect.');
+                        addOrUpdateActiveExchangeRow(exchangeId, exchangeName, { status: statusText, error: errorMessage });
+
+                    } catch (error) {
+                        addOrUpdateActiveExchangeRow(exchangeId, exchangeName, { status: 'Error', error: error.message });
+                    }
+                } else {
+                    removeActiveExchangeRow(exchangeId);
+                }
+                updateNoActiveMessageVisibility();
+            }
+
+            function addOrUpdateActiveExchangeRow(exchangeId, exchangeName, data) {
+                if (!activeExchangesTableBody) return;
+                let row = activeExchangesTableBody.querySelector(`tr[data-exchange-id="${exchangeId}"]`);
+
+                if (!row) { 
+                    row = activeExchangesTableBody.insertRow();
+                    row.dataset.exchangeId = exchangeId;
+                    row.insertCell().textContent = exchangeName; // Column 1: Name
+                    row.insertCell(); // Column 2: Status (will be cell 1)
+                    row.insertCell(); // Column 3: API Access (will be cell 2) - NEW
+                    row.insertCell(); // Column 4: Error (will be cell 3)
+                }
+
+                // Update Status cell
+                row.cells[1].textContent = data.status;
+
+                // Update API Access cell (new cell at index 2)
+                const apiAccessCell = row.cells[2];
+                apiAccessCell.innerHTML = ''; // Clear previous icons
+
+                const publicApiIcon = document.createElement('span');
+                publicApiIcon.classList.add('api-icon', 'public-api-icon');
+                publicApiIcon.classList.toggle('green', data.status === 'Online');
+                publicApiIcon.classList.toggle('red', data.status !== 'Online');
+                publicApiIcon.title = `Public API: ${data.status === 'Online' ? 'Connected' : 'Not Connected'}`;
+
+                const privateApiIcon = document.createElement('span');
+                privateApiIcon.classList.add('api-icon', 'private-api-icon', 'red'); // Always red for now
+                privateApiIcon.title = 'Private API: Not Configured';
+
+                apiAccessCell.appendChild(publicApiIcon);
+                apiAccessCell.appendChild(privateApiIcon);
+
+                // Update Error Message cell (now cell at index 3)
+                row.cells[3].textContent = data.error || ''; 
+                updateNoActiveMessageVisibility();
+            }
+
+            function removeActiveExchangeRow(exchangeId) {
+                if (!activeExchangesTableBody) return;
+                const row = activeExchangesTableBody.querySelector(`tr[data-exchange-id="${exchangeId}"]`);
+                if (row) {
+                    row.remove();
+                }
+                updateNoActiveMessageVisibility();
+            }
+
+            function updateNoActiveMessageVisibility() {
+                 if (noActiveExchangesMessageRow) {
+                    noActiveExchangesMessageRow.style.display = activeExchangesTableBody.rows.length <= 1 ? '' : 'none';
+                 }
+            }
+            
+            if (toggleSidebarButton && sidebar && sidebarContent) {
+                toggleSidebarButton.addEventListener('click', () => {
+                    sidebar.classList.toggle('collapsed');
+                });
+                // sidebar.classList.add('collapsed'); // Start collapsed
+            }
+
+            if (exchangesHeader && allExchangesList) {
+                // Set initial arrow state for Exchanges if it starts collapsed
+                if (allExchangesList.classList.contains('collapsed-list')) {
+                    exchangesHeader.textContent = 'Exchanges ►';
+                } else {
+                    exchangesHeader.textContent = 'Exchanges ▼';
+                }
+
+                exchangesHeader.addEventListener('click', () => {
+                    allExchangesList.classList.toggle('collapsed-list');
+                    // Optional: Change arrow indicator
+                    exchangesHeader.textContent = allExchangesList.classList.contains('collapsed-list') ? 'Exchanges ►' : 'Exchanges ▼';
+                });
+                // allExchangesList.classList.add('collapsed-list'); // Start with exchanges list collapsed
+            }
+
+            if (spotsHeader && spotsContentContainer) {
+                // Establecer el estado inicial correcto de la flecha para SPOTS
+                if (spotsContentContainer.classList.contains('collapsed-list')) {
+                    // spotsHeader.textContent = 'SPOTS ►'; // Replaced
+                    const arrow = spotsHeader.querySelector('.arrow-indicator');
+                    if (arrow) arrow.textContent = '►';
+                } else {
+                    // spotsHeader.textContent = 'SPOTS ▼'; // Replaced
+                    const arrow = spotsHeader.querySelector('.arrow-indicator');
+                    if (arrow) arrow.textContent = '▼';
+                }
+
+                spotsHeader.addEventListener('click', () => {
+                    spotsContentContainer.classList.toggle('collapsed-list');
+                     // Optional: Change arrow indicator
+                    // spotsHeader.textContent = spotsContentContainer.classList.contains('collapsed-list') ? 'SPOTS ►' : 'SPOTS ▼'; // Replaced
+                    const arrow = spotsHeader.querySelector('.arrow-indicator');
+                    if (arrow) {
+                        arrow.textContent = spotsContentContainer.classList.contains('collapsed-list') ? '►' : '▼';
+                    }
+                });
+            }
+
+            if (reanalyzeButton) {
+                reanalyzeButton.addEventListener('click', async () => {
+                    if (!spotAnalysisDisplay || !spotAnalysisSpinner) return;
+
+                    // Mostrar spinner, ocultar texto anterior
+                    spotAnalysisSpinner.style.display = 'inline-block';
+                    spotAnalysisDisplay.style.display = 'none';
+                    spotAnalysisDisplay.textContent = '';
+                    spotAnalysisDisplay.style.color = ""; // Reset color
+
+                    if (mainMenuStatus) {
+                        mainMenuStatus.textContent = "Procesando...";
+                        mainMenuStatus.style.display = 'inline';
+                    }
+
+                    try {
+                        const response = await fetch('/api/spot/spotanalyzer', { method: 'POST' });
+                        const result = await response.json(); 
+
+                        if (response.ok) {
+                            console.log("Análisis de spot completado:", result.message);
+                            if (mainMenuStatus) mainMenuStatus.textContent = "YES";
+                            
+                            spotAnalysisDisplay.textContent = "Actualizado!";
+                            spotAnalysisDisplay.style.color = "green";
+                            spotAnalysisDisplay.style.display = 'inline';
+                            setTimeout(() => {
+                                spotAnalysisDisplay.style.display = 'none';
+                                spotAnalysisDisplay.textContent = '';
+                                spotAnalysisDisplay.style.color = "";
+                                if (mainMenuStatus) mainMenuStatus.textContent = "no ok";
+                            }, 3000);
+                        } else {
+                            console.error("Error en el análisis de spot:", result.message || "Error desconocido");
+                            if (mainMenuStatus) mainMenuStatus.textContent = "Error";
+                            spotAnalysisDisplay.textContent = `Error: ${result.message || 'Fallo'}`;
+                            spotAnalysisDisplay.style.color = "red";
+                            spotAnalysisDisplay.style.display = 'inline';
+                            setTimeout(() => { // Ocultar mensaje de error después de un tiempo
+                                spotAnalysisDisplay.style.display = 'none';
+                                spotAnalysisDisplay.textContent = '';
+                                spotAnalysisDisplay.style.color = "";
+                                if (mainMenuStatus) mainMenuStatus.textContent = "no ok";
+                            }, 5000);
+                        }
+                    } catch (error) {
+                        console.error('Error al enviar la solicitud de análisis de spot:', error);
+                        if (mainMenuStatus) mainMenuStatus.textContent = "Error";
+                        spotAnalysisDisplay.textContent = "Error de red";
+                        spotAnalysisDisplay.style.color = "red";
+                        spotAnalysisDisplay.style.display = 'inline';
+                        setTimeout(() => { // Ocultar mensaje de error después de un tiempo
+                                spotAnalysisDisplay.style.display = 'none';
+                                spotAnalysisDisplay.textContent = '';
+                                spotAnalysisDisplay.style.color = "";
+                                if (mainMenuStatus) mainMenuStatus.textContent = "no ok";
+                            }, 5000);
+                    } finally {
+                        spotAnalysisSpinner.style.display = 'none'; // Ocultar spinner en todos los casos
+                        spotAnalysisDisplay.style.display = 'none';
+                        spotAnalysisDisplay.textContent = '';
+                    }
+                });
+            }
+            fetchAndInitializeExchanges();
+            updateNoActiveMessageVisibility(); // Initial check
+        });
+    </script>
+</body>
+</html>
