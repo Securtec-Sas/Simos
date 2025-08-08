@@ -140,7 +140,7 @@ const getRandomAnalysis = async (count) => {
 const createTrainingCSV = async (req, res) => {
   try {
     // 1. Desestructurar el cuerpo de la solicitud sin 'await'
-    const { fecha, operaciones, cantidadSimbolos, listaSimbolos, intervalo } = req.body;
+    const { fecha, operaciones, cantidadSimbolos, listaSimbolos, intervalo = '1h' } = req.body;
 
     let symbols = [];
     if (listaSimbolos && listaSimbolos.length > 0) {
