@@ -1,7 +1,4 @@
 // UI/clients/src/components/Top20DetailedPage/Top20DetailedPage.jsx
-<<<<<<< HEAD
-import React, { useState, useEffect } from 'react';
-=======
 import React, { useState, useEffect, useRef } from 'react';
 
 // Utility function for deep comparison
@@ -24,7 +21,6 @@ const deepEqual = (obj1, obj2) => {
   
   return true;
 };
->>>>>>> parent of 5b78e8f (prueba)
 
 const Top20DetailedPage = ({ v3Data, sendV3Command }) => {
   const [opportunities, setOpportunities] = useState([]);
