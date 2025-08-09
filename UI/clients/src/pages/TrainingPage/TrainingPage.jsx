@@ -23,7 +23,7 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
   useEffect(() => {
     const fetchSymbols = async () => {
       try {
-        const response = await fetch('/api/symbol/symbols');
+        const response = await fetch('http://localhost:3000/api/symbol/symbols');
         const data = await response.json();
         setSymbols(data);
       } catch (error) {
@@ -99,7 +99,7 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
         intervalo: formData.intervalo
       };
 
-      const response = await fetch('http://localhost:3031/api/trading/create-training-csv', {
+      const response = await fetch('http://localhost:3000/api/trading/create-training-csv', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -151,7 +151,7 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
       const formData = new FormData();
       formData.append('testCsv', testCsvFile);
 
-      const response = await fetch('/api/v3/run-tests', {
+      const response = await fetch('http://localhost:3000/api/v3/run-tests', {
         method: 'POST',
         body: formData
       });
@@ -179,7 +179,7 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
         risk_tolerance: document.getElementById('riskTolerance').value
       };
 
-      const response = await fetch('/api/v3/start-simulation', {
+      const response = await fetch('http://localhost:3000/api/v3/start-simulation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -325,7 +325,7 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
                   Lista específica de símbolos
                 </label>
               </div>
-            </div>
+            )}
 
             {formData.symbolSelectionType === 'cantidad' && (
               <div className="form-group">
@@ -422,12 +422,10 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
 
                 {trainingStatus === 'training' && (
                   <div className="training-progress">
-                    <div className="progress-bar">
-                      <div 
-                        className="progress-fill"
-                        style={{ width: `${trainingProgress}%` }}
-                      ></div>
-                    </div>
+                    <div 
+                      className="progress-bar"
+                      style={{ width: `${trainingProgress}%` }}
+                    ></div>
                     <p>Progreso: {trainingProgress}%</p>
                   </div>
                 )}

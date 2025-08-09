@@ -135,7 +135,7 @@ class UIBroadcaster:
             elif message_type == "get_ai_model_details":
                 if self.on_get_ai_model_details_callback:
                     await self.on_get_ai_model_details_callback()
-            elif message_type == "start_training": # Manejar el nuevo mensaje de la UI
+            elif message_type == "start_ai_training": # Manejar el nuevo mensaje de la UI
                 if self.on_train_ai_model_callback:
                     await self.on_train_ai_model_callback(payload)
             elif message_type == "get_training_status": # Nuevo: solicitar estado de entrenamiento
@@ -263,7 +263,7 @@ class UIBroadcaster:
         }
         
         await self.broadcast_message(message)
-        self.logger.info(f"Resultado de operaci n enviado a UI: {operation_data.get('symbol', 'N/A')}")
+        self.logger.info(f"Resultado de operación enviado a UI: {operation_data.get('symbol', 'N/A')}")
     
     async def broadcast_trading_status_change(self, is_active: bool):
         """Notifica cambio en el estado del trading."""
@@ -277,7 +277,7 @@ class UIBroadcaster:
         }
         
         await self.broadcast_message(message)
-        self.logger.info(f"Estado de trading cambiado: {"ACTIVO" if is_active else "INACTIVO"}")
+        self.logger.info(f"Estado de trading cambiado: {'ACTIVO' if is_active else 'INACTIVO'}")
     
     async def broadcast_log_message(self, level: str, message: str, data: Dict = None):
         """Envía un mensaje de log a la UI."""
@@ -408,7 +408,7 @@ class UIBroadcaster:
         await self.broadcast_message(message)
 
     async def broadcast_training_complete(self, results: Dict):
-        """Envía los resultados de entrenamiento a todos los clientes UI."""
+        """Envía el mensaje de entrenamiento completado a todos los clientes UI."""
         self.update_training_status("completed", 100, self.training_filepath)
         message = {
             "type": "training_complete",

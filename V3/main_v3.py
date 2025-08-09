@@ -306,9 +306,9 @@ class CryptoArbitrageV3:
                 if self.ui_broadcaster.on_train_ai_model_callback:
                     await self.ui_broadcaster.on_train_ai_model_callback(payload)
             elif message_type == "get_training_status": # Manejar el nuevo tipo de mensaje
-                if self.ui_broadcaster.on_get_training_status_callback:
-                    in_progress, progress, filepath = self.ui_broadcaster.on_get_training_status_callback()
-                    await self.ui_broadcaster.broadcast_training_progress(progress, not in_progress, filepath)
+                if self.ui_broadcaster.get_training_status_callback:
+                    status, progress, filepath = self.ui_broadcaster.get_training_status_callback()
+                    await self.ui_broadcaster._send_training_status(self.ui_broadcaster.ui_clients.copy().pop() if self.ui_broadcaster.ui_clients else None) # Enviar a un cliente si existe
             else:
                 self.logger.warning(f"Tipo de mensaje UI no reconocido: {message_type}")
                 
@@ -390,49 +390,29 @@ class CryptoArbitrageV3:
             self.logger.error(f"Error procesando operación completada: {e}")
     
     async def _on_trading_status_change(self, is_active: bool):
-        """Maneja cambios en el estado del trading."""
+        """Maneja cambios en el estado de trading."""
         try:
-            status = "ACTIVO" if is_active else "INACTIVO"
-            self.logger.info(f"Estado de trading cambiado: {status}")
-            
-            # Notificar a UI
             await self.ui_broadcaster.broadcast_trading_status_change(is_active)
-            
         except Exception as e:
-            self.logger.error(f"Error procesando cambio de estado de trading: {e}")
+            self.logger.error(f"Error en _on_trading_status_change: {e}")
 
-async def main():
-    """Función principal."""
-    app = None
-    try:
-        # Crear aplicación
-        app = CryptoArbitrageV3()
-        
-        # Inicializar
-        await app.initialize()
-        
-        # Iniciar
-        started = await app.start()
-        if not started:
-            print("Error: No se pudo iniciar la aplicación")
-            return 1
-        
-        # Ejecutar
-        await app.run()
-        
-        return 0
-        
-    except KeyboardInterrupt:
-        print("\nInterrupción recibida, cerrando aplicación...")
-        return 0
-    except Exception as e:
-        print(f"Error fatal: {e}")
-        return 1
-    finally:
-        if app:
-            await app.shutdown()
 
+# Entry point
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    app = CryptoArbitrageV3()
+    
+    # Ejecutar la aplicación
+    async def main():
+        await app.initialize()
+        if await app.start():
+            await app.run()
+    
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        app.logger.info("V3 detenido manualmente.")
+    except Exception as e:
+        app.logger.critical(f"Error fatal en V3: {e}", exc_info=True)
+
 
 
