@@ -1,8 +1,7 @@
 const { connectToExchange } = require('../utils/exchangeConnector');
 
 /**
- * Connects to an exchange and returns a confirmation.
- * This is mostly for testing the connection.
+ * Connects to an exchange in sandbox mode and returns a confirmation.
  */
 const connect = async (req, res) => {
     const { exchangeId } = req.body;
@@ -10,15 +9,15 @@ const connect = async (req, res) => {
         return res.status(400).json({ success: false, message: "exchangeId is required." });
     }
     try {
-        await connectToExchange(exchangeId, false);
-        res.status(200).json({ success: true, message: `Successfully connected to ${exchangeId}.` });
+        await connectToExchange(exchangeId, true);
+        res.status(200).json({ success: true, message: `Successfully connected to ${exchangeId} in sandbox mode.` });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
 /**
- * Gets the balance of a given exchange.
+ * Gets the balance of a given exchange in sandbox mode.
  */
 const getWalletBalance = async (req, res) => {
     const { exchangeId } = req.query;
@@ -26,7 +25,7 @@ const getWalletBalance = async (req, res) => {
         return res.status(400).json({ success: false, message: "exchangeId is required." });
     }
     try {
-        const exchange = await connectToExchange(exchangeId, false);
+        const exchange = await connectToExchange(exchangeId, true);
         const balance = await exchange.fetchBalance();
         res.status(200).json({ success: true, data: balance });
     } catch (error) {
@@ -35,8 +34,7 @@ const getWalletBalance = async (req, res) => {
 };
 
 /**
- * Transfers a currency from one exchange to another.
- * This is a withdrawal from the source exchange to the deposit address of the destination exchange.
+ * Transfers a currency from one exchange to another in sandbox mode.
  */
 const transferCurrency = async (req, res) => {
     const { fromExchangeId, toExchangeId, symbol, amount } = req.body;
@@ -45,13 +43,10 @@ const transferCurrency = async (req, res) => {
     }
 
     try {
-        const fromExchange = await connectToExchange(fromExchangeId, false);
-        const toExchange = await connectToExchange(toExchangeId, false);
+        const fromExchange = await connectToExchange(fromExchangeId, true);
+        const toExchange = await connectToExchange(toExchangeId, true);
 
-        // 1. Get deposit address from the destination exchange
         const depositAddress = await toExchange.fetchDepositAddress(symbol);
-
-        // 2. Withdraw from the source exchange to the deposit address
         const withdrawal = await fromExchange.withdraw(symbol, amount, depositAddress.address, depositAddress.tag);
 
         res.status(200).json({ success: true, data: withdrawal });
@@ -61,7 +56,7 @@ const transferCurrency = async (req, res) => {
 };
 
 /**
- * Buys a symbol on a given exchange.
+ * Buys a symbol on a given exchange in sandbox mode.
  */
 const buySymbol = async (req, res) => {
     const { exchangeId, symbol, usdtAmount, amount } = req.body;
@@ -70,7 +65,7 @@ const buySymbol = async (req, res) => {
     }
 
     try {
-        const exchange = await connectToExchange(exchangeId, false);
+        const exchange = await connectToExchange(exchangeId, true);
         const balance = await exchange.fetchBalance();
 
         if (balance.USDT.free < usdtAmount) {
@@ -85,7 +80,7 @@ const buySymbol = async (req, res) => {
 };
 
 /**
- * Sells a symbol on a given exchange.
+ * Sells a symbol on a given exchange in sandbox mode.
  */
 const sellSymbol = async (req, res) => {
     const { exchangeId, symbol, amount, minUsdtExpected } = req.body;
@@ -94,9 +89,8 @@ const sellSymbol = async (req, res) => {
     }
 
     try {
-        const exchange = await connectToExchange(exchangeId, false);
+        const exchange = await connectToExchange(exchangeId, true);
 
-        // Check current price before selling
         const ticker = await exchange.fetchTicker(symbol);
         const currentPrice = ticker.last;
         const expectedUsdt = amount * currentPrice;
@@ -113,7 +107,7 @@ const sellSymbol = async (req, res) => {
 };
 
 /**
- * Gets the operation history for a given exchange.
+ * Gets the operation history for a given exchange in sandbox mode.
  */
 const getOperationHistory = async (req, res) => {
     const { exchangeId } = req.query;
@@ -121,7 +115,7 @@ const getOperationHistory = async (req, res) => {
         return res.status(400).json({ success: false, message: "exchangeId is required." });
     }
     try {
-        const exchange = await connectToExchange(exchangeId, false);
+        const exchange = await connectToExchange(exchangeId, true);
         const trades = await exchange.fetchMyTrades();
         res.status(200).json({ success: true, data: trades });
     } catch (error) {
@@ -131,7 +125,7 @@ const getOperationHistory = async (req, res) => {
 
 
 /**
- * Gets the networks for a given symbol on a given exchange.
+ * Gets the networks for a given symbol on a given exchange in sandbox mode.
  */
 const getSymbolNetworks = async (req, res) => {
     const { exchangeId, symbol } = req.query;
@@ -139,7 +133,7 @@ const getSymbolNetworks = async (req, res) => {
         return res.status(400).json({ success: false, message: "exchangeId and symbol are required." });
     }
     try {
-        const exchange = await connectToExchange(exchangeId, false);
+        const exchange = await connectToExchange(exchangeId, true);
 
         // We need to load markets first to get currency details
         await exchange.loadMarkets();
@@ -148,7 +142,7 @@ const getSymbolNetworks = async (req, res) => {
         const currency = exchange.currencies[symbol];
 
         if (!currency || !currency.networks) {
-            return res.status(404).json({ success: false, message: `Networks for symbol '${symbol}' not found on exchange '${exchangeId}'.` });
+            return res.status(404).json({ success: false, message: `Networks for symbol '${symbol}' not found on exchange '${exchangeId}' in sandbox mode.` });
         }
 
         res.status(200).json({ success: true, data: currency.networks });
