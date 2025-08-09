@@ -23,7 +23,7 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
   useEffect(() => {
     const fetchSymbols = async () => {
       try {
-        const response = await fetch('/api/sebo/symbols');
+        const response = await fetch('/api/v3/sebo/symbols');
         const data = await response.json();
         setSymbols(data);
       } catch (error) {
@@ -91,7 +91,7 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
         intervalo: formData.intervalo
       };
 
-      const response = await fetch('/api/v3/create-training-csv', {
+      const response = await fetch("/api/v3/create-training-csv", {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
