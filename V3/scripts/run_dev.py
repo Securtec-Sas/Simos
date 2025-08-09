@@ -41,13 +41,14 @@ class ChangeHandler(FileSystemEventHandler):
 
 def main():
     path = os.path.dirname(os.path.abspath(__file__))
+    parent_path = os.path.dirname(path)
     command = [sys.executable, os.path.join(path, 'start_v3.py')]
 
-    logging.info(f"Vigilando cambios en el directorio: {path}")
+    logging.info(f"Vigilando cambios en el directorio: {parent_path}")
 
     event_handler = ChangeHandler(command)
     observer = Observer()
-    observer.schedule(event_handler, path, recursive=True)
+    observer.schedule(event_handler, parent_path, recursive=True)
     observer.start()
 
     try:
