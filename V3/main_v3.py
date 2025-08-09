@@ -11,7 +11,7 @@ from flask import Flask
 from config_v3 import LOG_LEVEL, LOG_FILE_PATH
 from utils import setup_logging
 from sebo_connector import SeboConnector
-from ui_broadcaster_socketio import UIBroadcaster
+from ui_broadcaster import UIBroadcaster
 from exchange_manager import ExchangeManager
 from data_persistence import DataPersistence
 from trading_logic import TradingLogic
@@ -20,6 +20,7 @@ from simulation_engine import SimulationEngine
 from api_v3_routes import APIv3Routes
 from socket_optimizer import SocketOptimizer
 from training_handler import TrainingHandler # Importar TrainingHandler
+
 
 class CryptoArbitrageV3:
     """Aplicación principal de arbitraje de criptomonedas V3."""
