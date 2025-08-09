@@ -7,8 +7,8 @@ import urllib.parse
 from typing import Dict, Any, Set, Optional, Callable
 import websockets
 from websockets.exceptions import ConnectionClosed
-from config_v3 import UI_WEBSOCKET_URL
-from utils import get_current_timestamp
+from shared.config_v3 import UI_WEBSOCKET_URL
+from shared.utils import get_current_timestamp
 
 class UIBroadcaster:
     """Maneja la comunicación WebSocket con la interfaz de usuario."""
@@ -277,7 +277,7 @@ class UIBroadcaster:
         }
         
         await self.broadcast_message(message)
-        self.logger.info(f"Estado de trading cambiado: {'ACTIVO' if is_active else 'INACTIVO'}")
+        self.logger.info(f"Estado de trading cambiado: {"ACTIVO" if is_active else "INACTIVO"}")
     
     async def broadcast_log_message(self, level: str, message: str, data: Dict = None):
         """Envía un mensaje de log a la UI."""

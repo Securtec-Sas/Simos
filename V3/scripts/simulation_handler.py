@@ -8,10 +8,14 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 import json
 
-from config_v3 import DATA_DIR
-from utils import get_current_timestamp, safe_float
-from ai_model import ArbitrageAIModel
-from data_persistence import DataPersistence
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from shared.config_v3 import DATA_DIR
+from shared.utils import get_current_timestamp, safe_float
+from core.ai_model import ArbitrageAIModel
+from adapters.persistence.data_persistence import DataPersistence
 
 class SimulationHandler:
     """Manejador para simulaciones del modelo de IA."""

@@ -13,11 +13,11 @@ import os
 import signal
 from pathlib import Path
 
-# Agregar el directorio V3 al path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add the parent directory (V3) to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from main_v3 import CryptoArbitrageV3
-from config_v3 import SIMULATION_MODE
+from shared.config_v3 import SIMULATION_MODE
 
 def setup_signal_handlers(app):
     """Configura manejadores de señales para shutdown graceful."""
@@ -123,4 +123,3 @@ if __name__ == "__main__":
     
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
-

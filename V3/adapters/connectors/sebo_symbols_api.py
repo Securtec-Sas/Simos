@@ -5,8 +5,8 @@ import logging
 from typing import List, Dict, Optional
 import aiohttp
 
-from config_v3 import SEBO_API_BASE_URL, REQUEST_TIMEOUT
-from utils import make_http_request
+from shared.config_v3 import SEBO_API_BASE_URL, REQUEST_TIMEOUT
+from shared.utils import make_http_request
 
 class SeboSymbolsAPI:
     """API para obtener símbolos desde Sebo."""

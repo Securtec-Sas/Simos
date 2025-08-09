@@ -4,18 +4,18 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List, Callable
-from config_v3 import (
+from shared.config_v3 import (
     MIN_PROFIT_PERCENTAGE, MIN_PROFIT_USDT, MIN_OPERATIONAL_USDT,
     DEFAULT_INVESTMENT_MODE, DEFAULT_INVESTMENT_PERCENTAGE, DEFAULT_FIXED_INVESTMENT_USDT,
     SIMULATION_MODE, SIMULATION_DELAY, PREFERRED_NETWORKS
 )
-from utils import (
+from shared.utils import (
     create_symbol_dict, safe_float, safe_dict_get, get_current_timestamp,
     is_profitable_operation, format_operation_summary, find_cheapest_network
 )
-from exchange_manager import ExchangeManager
-from data_persistence import DataPersistence
-from ai_model import ArbitrageAIModel
+from adapters.exchanges.exchange_manager import ExchangeManager
+from adapters.persistence.data_persistence import DataPersistence
+from core.ai_model import ArbitrageAIModel
 
 class TradingLogic:
     """Maneja la lógica central de trading y arbitraje."""
@@ -183,7 +183,7 @@ class TradingLogic:
             ai_decision = self.ai_model.predict(ai_input_data)
             ai_input_data["ai_decision"] = ai_decision
             
-            self.logger.info(f"Decisión IA para {symbol}: {ai_decision['should_execute']} (confianza: {ai_decision['confidence']:.3f})")
+            self.logger.info(f"Decisión IA para {symbol}: {ai_decision["should_execute"]} (confianza: {ai_decision["confidence"]:.3f})")
             
             # Ejecutar operación si es rentable
             if ai_decision.get("should_execute", False):

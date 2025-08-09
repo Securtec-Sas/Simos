@@ -7,8 +7,8 @@ import urllib.parse
 from typing import Dict, Any, Optional, List, Callable
 import socketio
 import aiohttp
-from config_v3 import WEBSOCKET_URL, SEBO_API_BASE_URL, REQUEST_TIMEOUT
-from utils import make_http_request, safe_dict_get, get_current_timestamp
+from shared.config_v3 import WEBSOCKET_URL, SEBO_API_BASE_URL, REQUEST_TIMEOUT
+from shared.utils import make_http_request, safe_dict_get, get_current_timestamp
 
 class SeboConnector:
     """Maneja la conexión con el servidor Sebo (Socket.IO y API REST)."""

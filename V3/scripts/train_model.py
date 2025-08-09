@@ -14,13 +14,13 @@ import os
 from datetime import datetime
 import json
 
-# Agregar el directorio V3 al path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add the parent directory (V3) to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ai_model import ArbitrageAIModel
-from simulation_engine import SimulationEngine
-from data_persistence import DataPersistence
-from utils import setup_logging
+from core.ai_model import ArbitrageAIModel
+from core.simulation_engine import SimulationEngine
+from adapters.persistence.data_persistence import DataPersistence
+from shared.utils import setup_logging
 
 async def main():
     parser = argparse.ArgumentParser(description='Entrenar modelo de IA para arbitraje')
