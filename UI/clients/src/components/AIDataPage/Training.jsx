@@ -7,8 +7,7 @@ const Training = ({
   inputStyle, 
   controlGroupStyle, 
   preStyle, 
-  statusBoxStyle, 
-  chartPlaceholderStyle 
+  statusBoxStyle
 }) => {
   const [activeSection, setActiveSection] = useState('data-creation');
   const [symbols, setSymbols] = useState([]);
@@ -112,7 +111,8 @@ const Training = ({
       setTrainingResults(null);
       setTrainingError(null); // Resetear error al iniciar
 
-      sendV3Command('start_ai_training', {
+      // FIX: Emit the correct event name 'train_ai_model'
+      sendV3Command('train_ai_model', {
         csv_filename: selectedCsv
       });
     } else {
@@ -122,10 +122,18 @@ const Training = ({
   };
 
   useEffect(() => {
-    if (v3Data && v3Data.type === 'ai_training_update') {
-      const { progress, status, results, error } = v3Data.payload;
-      setTrainingProgress(progress || 0);
-      setTrainingStatus(status); // Directamente usar el estado del backend
+    // FIX 1: Listen for the correct event type 'ai_training_progress'
+    if (v3Data && v3Data.type === 'ai_training_progress') {
+      // FIX 2: Unpack data from the correct nested object 'v3Data.payload.data'
+      const { progress, status, results, error } = v3Data.payload.data;
+
+      if (status) {
+        setTrainingStatus(status);
+      }
+
+      if (typeof progress !== 'undefined') {
+        setTrainingProgress(progress);
+      }
 
       if (status === 'COMPLETED') {
         setTrainingResults(results);
