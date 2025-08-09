@@ -118,8 +118,11 @@ app.use("/api/trading", tradingRoutes);
 const symbolRoutes = require("./routes/symbolRoutes");
 app.use("/api/symbols", symbolRoutes);
 
-const operationRoutes = require("./routes/routesOperation");
-app.use("/api", operationRoutes);
+const operationRoutes = require("./routes/operationRoutes");
+app.use("/api/operations", operationRoutes);
+
+const sandboxOperationRoutes = require("./routes/sandboxOperationRoutes");
+app.use("/api/sandbox-operations", sandboxOperationRoutes);
 
 // Nueva ruta para datos históricos de OHLCV
 app.get("/api/historical-ohlcv", analyzerController.getHistoricalOHLCV);
