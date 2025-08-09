@@ -83,8 +83,8 @@ class CryptoArbitrageV3:
         self.ui_broadcaster.set_get_latest_balance_callback(self.data_persistence.load_balance_cache)
         self.ui_broadcaster.set_train_ai_model_callback(self.training_handler.start_training) # Configurar callback para entrenamiento
         self.ui_broadcaster.set_test_ai_model_callback(self.training_handler.start_tests) # Configurar callback para pruebas
-        self.ui_broadcaster.set_get_training_status_callback(self.training_handler.get_training_status) # Nuevo: callback para obtener estado de entrenamiento
-        self.ui_broadcaster.set_get_test_status_callback(self.training_handler.get_testing_status) # Nuevo: callback para obtener estado de pruebas
+        self.ui_broadcaster.set_get_training_status_callback(self._get_training_status_wrapper) # Callback wrapper para estado de entrenamiento
+        self.ui_broadcaster.set_get_test_status_callback(self._get_test_status_wrapper) # Callback wrapper para estado de pruebas
         
         # Callbacks de TradingLogic
         self.trading_logic.set_operation_complete_callback(self._on_operation_complete)
@@ -315,12 +315,10 @@ class CryptoArbitrageV3:
                     await self.ui_broadcaster.on_test_ai_model_callback(payload)
             elif message_type == "get_training_status": # Manejar el nuevo tipo de mensaje
                 if self.ui_broadcaster.on_get_training_status_callback:
-                    in_progress, progress, filepath = self.ui_broadcaster.on_get_training_status_callback()
-                    await self.ui_broadcaster.broadcast_training_progress(progress, not in_progress, filepath)
+                    await self.ui_broadcaster.on_get_training_status_callback()
             elif message_type == "get_test_status": # Manejar estado de pruebas
                 if self.ui_broadcaster.on_get_test_status_callback:
-                    in_progress, progress, filepath = self.ui_broadcaster.on_get_test_status_callback()
-                    await self.ui_broadcaster.broadcast_test_progress(progress, not in_progress, filepath)
+                    await self.ui_broadcaster.on_get_test_status_callback()
             else:
                 self.logger.warning(f"Tipo de mensaje UI no reconocido: {message_type}")
                 
@@ -412,6 +410,22 @@ class CryptoArbitrageV3:
             
         except Exception as e:
             self.logger.error(f"Error procesando cambio de estado de trading: {e}")
+    
+    async def _get_training_status_wrapper(self):
+        """Wrapper asíncrono para obtener el estado de entrenamiento."""
+        try:
+            in_progress, progress, filepath = self.training_handler.get_training_status()
+            await self.ui_broadcaster.broadcast_training_progress(progress, not in_progress, filepath)
+        except Exception as e:
+            self.logger.error(f"Error obteniendo estado de entrenamiento: {e}")
+    
+    async def _get_test_status_wrapper(self):
+        """Wrapper asíncrono para obtener el estado de pruebas."""
+        try:
+            in_progress, progress, filepath = self.training_handler.get_testing_status()
+            await self.ui_broadcaster.broadcast_test_progress(progress, not in_progress, filepath)
+        except Exception as e:
+            self.logger.error(f"Error obteniendo estado de pruebas: {e}")
 
 async def main():
     """Función principal."""

@@ -121,7 +121,7 @@ const Training = ({
     setCsvCreationStatus({ status: 'creating', data: null });
     try {
       const payload = { ...formData };
-      const response = await fetch('/api/trading/create-training-csv', {
+      const response = await fetch('/api/v3/create-training-csv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
