@@ -51,12 +51,18 @@ const connectDB = async () => {
   }
 };
 
+
 // Importar modelos
 const Exchange = require('./modelosBD/exchange.model');
 const Symbol = require('./modelosBD/symbol.model');
 const ExchangeSymbol = require('./modelosBD/exchangeSymbol.model');
 const Analysis = require('./modelosBD/analysis.model');
 const Balance = require('./modelosBD/balance.model'); // Import Balance model
+const config = require('./modelosBD/config.model');
+const exchange = require('./modelosBD/exchange.model');
+const exchangeSecurity = require('./modelosBD/exchangeSecurity.model');
+const networks = require('./modelosBD/networks.model');
+const symbol = require('./modelosBD/symbol.model');
 
 // Exportar la conexión y los modelos
 module.exports = {
@@ -68,5 +74,10 @@ module.exports = {
   Symbol,
   ExchangeSymbol,
   Analysis,
-  Balance // Export Balance model
+  Balance, // Export Balance model
+  config,
+  exchange,
+  exchangeSecurity,
+  networks,
+  symbol
 };
