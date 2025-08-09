@@ -130,6 +130,33 @@ const getOperationHistory = async (req, res) => {
 };
 
 
+/**
+ * Gets the networks for a given symbol on a given exchange.
+ */
+const getSymbolNetworks = async (req, res) => {
+    const { exchangeId, symbol } = req.query;
+    if (!exchangeId || !symbol) {
+        return res.status(400).json({ success: false, message: "exchangeId and symbol are required." });
+    }
+    try {
+        const exchange = await connectToExchange(exchangeId, false);
+
+        // We need to load markets first to get currency details
+        await exchange.loadMarkets();
+
+        // CCXT stores currency info, including networks, in `exchange.currencies`
+        const currency = exchange.currencies[symbol];
+
+        if (!currency || !currency.networks) {
+            return res.status(404).json({ success: false, message: `Networks for symbol '${symbol}' not found on exchange '${exchangeId}'.` });
+        }
+
+        res.status(200).json({ success: true, data: currency.networks });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     connect,
     getWalletBalance,
@@ -137,4 +164,5 @@ module.exports = {
     buySymbol,
     sellSymbol,
     getOperationHistory,
+    getSymbolNetworks,
 };

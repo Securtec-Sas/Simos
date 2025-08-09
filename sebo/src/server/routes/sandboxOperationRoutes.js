@@ -169,4 +169,33 @@ router.post('/sell', sandboxOperationController.sellSymbol);
  */
 router.get('/history', sandboxOperationController.getOperationHistory);
 
+/**
+ * @swagger
+ * /api/sandbox-operations/networks:
+ *   get:
+ *     summary: Get available networks for a currency on an exchange in sandbox mode
+ *     tags: [Sandbox Operations]
+ *     parameters:
+ *       - in: query
+ *         name: exchangeId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the exchange.
+ *       - in: query
+ *         name: symbol
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The currency symbol (e.g., 'BTC', 'ETH').
+ *     responses:
+ *       200:
+ *         description: An object containing the available networks from the sandbox.
+ *       404:
+ *         description: Symbol or networks not found.
+ *       500:
+ *         description: Error fetching the networks.
+ */
+router.get('/networks', sandboxOperationController.getSymbolNetworks);
+
 module.exports = router;

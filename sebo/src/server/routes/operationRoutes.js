@@ -169,4 +169,33 @@ router.post('/sell', operationController.sellSymbol);
  */
 router.get('/history', operationController.getOperationHistory);
 
+/**
+ * @swagger
+ * /api/operations/networks:
+ *   get:
+ *     summary: Get available networks for a currency on an exchange
+ *     tags: [Operations]
+ *     parameters:
+ *       - in: query
+ *         name: exchangeId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The ID of the exchange.
+ *       - in: query
+ *         name: symbol
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The currency symbol (e.g., 'BTC', 'ETH').
+ *     responses:
+ *       200:
+ *         description: An object containing the available networks.
+ *       404:
+ *         description: Symbol or networks not found.
+ *       500:
+ *         description: Error fetching the networks.
+ */
+router.get('/networks', operationController.getSymbolNetworks);
+
 module.exports = router;
