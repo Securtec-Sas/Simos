@@ -302,7 +302,7 @@ class CryptoArbitrageV3:
                 await self._send_trading_stats()
             elif message_type == "export_data":
                 await self._handle_data_export(payload)
-            elif message_type == "start_ai_training": # Manejar el nuevo tipo de mensaje
+            elif message_type == "train_ai_model": # Manejar el nuevo tipo de mensaje
                 if self.ui_broadcaster.on_train_ai_model_callback:
                     await self.ui_broadcaster.on_train_ai_model_callback(payload)
             elif message_type == "get_training_status": # Manejar el nuevo tipo de mensaje
