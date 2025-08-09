@@ -4,6 +4,7 @@
         "google.geminicodeassist",
         "silasnevstad.gpthelper",
         "blackboxapp.blackboxagent",
-        "codeium.codeium"
+        "codeium.codeium",
+        "aaravb.chrome-extension-developer-tools"
     ]
 }

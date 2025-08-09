@@ -19,7 +19,7 @@ from ai_model import ArbitrageAIModel
 from simulation_engine import SimulationEngine
 from api_v3_routes import APIv3Routes
 from socket_optimizer import SocketOptimizer
-from training_handler import TrainingHandler
+from training_handler import TrainingHandler # Importar TrainingHandler
 
 class CryptoArbitrageV3:
     """Aplicación principal de arbitraje de criptomonedas V3."""
@@ -40,11 +40,7 @@ class CryptoArbitrageV3:
         self.ai_model = ArbitrageAIModel()
         self.trading_logic = TradingLogic(self.exchange_manager, self.data_persistence, self.ai_model)
         self.simulation_engine = SimulationEngine(self.ai_model, self.data_persistence)
-        self.training_handler = TrainingHandler(self.sebo_connector, self.ai_model, self.data_persistence)
-
-        # Romper dependencia circular
-        self.ui_broadcaster.training_handler = self.training_handler
-        self.training_handler.ui_broadcaster = self.ui_broadcaster
+        self.training_handler = TrainingHandler(self.sebo_connector, self.ai_model, self.data_persistence, self.ui_broadcaster) # Inicializar TrainingHandler
         
         # Inicializar API v3
         self.api_v3 = APIv3Routes(
@@ -78,11 +74,12 @@ class CryptoArbitrageV3:
         
         # Callbacks de UIBroadcaster
         self.ui_broadcaster.set_trading_start_callback(self._on_trading_start_request)
-        self.ui_broadcaster.set_start_ai_training_callback(self.training_handler.start_training)
         self.ui_broadcaster.set_trading_stop_callback(self._on_trading_stop_request)
         self.ui_broadcaster.set_ui_message_callback(self._on_ui_message)
         self.ui_broadcaster.set_get_ai_model_details_callback(self._on_get_ai_model_details_request)
         self.ui_broadcaster.set_get_latest_balance_callback(self.data_persistence.load_balance_cache)
+        self.ui_broadcaster.set_train_ai_model_callback(self.training_handler.start_training) # Configurar callback para entrenamiento
+        self.ui_broadcaster.set_get_training_status_callback(self.training_handler.get_training_status) # Nuevo: callback para obtener estado de entrenamiento
         
         # Callbacks de TradingLogic
         self.trading_logic.set_operation_complete_callback(self._on_operation_complete)
@@ -271,7 +268,7 @@ class CryptoArbitrageV3:
             self.logger.info("Solicitud de inicio de trading recibida desde UI")
             
             # Extraer configuración si se proporciona
-            config = payload.get('config', {})
+            config = payload.get("config", {})
             
             await self.trading_logic.start_trading(config)
             
@@ -299,11 +296,11 @@ class CryptoArbitrageV3:
         try:
             self.logger.debug(f"Mensaje UI recibido: {message_type}")
             
-            if message_type == 'get_system_status':
+            if message_type == "get_system_status":
                 await self._send_system_status()
-            elif message_type == 'get_trading_stats':
+            elif message_type == "get_trading_stats":
                 await self._send_trading_stats()
-            elif message_type == 'export_data':
+            elif message_type == "export_data":
                 await self._handle_data_export(payload)
             else:
                 self.logger.warning(f"Tipo de mensaje UI no reconocido: {message_type}")
@@ -349,8 +346,8 @@ class CryptoArbitrageV3:
     async def _handle_data_export(self, payload: Dict):
         """Maneja solicitudes de exportación de datos."""
         try:
-            export_type = payload.get('type', 'operations')
-            export_path = payload.get('path', f'export_{export_type}.csv')
+            export_type = payload.get("type", "operations")
+            export_path = payload.get("path", f"export_{export_type}.csv")
             
             success = await self.data_persistence.export_data(export_path, export_type)
             
@@ -376,9 +373,9 @@ class CryptoArbitrageV3:
             await self.socket_optimizer.on_operation_completed(operation_result)
             
             # Log de la operación
-            symbol = operation_result.get('symbol', 'N/A')
-            decision = operation_result.get('decision_outcome', 'N/A')
-            profit = operation_result.get('net_profit_usdt', 0)
+            symbol = operation_result.get("symbol", "N/A")
+            decision = operation_result.get("decision_outcome", "N/A")
+            profit = operation_result.get("net_profit_usdt", 0)
             
             self.logger.info(f"Operación completada: {symbol} | {decision} | Profit: {profit:.4f} USDT")
             
@@ -429,10 +426,6 @@ async def main():
             await app.shutdown()
 
 if __name__ == "__main__":
-    # Configurar política de eventos para Windows
-    if sys.platform.startswith('win'):
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    
-    # Ejecutar aplicación
-    exit_code = asyncio.run(main())
-    sys.exit(exit_code)
+    sys.exit(asyncio.run(main()))
+
+

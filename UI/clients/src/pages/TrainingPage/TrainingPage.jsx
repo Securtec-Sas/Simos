@@ -33,6 +33,14 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
     fetchSymbols();
   }, []);
 
+  // Solicitar estado de entrenamiento a V3 al cargar la página
+  useEffect(() => {
+    sendV3Command({
+      type: 'get_training_status',
+      payload: {}
+    });
+  }, [sendV3Command]);
+
   // Calcular operaciones posibles basado en fecha e intervalo
   const calculatePossibleOperations = () => {
     if (!formData.fecha || !formData.intervalo) return 0;
@@ -123,23 +131,14 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
       setTrainingStatus('training');
       setTrainingProgress(0);
 
-      const response = await fetch('/api/v3/start-training', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ csvData })
+      // Enviar la ruta del archivo CSV a V3 a través de un comando de socket
+      sendV3Command({
+        type: 'start_training',
+        payload: { filepath: csvData.filepath }
       });
-
-      const result = await response.json();
       
-      if (result.status === 'success') {
-        // El progreso se actualizará vía WebSocket
-        console.log('Entrenamiento iniciado');
-      } else {
-        setTrainingStatus('idle');
-        alert(`Error: ${result.message}`);
-      }
+      console.log('Entrenamiento iniciado (vía socket)');
+
     } catch (error) {
       console.error('Error iniciando entrenamiento:', error);
       setTrainingStatus('idle');
@@ -203,15 +202,33 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
 
   // Escuchar actualizaciones de entrenamiento vía WebSocket
   useEffect(() => {
-    if (v3Data && v3Data.type === 'training_progress') {
-      setTrainingProgress(v3Data.payload.progress);
-      if (v3Data.payload.completed) {
+    if (v3Data) {
+      if (v3Data.type === 'training_progress') {
+        setTrainingProgress(v3Data.payload.progress);
+        if (v3Data.payload.completed) {
+          setTrainingStatus('completed');
+        } else {
+          setTrainingStatus('training');
+        }
+      } else if (v3Data.type === 'training_complete') {
         setTrainingStatus('completed');
+        setTrainingProgress(100);
+        alert('Entrenamiento completado!');
+      } else if (v3Data.type === 'training_error') {
+        setTrainingStatus('idle');
+        setTrainingProgress(0);
+        alert(`Error en entrenamiento: ${v3Data.payload.message}`);
+      } else if (v3Data.type === 'training_status') { // Nuevo tipo de mensaje para el estado inicial
+        setTrainingStatus(v3Data.payload.status);
+        setTrainingProgress(v3Data.payload.progress);
+        if (v3Data.payload.filepath) {
+          setCsvData({ filepath: v3Data.payload.filepath }); // Restaurar csvData si hay un entrenamiento en curso
+        }
       }
-    }
-    
-    if (v3Data && v3Data.type === 'simulation_complete') {
-      setSimulationResults(v3Data.payload.results);
+      
+      if (v3Data.type === 'simulation_complete') {
+        setSimulationResults(v3Data.payload.results);
+      }
     }
   }, [v3Data]);
 
@@ -483,103 +500,72 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
 
         {activeSection === 'simulation' && (
           <div className="simulation-section">
-            <h2>Simulación del Modelo</h2>
+            <h2>Simulación de Trading</h2>
             
-            <div className="simulation-config">
-              <h3>Configuración de Simulación</h3>
-              
-              <div className="config-grid">
-                <div className="form-group">
-                  <label htmlFor="simulationDays">Duración (días):</label>
-                  <input
-                    type="number"
-                    id="simulationDays"
-                    min="1"
-                    max="30"
-                    defaultValue="7"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="initialBalance">Balance inicial (USDT):</label>
-                  <input
-                    type="number"
-                    id="initialBalance"
-                    min="100"
-                    max="10000"
-                    defaultValue="1000"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="simulationInterval">Intervalo:</label>
-                  <select id="simulationInterval" defaultValue="1h">
-                    <option value="5m">5 minutos</option>
-                    <option value="15m">15 minutos</option>
-                    <option value="30m">30 minutos</option>
-                    <option value="1h">1 hora</option>
-                    <option value="4h">4 horas</option>
-                    <option value="1d">1 día</option>
-                  </select>
-                </div>
-                
-                <div className="form-group">
-                  <label htmlFor="riskTolerance">Tolerancia al riesgo:</label>
-                  <select id="riskTolerance" defaultValue="medium">
-                    <option value="low">Baja</option>
-                    <option value="medium">Media</option>
-                    <option value="high">Alta</option>
-                  </select>
-                </div>
-              </div>
-              
-              <button 
-                className="start-simulation-btn"
-                onClick={handleStartSimulation}
-                disabled={!csvData}
-              >
-                Iniciar Simulación
-              </button>
-              
-              {!csvData && (
-                <p className="warning-text">
-                  Debe entrenar el modelo antes de ejecutar simulaciones
-                </p>
-              )}
+            <div className="form-group">
+              <label htmlFor="simulationDays">Duración de la simulación (días):</label>
+              <input
+                type="number"
+                id="simulationDays"
+                defaultValue="7"
+                min="1"
+                max="30"
+              />
             </div>
-            
+            <div className="form-group">
+              <label htmlFor="initialBalance">Balance inicial (USDT):</label>
+              <input
+                type="number"
+                id="initialBalance"
+                defaultValue="1000"
+                min="100"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="simulationInterval">Intervalo de tiempo:</label>
+              <select id="simulationInterval">
+                <option value="5m">5 minutos</option>
+                <option value="15m">15 minutos</option>
+                <option value="1h">1 hora</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label htmlFor="riskTolerance">Tolerancia al riesgo:</label>
+              <select id="riskTolerance">
+                <option value="low">Baja</option>
+                <option value="medium">Media</option>
+                <option value="high">Alta</option>
+              </select>
+            </div>
+            <button 
+              className="start-simulation-btn"
+              onClick={handleStartSimulation}
+            >
+              Iniciar Simulación
+            </button>
+
             {simulationResults && (
               <div className="simulation-results">
-                <h3>Resultados de Simulación</h3>
-                
-                <div className="results-summary">
-                  <div className="summary-grid">
-                    <div className="summary-item profit">
-                      <label>Ganancia Total:</label>
-                      <span>{simulationResults.total_profit?.toFixed(2)} USDT</span>
-                    </div>
-                    <div className="summary-item roi">
-                      <label>ROI:</label>
-                      <span>{simulationResults.roi_percentage}%</span>
-                    </div>
-                    <div className="summary-item operations">
-                      <label>Operaciones:</label>
-                      <span>{simulationResults.total_operations}</span>
-                    </div>
-                    <div className="summary-item success-rate">
-                      <label>Tasa de Éxito:</label>
-                      <span>{simulationResults.success_rate}%</span>
-                    </div>
+                <h3>Resultados de la Simulación</h3>
+                <div className="results-grid">
+                  <div className="result-item">
+                    <label>ROI:</label>
+                    <span className="metric-value">{simulationResults.roi}%</span>
+                  </div>
+                  <div className="result-item">
+                    <label>Ganancia Total:</label>
+                    <span className="metric-value">{simulationResults.totalProfit} USDT</span>
+                  </div>
+                  <div className="result-item">
+                    <label>Operaciones Exitosas:</label>
+                    <span className="metric-value">{simulationResults.successfulTrades}</span>
+                  </div>
+                  <div className="result-item">
+                    <label>Drawdown Máximo:</label>
+                    <span className="metric-value">{simulationResults.maxDrawdown}%</span>
                   </div>
                 </div>
-                
-                <div className="simulation-chart">
-                  <h4>Evolución del Balance</h4>
-                  <div className="chart-placeholder">
-                    {/* Aquí se mostraría un gráfico de la evolución del balance */}
-                    <p>Gráfico de evolución del balance durante la simulación</p>
-                  </div>
-                </div>
+                <p>Balance Final: {simulationResults.finalBalance} USDT</p>
               </div>
             )}
           </div>
