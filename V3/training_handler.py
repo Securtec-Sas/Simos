@@ -22,7 +22,7 @@ class TrainingHandler:
     
     def __init__(self, sebo_connector, ai_model: ArbitrageAIModel, 
                  data_persistence: DataPersistence, ui_broadcaster=None):
-        self.logger = logging.getLogger('V3.TrainingHandler')
+        self.logger = logging.getLogger("V3.TrainingHandler")
         self.sebo_connector = sebo_connector
         self.ai_model = ai_model
         self.data_persistence = data_persistence
@@ -35,6 +35,7 @@ class TrainingHandler:
         self.training_in_progress = False
         self.training_results = {}
         self.training_progress = 0
+        self.training_filepath = None # Para persistir la ruta del archivo
         
     async def create_training_csv(self, request_data: Dict) -> Dict:
         """Crea un CSV de datos para entrenamiento."""
@@ -42,17 +43,17 @@ class TrainingHandler:
             self.logger.info("Iniciando creación de CSV de entrenamiento")
             
             # Extraer parámetros
-            fecha = request_data.get('fecha')
-            operaciones = request_data.get('operaciones')
-            cantidad_simbolos = request_data.get('cantidadSimbolos')
-            lista_simbolos = request_data.get('listaSimbolos', [])
-            intervalo = request_data.get('intervalo', '5m')
+            fecha = request_data.get("fecha")
+            operaciones = request_data.get("operaciones")
+            cantidad_simbolos = request_data.get("cantidadSimbolos")
+            lista_simbolos = request_data.get("listaSimbolos", [])
+            intervalo = request_data.get("intervalo", "5m")
             
             # Validar fecha
             if not fecha:
                 return {"status": "error", "message": "Fecha es requerida"}
             
-            fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
+            fecha_obj = datetime.strptime(fecha, "%Y-%m-%d")
             if fecha_obj >= datetime.now():
                 return {"status": "error", "message": "La fecha debe ser anterior a la actual"}
             
@@ -104,16 +105,13 @@ class TrainingHandler:
             self.training_in_progress = True
             self.training_progress = 0
             
-            # Obtener datos del CSV
-            csv_data = request_data.get('csvData')
-            if not csv_data:
-                return {"status": "error", "message": "Datos CSV requeridos"}
-            
-            # Cargar datos desde el archivo CSV
-            filepath = csv_data.get('filepath')
+            # Obtener la ruta del archivo del payload
+            filepath = request_data.get("filepath")
             if not filepath or not os.path.exists(filepath):
-                return {"status": "error", "message": "Archivo CSV no encontrado"}
+                return {"status": "error", "message": "Ruta de archivo CSV no válida o no encontrada"}
             
+            self.training_filepath = filepath # Guardar la ruta del archivo
+
             # Iniciar entrenamiento en background
             asyncio.create_task(self._run_training_process(filepath))
             
@@ -159,15 +157,15 @@ class TrainingHandler:
                 # Convertir formato de Sebo al formato esperado
                 formatted_symbols = []
                 for symbol in symbols_data:
-                    if 'id_sy' in symbol and 'name' in symbol:
+                    if "id_sy" in symbol and "name" in symbol:
                         # Extraer base y quote del id_sy (ej: "BTC/USDT" -> base="BTC", quote="USDT")
-                        parts = symbol['id_sy'].split('/')
-                        base = parts[0] if len(parts) > 0 else symbol['name']
-                        quote = parts[1] if len(parts) > 1 else 'USDT'
+                        parts = symbol["id_sy"].split("/")
+                        base = parts[0] if len(parts) > 0 else symbol["name"]
+                        quote = parts[1] if len(parts) > 1 else "USDT"
                         
                         formatted_symbols.append({
-                            "id": symbol['id_sy'].replace('/', ''),  # "BTC/USDT" -> "BTCUSDT"
-                            "name": symbol['id_sy'],  # "BTC/USDT"
+                            "id": symbol["id_sy"].replace("/", ""),  # "BTC/USDT" -> "BTCUSDT"
+                            "name": symbol["id_sy"],  # "BTC/USDT"
                             "base": base,  # "BTC"
                             "quote": quote  # "USDT"
                         })
@@ -196,11 +194,11 @@ class TrainingHandler:
                 {"id": "SOLUSDT", "name": "SOL/USDT", "base": "SOL", "quote": "USDT"}
             ]
     
-    async def _generate_training_data(self, config: Dict) -> List[Dict]:
+    def _select_symbols(self, symbols_data: List[Dict], cantidad: Optional[int], lista: List[str]) -> List[Dict]:
         """Selecciona símbolos según el criterio especificado."""
         if lista:
             # Filtrar por lista específica
-            return [s for s in symbols_data if s['id'] in lista]
+            return [s for s in symbols_data if s["id"] in lista]
         elif cantidad:
             # Tomar los primeros N símbolos
             return symbols_data[:cantidad]
@@ -216,12 +214,12 @@ class TrainingHandler:
         
         # Convertir intervalo a minutos
         interval_minutes = {
-            '5m': 5, '10m': 10, '15m': 15, '30m': 30,
-            '1h': 60, '2h': 120, '3h': 180, '4h': 240,
-            '6h': 360, '12h': 720, '1d': 1440
+            "5m": 5, "10m": 10, "15m": 15, "30m": 30,
+            "1h": 60, "2h": 120, "3h": 180, "4h": 240,
+            "6h": 360, "12h": 720, "1d": 1440
         }
         
-        minutes = interval_minutes.get(intervalo, 5)
+        minutes = interval_minutes.get(intervalo, 5);
         operations_per_day = (24 * 60) // minutes
         total_operations = operations_per_day * diff_days
         
@@ -234,36 +232,36 @@ class TrainingHandler:
         
         # Configuración base
         base_investment = 100.0  # USDT
-        exchanges = ['binance', 'kucoin', 'okx', 'bybit']
+        exchanges = ["binance", "kucoin", "okx", "bybit"]
         
         for i in range(operaciones):
             for symbol in symbols:
                 # Simular datos de operación
                 operation_data = {
-                    'timestamp': (fecha + timedelta(minutes=i * 5)).isoformat(),
-                    'symbol': symbol['name'],
-                    'buy_exchange_id': np.random.choice(exchanges),
-                    'sell_exchange_id': np.random.choice(exchanges),
-                    'current_price_buy': round(np.random.uniform(100, 50000), 2),
-                    'current_price_sell': 0,
-                    'investment_usdt': base_investment,
-                    'estimated_buy_fee': round(np.random.uniform(0.1, 0.5), 3),
-                    'estimated_sell_fee': round(np.random.uniform(0.1, 0.5), 3),
-                    'estimated_transfer_fee': round(np.random.uniform(1, 10), 2),
-                    'decision_outcome': np.random.choice([
-                        'EJECUTADA_EXITOSA', 'EJECUTADA_PERDIDA', 'NO_EJECUTADA_RIESGO',
-                        'NO_EJECUTADA_FEES', 'NO_EJECUTADA_LIQUIDEZ'
+                    "timestamp": (fecha + timedelta(minutes=i * 5)).isoformat(),
+                    "symbol": symbol["name"],
+                    "buy_exchange_id": np.random.choice(exchanges),
+                    "sell_exchange_id": np.random.choice(exchanges),
+                    "current_price_buy": round(np.random.uniform(100, 50000), 2),
+                    "current_price_sell": 0,
+                    "investment_usdt": base_investment,
+                    "estimated_buy_fee": round(np.random.uniform(0.1, 0.5), 3),
+                    "estimated_sell_fee": round(np.random.uniform(0.1, 0.5), 3),
+                    "estimated_transfer_fee": round(np.random.uniform(1, 10), 2),
+                    "decision_outcome": np.random.choice([
+                        "EJECUTADA_EXITOSA", "EJECUTADA_PERDIDA", "NO_EJECUTADA_RIESGO",
+                        "NO_EJECUTADA_FEES", "NO_EJECUTADA_LIQUIDEZ"
                     ]),
-                    'net_profit_usdt': round(np.random.uniform(-5, 15), 4),
-                    'profit_percentage': round(np.random.uniform(-5, 15), 2),
-                    'total_fees_usdt': round(np.random.uniform(0.5, 3), 2),
-                    'execution_time_seconds': np.random.randint(30, 300)
+                    "net_profit_usdt": round(np.random.uniform(-5, 15), 4),
+                    "profit_percentage": round(np.random.uniform(-5, 15), 2),
+                    "total_fees_usdt": round(np.random.uniform(0.5, 3), 2),
+                    "execution_time_seconds": np.random.randint(30, 300)
                 }
                 
                 # Ajustar precio de venta basado en el de compra
                 price_variation = np.random.uniform(0.995, 1.005)
-                operation_data['current_price_sell'] = round(
-                    operation_data['current_price_buy'] * price_variation, 2
+                operation_data["current_price_sell"] = round(
+                    operation_data["current_price_buy"] * price_variation, 2
                 )
                 
                 data.append(operation_data)
@@ -277,7 +275,7 @@ class TrainingHandler:
         
         fieldnames = data[0].keys()
         
-        with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+        with open(filepath, "w", newline="", encoding="utf-8") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(data)
@@ -286,47 +284,58 @@ class TrainingHandler:
         """Ejecuta el proceso de entrenamiento en background."""
         try:
             self.logger.info(f"Iniciando proceso de entrenamiento con {filepath}")
+            self.training_in_progress = True
+            self.training_filepath = filepath
+            self.training_progress = 0
             
             # Cargar datos del CSV
             training_data = await self._load_csv_file(filepath)
             
             if not training_data:
-                await self._broadcast_training_error("No se pudieron cargar los datos de entrenamiento")
+                if self.ui_broadcaster:
+                    await self.ui_broadcaster.broadcast_training_error("No se pudieron cargar los datos de entrenamiento")
+                self.training_in_progress = False
                 return
             
+            # Optimizar datos antes del entrenamiento
+            optimized_data = self._optimize_training_data(training_data)
+
             # Simular progreso de entrenamiento
             for progress in range(0, 101, 10):
                 self.training_progress = progress
-                await self._broadcast_training_progress(progress)
+                if self.ui_broadcaster:
+                    await self.ui_broadcaster.broadcast_training_progress(progress, False, self.training_filepath)
                 await asyncio.sleep(1)  # Simular tiempo de procesamiento
             
-            # Ejecutar entrenamiento real
-            results = self.ai_model.train(training_data)
+            # Ejecutar entrenamiento real con datos optimizados
+            results = self.ai_model.train(optimized_data)
             
             # Completar entrenamiento
             self.training_in_progress = False
             self.training_progress = 100
             
-            await self._broadcast_training_complete(results)
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_training_complete(results)
             
             self.logger.info("Entrenamiento completado exitosamente")
             
         except Exception as e:
             self.logger.error(f"Error en proceso de entrenamiento: {e}")
             self.training_in_progress = False
-            await self._broadcast_training_error(str(e))
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_training_error(str(e))
     
     async def _load_csv_file(self, file_path_or_file) -> List[Dict]:
         """Carga datos desde un archivo CSV."""
         try:
             if isinstance(file_path_or_file, str):
                 # Es una ruta de archivo
-                with open(file_path_or_file, 'r', encoding='utf-8') as file:
+                with open(file_path_or_file, "r", encoding="utf-8") as file:
                     reader = csv.DictReader(file)
                     return list(reader)
             else:
                 # Es un objeto de archivo
-                content = file_path_or_file.read().decode('utf-8')
+                content = file_path_or_file.read().decode("utf-8")
                 reader = csv.DictReader(StringIO(content))
                 return list(reader)
                 
@@ -345,11 +354,11 @@ class TrainingHandler:
             
             for data in test_data:
                 prediction = self.ai_model.predict(data)
-                actual_outcome = data.get('decision_outcome', '')
+                actual_outcome = data.get("decision_outcome", "")
                 
                 # Simplificar comparación
-                predicted_success = prediction.get('should_execute', False)
-                actual_success = 'EJECUTADA_EXITOSA' in actual_outcome
+                predicted_success = prediction.get("should_execute", False)
+                actual_success = "EJECUTADA_EXITOSA" in actual_outcome
                 
                 if predicted_success == actual_success:
                     correct_predictions += 1
@@ -368,36 +377,49 @@ class TrainingHandler:
             self.logger.error(f"Error ejecutando pruebas del modelo: {e}")
             return {"error": str(e)}
     
-    async def _broadcast_training_progress(self, progress: int):
-        """Envía progreso de entrenamiento vía WebSocket."""
-        if self.ui_broadcaster:
-            await self.ui_broadcaster.broadcast_message({
-                "type": "training_progress",
-                "payload": {
-                    "progress": progress,
-                    "completed": False
-                }
-            })
-    
-    async def _broadcast_training_complete(self, results: Dict):
-        """Envía notificación de entrenamiento completado."""
-        if self.ui_broadcaster:
-            await self.ui_broadcaster.broadcast_message({
-                "type": "training_progress",
-                "payload": {
-                    "progress": 100,
-                    "completed": True,
-                    "results": results
-                }
-            })
-    
-    async def _broadcast_training_error(self, error_message: str):
-        """Envía notificación de error en entrenamiento."""
-        if self.ui_broadcaster:
-            await self.ui_broadcaster.broadcast_message({
-                "type": "training_error",
-                "payload": {
-                    "error": error_message
-                }
-            })
+    def _optimize_training_data(self, data: List[Dict]) -> List[Dict]:
+        """Optimiza los datos de entrenamiento (ej. normalización, selección de características)."""
+        self.logger.info(f"Optimizando {len(data)} registros de entrenamiento...")
+        if not data:
+            return []
+
+        df = pd.DataFrame(data)
+
+        # Ejemplo de optimización: Normalización de columnas numéricas
+        numeric_cols = [
+            'current_price_buy', 'current_price_sell', 'investment_usdt',
+            'estimated_buy_fee', 'estimated_sell_fee', 'estimated_transfer_fee',
+            'net_profit_usdt', 'profit_percentage', 'total_fees_usdt',
+            'execution_time_seconds'
+        ]
+        for col in numeric_cols:
+            if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+                min_val = df[col].min()
+                max_val = df[col].max()
+                if max_val > min_val:
+                    df[col] = (df[col] - min_val) / (max_val - min_val)
+                else:
+                    df[col] = 0.0 # O manejar como constante si todos los valores son iguales
+
+        # Ejemplo de selección de características (mantener solo las relevantes para el modelo AI)
+        # Asegúrate de que estas columnas existan en tu CSV o maneja los errores
+        features_for_ai = [
+            'timestamp', 'symbol', 'buy_exchange_id', 'sell_exchange_id',
+            'current_price_buy', 'current_price_sell', 'investment_usdt',
+            'estimated_buy_fee', 'estimated_sell_fee', 'estimated_transfer_fee',
+            'net_profit_usdt', 'profit_percentage', 'total_fees_usdt',
+            'execution_time_seconds', 'decision_outcome'
+        ]
+        # Filtrar solo las columnas que existen en el DataFrame
+        existing_features = [col for col in features_for_ai if col in df.columns]
+        df_optimized = df[existing_features]
+
+        self.logger.info("Optimización de datos completada.")
+        return df_optimized.to_dict(orient='records')
+
+    def get_training_status(self) -> (str, int, Optional[str]):
+        """Retorna el estado actual del entrenamiento."""
+        return self.training_in_progress, self.training_progress, self.training_filepath
+
+
 
