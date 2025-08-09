@@ -14,6 +14,7 @@ const {addSymbolsForExchange} = require("./controllers/symbolController");
 const { connectDB } = require("./data/dataBase/connectio");
 const { addExchanges,deleteLowCountExchangeSymbols } = require("./controllers/dbCotroller");
 const analyzerController = require("./controllers/analizerController");
+const cron = require('node-cron');
 
 dotenv.config();
 
@@ -120,6 +121,12 @@ app.use("/api/symbols", symbolRoutes);
 
 // Nueva ruta para datos históricos de OHLCV
 app.get("/api/historical-ohlcv", analyzerController.getHistoricalOHLCV);
+
+// Schedule the price update job to run every 5 minutes
+cron.schedule('*/5 * * * *', () => {
+  console.log('Ejecutando el cron job para actualizar precios de análisis...');
+  analyzerController.updateAllAnalysisPrices();
+});
 
 serveri.listen(PORT, () => {
     console.log(`Servidor Express corriendo en http://localhost:${PORT}`);

@@ -787,6 +787,81 @@ const actualizePricetop20 = async () => {
 };
 
 
+/**
+ * Actualiza los precios y el promedio de todos los documentos de análisis.
+ * Este método está diseñado para ser eficiente en memoria y ejecutarse periódicamente.
+ */
+const updateAllAnalysisPrices = async () => {
+    console.log('Iniciando la actualización de precios de análisis...');
+    const ccxtCache = {}; // Cache para las instancias de CCXT y evitar reinicialización
+    const analysisCursor = Analysis.find().cursor();
+
+    try {
+        for (let doc = await analysisCursor.next(); doc != null; doc = await analysisCursor.next()) {
+            try {
+                const { _id, id_exdataMin, id_exdataMax, symbol } = doc;
+
+                // Inicializar instancias de exchange (usando caché)
+                if (!ccxtCache[id_exdataMin]) {
+                    ccxtCache[id_exdataMin] = initializeExchange(id_exdataMin);
+                }
+                if (!ccxtCache[id_exdataMax]) {
+                    ccxtCache[id_exdataMax] = initializeExchange(id_exdataMax);
+                }
+
+                const exchangeMin = ccxtCache[id_exdataMin];
+                const exchangeMax = ccxtCache[id_exdataMax];
+
+                if (!exchangeMin || !exchangeMax) {
+                    console.warn(`[Price Update] No se pudo inicializar uno de los exchanges para el símbolo ${symbol}. Min: ${id_exdataMin}, Max: ${id_exdataMax}. Saltando.`);
+                    continue;
+                }
+
+                // Obtener los tickers (precios actuales) de ambos exchanges
+                const [tickerMin, tickerMax] = await Promise.all([
+                    exchangeMin.fetchTicker(symbol),
+                    exchangeMax.fetchTicker(symbol)
+                ]);
+
+                // El precio de venta (ask) se obtiene del exchange con el precio mínimo (id_exdataMin)
+                // El precio de compra (bid) se obtiene del exchange con el precio máximo (id_exdataMax)
+                const newSellPrice = tickerMin ? tickerMin.ask : null;
+                const newBuyPrice = tickerMax ? tickerMax.bid : null;
+
+                if (newSellPrice && newBuyPrice && newBuyPrice > 0) {
+                    // Calcular el nuevo promedio (porcentaje de diferencia)
+                    const newPromedio = ((newSellPrice - newBuyPrice) / newBuyPrice) * 100;
+
+                    // Actualizar el documento en la base de datos
+                    await Analysis.updateOne(
+                        { _id: _id },
+                        {
+                            $set: {
+                                Val_min_sell: newSellPrice,
+                                Val_max_buy: newBuyPrice,
+                                promedio: newPromedio,
+                                timestamp: new Date()
+                            }
+                        }
+                    );
+                    console.log(`[Price Update] Símbolo ${symbol} actualizado. Nuevo promedio: ${newPromedio.toFixed(2)}%`);
+                } else {
+                    console.warn(`[Price Update] No se pudieron obtener los precios para el símbolo ${symbol} en ${id_exdataMin}/${id_exdataMax}. Saltando.`);
+                }
+
+            } catch (error) {
+                console.error(`[Price Update] Error procesando el documento para el símbolo ${doc.symbol}: ${error.message}`);
+                // Continuar con el siguiente documento
+            }
+        }
+    } catch (error) {
+        console.error('[Price Update] Error crítico durante el proceso de actualización de precios:', error);
+    } finally {
+        console.log('Finalizada la actualización de precios de análisis.');
+    }
+};
+
+
 module.exports = {
     createAnalysis,
     getAllAnalysis,
@@ -801,6 +876,7 @@ module.exports = {
     dataTrainModel,
     actualizePricetop20,
     updateAnalysisWithdrawDepositFee,
-    updateAnalysisFee
+    updateAnalysisFee,
+    updateAllAnalysisPrices
 
 };
