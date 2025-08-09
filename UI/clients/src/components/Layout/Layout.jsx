@@ -288,9 +288,9 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus, balances, v3D
             </Link>
           </li>
           <li>
-            <Link 
-              to="/exchanges-apis" 
-              style={location.pathname === '/exchanges-apis' ? activeLinkStyle : navLinkStyle}
+            <Link
+              to="/exchange-apis"
+              style={location.pathname === '/exchange-apis' ? activeLinkStyle : navLinkStyle}
               className="nav-link"
             >
               APIs Exchanges

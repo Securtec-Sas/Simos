@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 
 const DataAI = ({
   aiModelDetails,
@@ -8,8 +8,21 @@ const DataAI = ({
   headerStyle,
   sectionStyle,
 }) => {
-  // Eliminado: No solicitar automáticamente los detalles del modelo
-  // Solo se solicitarán cuando el usuario haga clic en "Actualizar Detalles"
+  // Ref para controlar el throttling de solicitudes
+  const lastRequestTime = useRef(0);
+  const requestThrottleMs = 10000; // 2 segundos entre solicitudes
+
+  // Función throttled para manejar solicitudes
+  const handleThrottledRequest = useCallback(() => {
+    const now = Date.now();
+    if (now - lastRequestTime.current < requestThrottleMs) {
+      console.log('Solicitud throttled - esperando antes de la próxima solicitud');
+      return;
+    }
+    
+    lastRequestTime.current = now;
+    handleRequest('get_ai_model_details');
+  }, [handleRequest]);
 
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -17,7 +30,15 @@ const DataAI = ({
 
       <div style={sectionStyle}>
         <h2>Detalles del Modelo AI</h2>
-        <button onClick={() => handleRequest('get_ai_model_details')} disabled={isLoading} style={buttonStyle}>
+        <button
+          onClick={handleThrottledRequest}
+          disabled={isLoading}
+          style={{
+            ...buttonStyle,
+            backgroundColor: isLoading ? '#6c757d' : buttonStyle?.backgroundColor || '#007bff',
+            cursor: isLoading ? 'not-allowed' : 'pointer'
+          }}
+        >
           {isLoading ? 'Cargando...' : 'Actualizar Detalles'}
         </button>
         {isLoading && !aiModelDetails && <p>Solicitando datos del modelo...</p>}

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { API_URLS } from '../../config/api.js';
 
 const Test = ({
   sendV3Command,
@@ -73,12 +74,12 @@ const Test = ({
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const symbolsResponse = await fetch('/api/symbols');
+        const symbolsResponse = await fetch(API_URLS.sebo.symbols);
         if (symbolsResponse.ok) setSymbols(await symbolsResponse.json());
       } catch (error) { console.error('Error fetching symbols:', error); }
 
       try {
-        const csvResponse = await fetch('/api/spot/training-files');
+        const csvResponse = await fetch(API_URLS.sebo.trainingFiles);
         if (csvResponse.ok) {
           const files = await csvResponse.json();
           setCsvFiles(files);
@@ -121,7 +122,7 @@ const Test = ({
     setCsvCreationStatus({ status: 'creating', data: null });
     try {
       const payload = { ...formData };
-      const response = await fetch('/api/v3/create-test-csv', {
+      const response = await fetch(API_URLS.v3.createTestCsv, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -130,7 +131,7 @@ const Test = ({
       if (response.ok) {
         setCsvCreationStatus({ status: 'completed', data: result });
         alert(result.message || 'CSV de prueba creado exitosamente');
-        const csvResponse = await fetch('/api/spot/training-files');
+        const csvResponse = await fetch(API_URLS.sebo.trainingFiles);
         if (csvResponse.ok) {
             const files = await csvResponse.json();
             setCsvFiles(files);
@@ -157,39 +158,69 @@ const Test = ({
       return;
     }
 
-    if (sendV3Command) {
-      console.log(`Iniciando pruebas con el archivo: ${selectedCsv}`);
-      const startTime = new Date();
-      
-      setTestStatus('STARTING');
-      setTestProgress(0);
-      setTestResults(null);
-      setTestError(null);
-      setTestStartTime(startTime);
-      setTestFilename(selectedCsv);
+    if (!sendV3Command) {
+      console.error("No se pudo enviar el comando a V3 - función no disponible.");
+      alert("Error: No se puede enviar el comando a V3. Verifique la conexión.");
+      return;
+    }
 
-      // Guardar estado inicial en localStorage
-      saveTestState({
-        status: 'STARTING',
-        progress: 0,
-        filename: selectedCsv,
-        startTime: startTime,
-        results: null,
-        error: null
-      });
+    // Verificar que no hay una prueba en progreso
+    if (['STARTING', 'IN_PROGRESS'].includes(testStatus)) {
+      console.log('Ya hay una prueba en progreso');
+      return;
+    }
 
-      sendV3Command('start_ai_test', {
-        csv_filename: selectedCsv
-      });
-    } else {
-      console.error("No se pudo enviar el comando a V3.");
-      alert("Error: No se puede enviar el comando a V3.");
+    console.log(`Iniciando pruebas con el archivo: ${selectedCsv}`);
+    const startTime = new Date();
+    
+    setTestStatus('STARTING');
+    setTestProgress(0);
+    setTestResults(null);
+    setTestError(null);
+    setTestStartTime(startTime);
+    setTestFilename(selectedCsv);
+
+    // Guardar estado inicial en localStorage
+    saveTestState({
+      status: 'STARTING',
+      progress: 0,
+      filename: selectedCsv,
+      startTime: startTime,
+      results: null,
+      error: null
+    });
+
+    // Enviar comando con verificación de éxito
+    const success = sendV3Command('start_ai_test', {
+      csv_filename: selectedCsv
+    });
+
+    if (!success) {
+      console.error("Error enviando comando de prueba");
+      setTestStatus('idle');
+      setTestError('Error de conexión al enviar comando de prueba');
+      alert("Error: No se pudo enviar el comando de prueba. Verifique la conexión WebSocket.");
     }
   };
 
+  // Ref para evitar procesamiento duplicado de mensajes de prueba
+  const lastTestMessage = useRef(null);
+
   useEffect(() => {
-    if (v3Data && v3Data.ai_test_update) {
+    if (!v3Data) return;
+
+    // Procesar mensajes de prueba
+    if (v3Data.ai_test_update) {
       const { progress, status, results, error, filepath } = v3Data.ai_test_update;
+      
+      // Crear identificador único para evitar procesamiento duplicado
+      const messageId = `${status}_${progress}_${filepath}_${Date.now()}`;
+      if (lastTestMessage.current === messageId) {
+        return;
+      }
+      lastTestMessage.current = messageId;
+
+      console.log('🧪 Procesando actualización de prueba:', { status, progress, filepath });
       
       // Actualizar estados
       if (progress !== undefined) setTestProgress(progress);
@@ -241,7 +272,40 @@ const Test = ({
         }, 10000);
       }
     }
-  }, [v3Data, testStatus, testProgress, testFilename, testStartTime, testResults, testError]);
+
+    // También procesar mensajes de tipo 'ai_test_results' si llegan
+    else if (v3Data.type === 'ai_test_results' && v3Data.payload) {
+      const { progress, status, results, error, filepath } = v3Data.payload;
+      
+      console.log('🧪 Procesando resultados de prueba (formato nuevo):', v3Data.payload);
+      
+      // Actualizar estados
+      if (progress !== undefined) setTestProgress(progress);
+      if (status) setTestStatus(status);
+      if (filepath) setTestFilename(filepath);
+
+      // Guardar estado en localStorage
+      const currentState = {
+        status: status || testStatus,
+        progress: progress !== undefined ? progress : testProgress,
+        filename: filepath || testFilename,
+        startTime: testStartTime,
+        results: results || testResults,
+        error: error || testError
+      };
+      saveTestState(currentState);
+
+      if (status === 'COMPLETED') {
+        setTestResults(results);
+        setTestError(null);
+        console.log('✅ Pruebas completadas exitosamente (formato nuevo)');
+      } else if (status === 'FAILED') {
+        setTestResults(null);
+        setTestError(error || 'Ocurrió un error desconocido durante las pruebas.');
+        console.error('❌ Error en pruebas (formato nuevo):', error);
+      }
+    }
+  }, [v3Data]);
 
   const renderTestResults = () => {
     if (!testResults) return null;

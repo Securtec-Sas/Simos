@@ -129,10 +129,10 @@ app.use("/api/sandbox-operations", sandboxOperationRoutes);
 app.get("/api/historical-ohlcv", analyzerController.getHistoricalOHLCV);
 
 // Schedule the price update job to run every 5 minutes
-cron.schedule('*/5 * * * *', () => {
-  console.log('Ejecutando el cron job para actualizar precios de análisis...');
-  analyzerController.updateAllAnalysisPrices();
-});
+// cron.schedule('*/5 * * * *', () => {
+//   console.log('Ejecutando el cron job para actualizar precios de análisis...');
+//   analyzerController.updateAllAnalysisPrices();
+// });
 
 serveri.listen(PORT, () => {
     console.log(`Servidor Express corriendo en http://localhost:${PORT}`);

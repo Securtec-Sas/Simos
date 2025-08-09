@@ -198,4 +198,120 @@ router.get('/history', sandboxOperationController.getOperationHistory);
  */
 router.get('/networks', sandboxOperationController.getSymbolNetworks);
 
+/**
+ * @swagger
+ * /api/sandbox-operations/withdraw_usdt:
+ *   post:
+ *     summary: Withdraw USDT from an exchange in sandbox mode for arbitrage
+ *     tags: [Sandbox Operations]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               exchange_id:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *               transaction_id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: USDT withdrawal successful
+ *       500:
+ *         description: Error during withdrawal
+ */
+router.post('/withdraw_usdt', sandboxOperationController.withdrawUsdt);
+
+/**
+ * @swagger
+ * /api/sandbox-operations/buy_asset:
+ *   post:
+ *     summary: Buy asset with USDT in sandbox mode for arbitrage
+ *     tags: [Sandbox Operations]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               exchange_id:
+ *                 type: string
+ *               symbol:
+ *                 type: string
+ *               amount_usdt:
+ *                 type: number
+ *               transaction_id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Asset purchase successful
+ *       500:
+ *         description: Error during purchase
+ */
+router.post('/buy_asset', sandboxOperationController.buyAsset);
+
+/**
+ * @swagger
+ * /api/sandbox-operations/transfer_asset:
+ *   post:
+ *     summary: Transfer asset between exchanges in sandbox mode for arbitrage
+ *     tags: [Sandbox Operations]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               from_exchange:
+ *                 type: string
+ *               to_exchange:
+ *                 type: string
+ *               symbol:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *               transaction_id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Asset transfer successful
+ *       500:
+ *         description: Error during transfer
+ */
+router.post('/transfer_asset', sandboxOperationController.transferAsset);
+
+/**
+ * @swagger
+ * /api/sandbox-operations/sell_asset:
+ *   post:
+ *     summary: Sell asset for USDT in sandbox mode for arbitrage
+ *     tags: [Sandbox Operations]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               exchange_id:
+ *                 type: string
+ *               symbol:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *               transaction_id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Asset sale successful
+ *       500:
+ *         description: Error during sale
+ */
+router.post('/sell_asset', sandboxOperationController.sellAsset);
+
 module.exports = router;

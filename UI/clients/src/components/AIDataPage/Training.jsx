@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { API_URLS } from '../../config/api.js';
 
 const Training = ({ 
   sendV3Command, 
@@ -73,12 +74,12 @@ const Training = ({
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const symbolsResponse = await fetch('/api/symbols');
+        const symbolsResponse = await fetch(API_URLS.sebo.symbols);
         if (symbolsResponse.ok) setSymbols(await symbolsResponse.json());
       } catch (error) { console.error('Error fetching symbols:', error); }
 
       try {
-        const csvResponse = await fetch('/api/spot/training-files');
+        const csvResponse = await fetch(API_URLS.sebo.trainingFiles);
         if (csvResponse.ok) {
           const files = await csvResponse.json();
           setCsvFiles(files);
@@ -121,7 +122,7 @@ const Training = ({
     setCsvCreationStatus({ status: 'creating', data: null });
     try {
       const payload = { ...formData };
-      const response = await fetch('/api/v3/create-training-csv', {
+      const response = await fetch(API_URLS.v3.createTrainingCsv, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -130,7 +131,7 @@ const Training = ({
       if (response.ok) {
         setCsvCreationStatus({ status: 'completed', data: result });
         alert(result.message || 'CSV created successfully');
-        const csvResponse = await fetch('/api/spot/training-files');
+        const csvResponse = await fetch(API_URLS.sebo.trainingFiles);
         if (csvResponse.ok) {
             const files = await csvResponse.json();
             setCsvFiles(files);
@@ -158,39 +159,69 @@ const Training = ({
       return;
     }
 
-    if (sendV3Command) {
-      console.log(`Iniciando entrenamiento con el archivo: ${selectedCsv}`);
-      const startTime = new Date();
-      
-      setTrainingStatus('STARTING');
-      setTrainingProgress(0);
-      setTrainingResults(null);
-      setTrainingError(null);
-      setTrainingStartTime(startTime);
-      setTrainingFilename(selectedCsv);
+    if (!sendV3Command) {
+      console.error("No se pudo enviar el comando a V3 - función no disponible.");
+      alert("Error: No se puede enviar el comando a V3. Verifique la conexión.");
+      return;
+    }
 
-      // Guardar estado inicial en localStorage
-      saveTrainingState({
-        status: 'STARTING',
-        progress: 0,
-        filename: selectedCsv,
-        startTime: startTime,
-        results: null,
-        error: null
-      });
+    // Verificar que no hay un entrenamiento en progreso
+    if (['STARTING', 'IN_PROGRESS'].includes(trainingStatus)) {
+      console.log('Ya hay un entrenamiento en progreso');
+      return;
+    }
 
-      sendV3Command('start_ai_training', {
-        csv_filename: selectedCsv
-      });
-    } else {
-      console.error("No se pudo enviar el comando a V3.");
-      alert("Error: No se puede enviar el comando a V3.");
+    console.log(`Iniciando entrenamiento con el archivo: ${selectedCsv}`);
+    const startTime = new Date();
+    
+    setTrainingStatus('STARTING');
+    setTrainingProgress(0);
+    setTrainingResults(null);
+    setTrainingError(null);
+    setTrainingStartTime(startTime);
+    setTrainingFilename(selectedCsv);
+
+    // Guardar estado inicial en localStorage
+    saveTrainingState({
+      status: 'STARTING',
+      progress: 0,
+      filename: selectedCsv,
+      startTime: startTime,
+      results: null,
+      error: null
+    });
+
+    // Enviar comando con verificación de éxito
+    const success = sendV3Command('start_ai_training', {
+      csv_filename: selectedCsv
+    });
+
+    if (!success) {
+      console.error("Error enviando comando de entrenamiento");
+      setTrainingStatus('idle');
+      setTrainingError('Error de conexión al enviar comando de entrenamiento');
+      alert("Error: No se pudo enviar el comando de entrenamiento. Verifique la conexión WebSocket.");
     }
   };
 
+  // Ref para evitar procesamiento duplicado de mensajes de entrenamiento
+  const lastTrainingMessage = useRef(null);
+
   useEffect(() => {
-    if (v3Data && v3Data.ai_training_update) {
+    if (!v3Data) return;
+
+    // Procesar mensajes de entrenamiento
+    if (v3Data.ai_training_update) {
       const { progress, status, results, error, filepath } = v3Data.ai_training_update;
+      
+      // Crear identificador único para evitar procesamiento duplicado
+      const messageId = `${status}_${progress}_${filepath}_${Date.now()}`;
+      if (lastTrainingMessage.current === messageId) {
+        return;
+      }
+      lastTrainingMessage.current = messageId;
+
+      console.log('🎯 Procesando actualización de entrenamiento:', { status, progress, filepath });
       
       // Actualizar estados
       if (progress !== undefined) setTrainingProgress(progress);
@@ -242,7 +273,40 @@ const Training = ({
         }, 10000);
       }
     }
-  }, [v3Data, trainingStatus, trainingProgress, trainingFilename, trainingStartTime, trainingResults, trainingError]);
+
+    // También procesar mensajes de tipo 'training_result' si llegan
+    else if (v3Data.type === 'ai_training_update' && v3Data.payload) {
+      const { progress, status, results, error, filepath } = v3Data.payload;
+      
+      console.log('🎯 Procesando actualización de entrenamiento (formato nuevo):', v3Data.payload);
+      
+      // Actualizar estados
+      if (progress !== undefined) setTrainingProgress(progress);
+      if (status) setTrainingStatus(status);
+      if (filepath) setTrainingFilename(filepath);
+
+      // Guardar estado en localStorage
+      const currentState = {
+        status: status || trainingStatus,
+        progress: progress !== undefined ? progress : trainingProgress,
+        filename: filepath || trainingFilename,
+        startTime: trainingStartTime,
+        results: results || trainingResults,
+        error: error || trainingError
+      };
+      saveTrainingState(currentState);
+
+      if (status === 'COMPLETED') {
+        setTrainingResults(results);
+        setTrainingError(null);
+        console.log('✅ Entrenamiento completado exitosamente (formato nuevo)');
+      } else if (status === 'FAILED') {
+        setTrainingResults(null);
+        setTrainingError(error || 'Ocurrió un error desconocido durante el entrenamiento.');
+        console.error('❌ Error en entrenamiento (formato nuevo):', error);
+      }
+    }
+  }, [v3Data]);
 
   const renderTrainingResults = () => {
     if (!trainingResults) return null;

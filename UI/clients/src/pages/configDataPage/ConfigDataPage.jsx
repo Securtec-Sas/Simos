@@ -86,61 +86,73 @@ const ConfigDataPage = () => {
   // Eliminado: No cargar datos automáticamente al montar el componente
   // Los datos solo se cargarán cuando el usuario haga clic en "Actualizar Datos"
 
+  // Ref para evitar procesamiento duplicado de mensajes
+  const lastProcessedMessage = useRef(null);
+
   // Actualizar el estado cuando se reciben datos desde V3
   useEffect(() => {
-    if (v3Data) {
-      // Procesar datos del modelo AI
-      if (v3Data.type === 'ai_model_details' && v3Data.payload) {
-        console.log("Recibidos nuevos datos del modelo AI:", v3Data.payload);
-        setAiModelDetails(prevDetails => {
-          // Solo actualizar si los datos son diferentes o si no hay datos previos
-          if (!prevDetails || JSON.stringify(prevDetails) !== JSON.stringify(v3Data.payload)) {
-            return v3Data.payload;
-          }
-          return prevDetails;
-        });
-        setIsLoading(false);
-        setDataUpdateRequested(false);
-      }
-      
-      // Procesar actualizaciones de simulación
-      if (v3Data.type === 'ai_simulation_update' && v3Data.payload) {
-        console.log("Recibida actualización de simulación:", v3Data.payload);
-        setSimulationStatus(prevStatus => {
-          // Solo actualizar si el estado ha cambiado
-          if (prevStatus.status !== v3Data.payload.status || 
-              JSON.stringify(prevStatus.data) !== JSON.stringify(v3Data.payload.data)) {
-            return v3Data.payload;
-          }
-          return prevStatus;
-        });
-      }
+    if (!v3Data) return;
 
-      // Procesar otros tipos de datos si es necesario
-      if (v3Data.ai_model_details && !v3Data.type) {
-        // Compatibilidad con formato anterior
-        console.log("Recibidos datos del modelo AI (formato anterior):", v3Data.ai_model_details);
-        setAiModelDetails(prevDetails => {
-          if (!prevDetails || JSON.stringify(prevDetails) !== JSON.stringify(v3Data.ai_model_details)) {
-            return v3Data.ai_model_details;
-          }
-          return prevDetails;
-        });
-        setIsLoading(false);
-        setDataUpdateRequested(false);
-      }
+    // Crear un identificador único para el mensaje
+    const messageId = v3Data.type ?
+      `${v3Data.type}_${JSON.stringify(v3Data.payload)}` :
+      `legacy_${JSON.stringify(v3Data)}`;
 
-      if (v3Data.ai_simulation_update && !v3Data.type) {
-        // Compatibilidad con formato anterior
-        console.log("Recibida actualización de simulación (formato anterior):", v3Data.ai_simulation_update);
-        setSimulationStatus(prevStatus => {
-          if (prevStatus.status !== v3Data.ai_simulation_update.status || 
-              JSON.stringify(prevStatus.data) !== JSON.stringify(v3Data.ai_simulation_update.data)) {
-            return v3Data.ai_simulation_update;
-          }
-          return prevStatus;
-        });
-      }
+    // Evitar procesar el mismo mensaje múltiples veces
+    if (lastProcessedMessage.current === messageId) {
+      return;
+    }
+    lastProcessedMessage.current = messageId;
+
+    // Procesar datos del modelo AI
+    if (v3Data.type === 'ai_model_details' && v3Data.payload) {
+      console.log("Recibidos nuevos datos del modelo AI:", v3Data.payload);
+      setAiModelDetails(prevDetails => {
+        // Solo actualizar si los datos son diferentes o si no hay datos previos
+        if (!prevDetails || JSON.stringify(prevDetails) !== JSON.stringify(v3Data.payload)) {
+          return v3Data.payload;
+        }
+        return prevDetails;
+      });
+      setIsLoading(false);
+      setDataUpdateRequested(false);
+    }
+    
+    // Procesar actualizaciones de simulación
+    else if (v3Data.type === 'ai_simulation_update' && v3Data.payload) {
+      console.log("Recibida actualización de simulación:", v3Data.payload);
+      setSimulationStatus(prevStatus => {
+        // Solo actualizar si el estado ha cambiado
+        if (prevStatus.status !== v3Data.payload.status ||
+            JSON.stringify(prevStatus.data) !== JSON.stringify(v3Data.payload.data)) {
+          return v3Data.payload;
+        }
+        return prevStatus;
+      });
+    }
+
+    // Procesar otros tipos de datos si es necesario (compatibilidad con formato anterior)
+    else if (v3Data.ai_model_details && !v3Data.type) {
+      console.log("Recibidos datos del modelo AI (formato anterior):", v3Data.ai_model_details);
+      setAiModelDetails(prevDetails => {
+        if (!prevDetails || JSON.stringify(prevDetails) !== JSON.stringify(v3Data.ai_model_details)) {
+          return v3Data.ai_model_details;
+        }
+        return prevDetails;
+      });
+      setIsLoading(false);
+      setDataUpdateRequested(false);
+    }
+
+    else if (v3Data.ai_simulation_update && !v3Data.type) {
+      console.log("Recibida actualización de simulación (formato anterior):", v3Data.ai_simulation_update);
+      setSimulationStatus(prevStatus => {
+        if (prevStatus.status !== v3Data.ai_simulation_update.status ||
+            JSON.stringify(prevStatus.data) !== JSON.stringify(v3Data.ai_simulation_update.data)) {
+          return v3Data.ai_simulation_update;
+        }
+        return prevStatus;
+      });
     }
   }, [v3Data]);
 

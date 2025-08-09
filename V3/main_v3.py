@@ -17,6 +17,7 @@ from adapters.persistence.data_persistence import DataPersistence
 from core.trading_logic import TradingLogic
 from core.ai_model import ArbitrageAIModel
 from core.simulation_engine import SimulationEngine
+from core.advanced_simulation_engine import AdvancedSimulationEngine, SimulationMode
 from adapters.api.api_v3_routes import APIv3Routes
 from adapters.socket.socket_optimizer import SocketOptimizer
 from core.training_handler import TrainingHandler # Importar TrainingHandler
@@ -40,6 +41,12 @@ class CryptoArbitrageV3:
         self.ai_model = ArbitrageAIModel()
         self.trading_logic = TradingLogic(self.exchange_manager, self.data_persistence, self.ai_model)
         self.simulation_engine = SimulationEngine(self.ai_model, self.data_persistence)
+        self.advanced_simulation_engine = AdvancedSimulationEngine(
+            self.ai_model,
+            self.data_persistence,
+            self.exchange_manager,
+            self.ui_broadcaster
+        )
         self.training_handler = TrainingHandler(self.sebo_connector, self.ai_model, self.data_persistence, self.ui_broadcaster) # Inicializar TrainingHandler
         
         # Inicializar API v3
@@ -99,6 +106,7 @@ class CryptoArbitrageV3:
             await self.sebo_connector.initialize()
             await self.exchange_manager.initialize()
             await self.trading_logic.initialize()
+            await self.advanced_simulation_engine.initialize()
             
             # Iniciar servidor UI
             await self.ui_broadcaster.start_server()
@@ -171,6 +179,7 @@ class CryptoArbitrageV3:
             # Cerrar componentes en orden inverso
             await self.ui_broadcaster.stop_server()
             await self.socket_optimizer.stop()
+            await self.advanced_simulation_engine.cleanup()
             await self.sebo_connector.disconnect_from_sebo()
             await self.trading_logic.cleanup()
             await self.exchange_manager.cleanup()
@@ -319,6 +328,12 @@ class CryptoArbitrageV3:
             elif message_type == "get_test_status": # Manejar estado de pruebas
                 if self.ui_broadcaster.on_get_test_status_callback:
                     await self.ui_broadcaster.on_get_test_status_callback()
+            elif message_type == "start_simulation": # Iniciar simulación
+                await self._handle_start_simulation(payload)
+            elif message_type == "stop_simulation": # Detener simulación
+                await self._handle_stop_simulation(payload)
+            elif message_type == "get_simulation_status": # Estado de simulación
+                await self._handle_get_simulation_status()
             else:
                 self.logger.warning(f"Tipo de mensaje UI no reconocido: {message_type}")
                 
@@ -426,6 +441,117 @@ class CryptoArbitrageV3:
             await self.ui_broadcaster.broadcast_test_progress(progress, not in_progress, filepath)
         except Exception as e:
             self.logger.error(f"Error obteniendo estado de pruebas: {e}")
+    
+    async def _handle_start_simulation(self, payload: Dict):
+        """Maneja la solicitud de inicio de simulación."""
+        try:
+            self.logger.info("Solicitud de inicio de simulación recibida desde UI")
+            
+            # Extraer configuración
+            mode_str = payload.get('mode', 'local')
+            config = payload.get('config', {})
+            
+            # Convertir string a enum
+            if mode_str == 'sebo_sandbox':
+                mode = SimulationMode.SEBO_SANDBOX
+            else:
+                mode = SimulationMode.LOCAL
+            
+            # Iniciar simulación
+            result = await self.advanced_simulation_engine.start_simulation(mode, config)
+            
+            # Notificar resultado a UI
+            await self.ui_broadcaster.broadcast_message({
+                'type': 'simulation_start_result',
+                'payload': result
+            })
+            
+            if result['success']:
+                # Configurar procesamiento de oportunidades si está en modo local
+                if mode == SimulationMode.LOCAL:
+                    await self._setup_simulation_opportunity_processing()
+            
+        except Exception as e:
+            self.logger.error(f"Error iniciando simulación: {e}")
+            await self.ui_broadcaster.broadcast_message({
+                'type': 'simulation_start_result',
+                'payload': {
+                    'success': False,
+                    'message': f'Error iniciando simulación: {e}'
+                }
+            })
+    
+    async def _handle_stop_simulation(self, payload: Dict):
+        """Maneja la solicitud de detención de simulación."""
+        try:
+            self.logger.info("Solicitud de detención de simulación recibida desde UI")
+            
+            result = await self.advanced_simulation_engine.stop_simulation()
+            
+            # Notificar resultado a UI
+            await self.ui_broadcaster.broadcast_message({
+                'type': 'simulation_stop_result',
+                'payload': result
+            })
+            
+        except Exception as e:
+            self.logger.error(f"Error deteniendo simulación: {e}")
+            await self.ui_broadcaster.broadcast_message({
+                'type': 'simulation_stop_result',
+                'payload': {
+                    'success': False,
+                    'message': f'Error deteniendo simulación: {e}'
+                }
+            })
+    
+    async def _handle_get_simulation_status(self):
+        """Maneja la solicitud de estado de simulación."""
+        try:
+            status = self.advanced_simulation_engine.get_simulation_status()
+            summary = await self.advanced_simulation_engine.get_simulation_summary()
+            
+            # Combinar estado y resumen
+            combined_status = {**status, **summary}
+            
+            await self.ui_broadcaster.broadcast_message({
+                'type': 'simulation_status',
+                'payload': combined_status
+            })
+            
+        except Exception as e:
+            self.logger.error(f"Error obteniendo estado de simulación: {e}")
+            await self.ui_broadcaster.broadcast_message({
+                'type': 'simulation_status',
+                'payload': {
+                    'error': str(e),
+                    'is_running': False
+                }
+            })
+    
+    async def _setup_simulation_opportunity_processing(self):
+        """Configura el procesamiento de oportunidades para simulación local."""
+        try:
+            # Conectar el procesamiento de datos del top 20 con la simulación
+            original_callback = self.sebo_connector.on_top20_data_callback
+            
+            async def simulation_top20_callback(data):
+                # Llamar al callback original
+                if original_callback:
+                    await original_callback(data)
+                
+                # Procesar oportunidades para simulación
+                if self.advanced_simulation_engine.is_simulation_running:
+                    for opportunity in data[:3]:  # Procesar solo las primeras 3 oportunidades
+                        try:
+                            await self.advanced_simulation_engine.process_arbitrage_opportunity(opportunity)
+                        except Exception as e:
+                            self.logger.error(f"Error procesando oportunidad en simulación: {e}")
+            
+            # Reemplazar el callback
+            self.sebo_connector.set_top20_data_callback(simulation_top20_callback)
+            
+        except Exception as e:
+            self.logger.error(f"Error configurando procesamiento de oportunidades para simulación: {e}")
 
 async def main():
     """Función principal."""

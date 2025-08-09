@@ -1,3 +1,4 @@
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -17,10 +18,32 @@ const logServerUrl = () => ({
 export default defineConfig({
   plugins: [react(), logServerUrl()],
   server: {
-    port: 3000, // Nuevo valor
+    port: 3000,
     proxy: {
+      // Sebo microservice proxy
+      '/api/sebo': {
+        target: 'http://localhost:3031',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api\/sebo/, '/api'),
+      },
+      // V3 microservice proxy
+      '/api/v3': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api\/v3/, '/api'),
+      },
+      // Additional services proxy
+      '/api/service3': {
+        target: 'http://localhost:3002',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api\/service3/, '/api'),
+      },
+      // Legacy proxy for backward compatibility (should be last)
       '/api': {
-        target: 'http://localhost:3031', // CAMBIAR a 3031 (nuevo puerto de Sebo)
+        target: 'http://localhost:3031',
         changeOrigin: true,
         secure: false,
       },

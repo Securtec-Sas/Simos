@@ -65,6 +65,50 @@ CSV_LOG_PATH = "logs/v3_operation_logs.csv"
 SIMULATION_MODE = False  # True para modo simulación, False para trading real
 SIMULATION_DELAY = 0.1  # Delay en segundos para simular tiempo de ejecución
 
+# Configuración de simulación avanzada
+ADVANCED_SIMULATION_CONFIG = {
+    # Configuraciones principales requeridas por el motor de simulación
+    'initial_balance': 10000.0,
+    'time_between_transfers_seconds': 30,
+    'simulation_duration_minutes': 60,
+    'max_concurrent_operations': 3,
+    'ai_confidence_threshold': 0.7,
+    
+    # Configuraciones por defecto (compatibilidad)
+    'default_initial_balance': 1000.0,
+    'default_time_between_transfers': 2.0,
+    'default_simulation_duration': 3600,  # 1 hora
+    'default_max_concurrent_operations': 3,
+    'default_success_rate': 0.85,
+    
+    # Configuración de comisiones y fees
+    'commission_rates': {
+        'usdt_withdrawal': 1.0,  # 1 USDT fijo
+        'asset_withdrawal_percentage': 0.001,  # 0.1%
+        'trading_fee_percentage': 0.001  # 0.1%
+    },
+    
+    # Rangos de simulación
+    'network_delay_range': (0.5, 3.0),
+    'slippage_range': (0.001, 0.01),
+    
+    # Configuración de modos
+    'modes': {
+        'local': {
+            'name': 'Simulación Local',
+            'description': 'Simulación usando datos del socket y procesamiento local',
+            'uses_real_prices': True,
+            'uses_sebo_api': False
+        },
+        'sebo_sandbox': {
+            'name': 'Simulación Sandbox',
+            'description': 'Simulación usando API sandbox de Sebo',
+            'uses_real_prices': True,
+            'uses_sebo_api': True
+        }
+    }
+}
+
 # Configuración de persistencia
 TRADING_STATE_FILE = "data/trading_state.json"
 BALANCE_CACHE_FILE = "data/balance_cache.json"

@@ -1,316 +1,59 @@
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    background-color: #f4f4f4;
-    color: #333;
-    display: flex; /* For page-container to take effect */
-    min-height: 100vh;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 94.1%;
+  }
 }
 
-.page-container {
-    display: flex;
-    flex-direction: row; /* Default, but explicit */
-    width: 100%;
-}
-
-.main-content {
-    flex-grow: 1;
-    padding: 20px;
-    overflow-y: auto; /* In case table gets too long */
-    order: 2; /* Main content will be on the right of sidebar */
-}
-h1 {
-    color: #333;
-    text-align: center;
-    margin-bottom: 30px; /* Added margin like the older style */
-}
-
-/* Styles for the main table, similar to your previous preferred style */
-#activeExchangesTable {
-    width: 100%; /* Full width within main-content */
-    border-collapse: collapse;
-    margin-top: 20px;
-    box-shadow: 0 2px 15px rgba(0,0,0,0.1);
-    background-color: #fff; /* White background for the table */
-}
-
-#activeExchangesTable th,
-#activeExchangesTable td {
-    border: 1px solid #ddd;
-    padding: 10px 15px;
-    text-align: left;
-    vertical-align: middle;
-}
-/* Ensure API Access column content is centered if icons are small */
-#activeExchangesTable td:nth-child(3) { 
-    text-align: center;
-}
-
-
-/* Targeting the new 4th child for error messages */
-#activeExchangesTable td:nth-child(4) {
-    max-width: 250px; /* Adjust this value as needed */
-    overflow-x: auto;  /* Show horizontal scrollbar if content overflows */
-    white-space: nowrap; /* Prevent text from wrapping to the next line */
-    font-size: 0.9em; /* Optional: slightly smaller font for error messages */
-}
-
-
-#activeExchangesTable th {
-    background-color: #007bff; /* Blue header */
-    color: #ffffff;
-    font-weight: bold;
-}
-
-#activeExchangesTable th#exchangeNameHeader {
-    /* color y font-weight se heredan de la regla general para th */
-    font-size: 0.75em; /* Tamaño de fuente 25% más pequeño */
-}
-
-#activeExchangesTable tr:nth-child(even) {
-    background-color: #f9f9f9; /* Zebra striping for rows */
-}
-
-#activeExchangesTable tr:hover {
-    background-color: #f1f1f1; /* Hover effect for rows */
-}
-
-.sidebar {
-    width: 300px;
-    background-color: #e9ecef;
-    border-right: 1px solid #ccc; /* Changed from border-left */
-    display: flex;
-    flex-direction: column;
-    transition: width 0.3s ease;
-    overflow-x: hidden; /* Prevent horizontal scrollbar during transition */
-    /* overflow-y: hidden; Removed to allow sidebar-content to scroll */
-    order: 1; /* Sidebar will be on the left */
-}
-
-.sidebar.collapsed {
-    width: 60px; /* Width when collapsed, just enough for the button */
-}
-
-.sidebar.collapsed .sidebar-content {
-    visibility: hidden; /* Hide content when collapsed */
-}
-
-#toggleSidebarButton {
-    background-color: #007bff;
-    color: white;
-    border: none;
-    padding: 0 15px; /* Ajustar padding para acomodar flex */
-    height: 50px; /* Altura fija para el botón, ajustar según necesidad */
-    /* text-align: left;  Ya no es necesario con flex */
-    cursor: pointer;
-    font-size: 1em;
-    width: 100%;
-    box-sizing: border-box;
-    display: flex; /* Habilitar Flexbox */
-    align-items: center; /* Centrar ítems verticalmente */
-    justify-content: space-between; /* Distribuir espacio: título a la izq, status a la der */
-}
-.button-main-title-group {
-    display: flex; /* Para alinear el icono y el texto SEBO si es necesario */
-    align-items: center;
-}
-.main-menu-status-indicator {
-    /* margin-left: 10px; Ya no es necesario con space-between */
-    font-size: 0.8em;
-    color: #ffffff; /* Color blanco */
-}
-
-.sidebar.collapsed #toggleSidebarButton {
-    text-align: center; /* Center icon when collapsed */
-    writing-mode: vertical-rl; /* Optional: makes text vertical */
-    /* transform: rotate(180deg); */ /* if using vertical text */
-}
-
-.sidebar-content {
-    padding: 15px;
-    overflow-y: auto; /* Scroll for long list of exchanges */
-    flex-grow: 1;
-}
-
-.sidebar h2 {
-    margin-top: 0;
-    font-size: 1.2em;
-    color: #333;
-}
-
-.menu-section {
-    margin-bottom: 15px;
-}
-
-.menu-header {
-    margin-top: 0;
-    margin-bottom: 0; /* Adjust if arrow is part of it */
-    font-size: 1.2em;
-    color: #333;
-    cursor: pointer;
-    padding: 5px 0;
-    user-select: none; /* Prevent text selection on click */
-    display: flex; /* For aligning title, spinner, and arrow */
-    justify-content: space-between; /* Pushes arrow and spinner to the right */
-    align-items: center;
-}
-
-.menu-header .menu-title-text {
-    flex-grow: 1; /* Allows title to take available space */
-}
-.menu-header .spot-analysis-display { /* Renamed from .comparison-indicator */
-    font-size: 0.8em;
-    color: #555;
-    margin-left: 10px; /* Space from title */
-    font-style: italic;
-}
-.menu-header .arrow-indicator {
-    margin-left: 5px; /* Space before arrow */
-}
-
-.menu-header:hover {
-    color: #007bff;
-}
-
-#allExchangesList {
-    list-style-type: none;
-    padding: 0;
-    margin: 0;
-}
-
-#allExchangesList li {
-    padding: 8px 0;
-    border-bottom: 1px solid #ddd;
-}
-
-#allExchangesList li input[type="checkbox"] {
-    cursor: pointer;
-    margin-right: 10px;
-}
-
-#allExchangesList li label {
-    cursor: pointer;
-}
-
-#noActiveExchangesMessage td {
-    text-align: center;
-    font-style: italic;
-    color: #777;
-    padding: 20px;
-}
-
-/* Styles for API Access Icons */
-.api-icon {
-    display: inline-block;
-    width: 12px; /* Size of the circle */
-    height: 12px; /* Size of the circle */
-    border-radius: 50%; /* Makes it a circle */    
-    margin: 0 5px; /* Spacing between icons and text/other icons */
-    vertical-align: middle;
-    box-shadow: 0 0 3px rgba(0,0,0,0.3); /* Subtle shadow */
-}
-
-.api-icon.green {
-    background-color: #28a745; /* Green color */
-}
-
-.api-icon.red {
-    background-color: #dc3545; /* Red color */
-}
-
-/* More space for the second API icon (private) */
-.api-icon.private-api-icon {
-    margin-left: 10px; /* Increased left margin for more space */
-}
-
-/* Styles for the API Access Header Icons */
-#activeExchangesTable #apiAccessHeaderIcons {
-    text-align: center; /* Centers the group of icons within the header cell */
-    vertical-align: middle;
-}
-
-#apiAccessHeaderIcons .api-header-icon {
-    display: inline-block;
-    font-size: 1.2em; /* Adjust for desired icon size, e.g., 1.2em or 16px */
-    margin: 0 5px; /* Matches .api-icon's horizontal margin for alignment */
-    line-height: 1; /* Ensures consistent vertical alignment */    
-    color: #ffffff; /* White color for header icons */
-}
-
-/* General styles for collapsible menu lists */
-.menu-list {
-    list-style-type: none;
-    padding-left: 0; /* Base padding, specific lists can override */
-    margin: 0;
-    max-height: 70vh; /* Adjust as needed for maximum expanded height */
-    opacity: 1;
-    overflow-y: auto;
-    transition: max-height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out, margin 0.3s ease-out;
-}
-
-/* Styles for collapsed list within accordion */
-.menu-list.collapsed-list {
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden; /* Crucial for max-height transition */
-    padding-top: 0; /* Animate padding out */
-    padding-bottom: 0; /* Animate padding out */
-    margin-top: 0; /* Animate margin out */
-    margin-bottom: 0; /* Animate margin out */
-}
-
-#spotsContentContainer button.submenu-button {
-    margin: 5px 0;
-    padding: 8px 12px;
-    background-color: #6c757d; /* Un color gris para el botón */
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    display: block; /* Para que ocupe el ancho del li si es necesario */
-    width: 100%;
-    text-align: left;
-}
-
-#spotsContentContainer button.submenu-button:hover {
-    background-color: #5a6268;
-}
-
-.submenu-list { /* Estilos para la nueva UL dentro de SPOTS */
-    list-style-type: none;
-    padding-left: 0; /* Buttons inside will handle their own padding/alignment */
-    margin: 0;
-}
-
-/* Indentation for the container of the SPOTS submenu */
-#spotsContentContainer.menu-list { /* Be more specific if it's also a menu-list */
-    padding-left: 15px;
-}
-
-/* Spinner Styles */
-.spinner {
-    border: 4px solid rgba(0, 0, 0, 0.1);
-    border-radius: 50%;
-    border-top-color: #007bff;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin: 20px auto;
-}
-
-.spinner.spot-spinner { /* More specific for SPOTS if needed */
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-top-color: #fff;
-    width: 14px;
-    height: 14px;
-    animation: spin 0.8s linear infinite;
-    display: inline-block;
-    margin-left: 8px;
-    vertical-align: middle;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

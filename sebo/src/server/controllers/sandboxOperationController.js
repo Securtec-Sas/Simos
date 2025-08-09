@@ -151,6 +151,215 @@ const getSymbolNetworks = async (req, res) => {
     }
 };
 
+/**
+ * Withdraws USDT from an exchange in sandbox mode for arbitrage operations.
+ */
+const withdrawUsdt = async (req, res) => {
+    const { exchange_id, amount, transaction_id } = req.body;
+    if (!exchange_id || !amount || !transaction_id) {
+        return res.status(400).json({
+            success: false,
+            message: "exchange_id, amount, and transaction_id are required."
+        });
+    }
+
+    try {
+        const exchange = await connectToExchange(exchange_id, true);
+        const balance = await exchange.fetchBalance();
+
+        // Verificar balance suficiente
+        if (balance.USDT.free < amount) {
+            return res.status(400).json({
+                success: false,
+                message: "Insufficient USDT balance for withdrawal."
+            });
+        }
+
+        // Simular retiro (en sandbox no se hace retiro real)
+        const withdrawalFee = 1.0; // Fee fijo de 1 USDT
+        const netAmount = amount - withdrawalFee;
+
+        // Simular delay de procesamiento
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        res.status(200).json({
+            success: true,
+            data: {
+                transaction_id,
+                exchange_id,
+                amount_requested: amount,
+                withdrawal_fee: withdrawalFee,
+                net_amount: netAmount,
+                status: 'completed',
+                timestamp: new Date().toISOString()
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * Buys an asset with USDT in sandbox mode for arbitrage operations.
+ */
+const buyAsset = async (req, res) => {
+    const { exchange_id, symbol, amount_usdt, transaction_id } = req.body;
+    if (!exchange_id || !symbol || !amount_usdt || !transaction_id) {
+        return res.status(400).json({
+            success: false,
+            message: "exchange_id, symbol, amount_usdt, and transaction_id are required."
+        });
+    }
+
+    try {
+        const exchange = await connectToExchange(exchange_id, true);
+        const balance = await exchange.fetchBalance();
+        const ticker = await exchange.fetchTicker(symbol);
+
+        // Verificar balance suficiente
+        if (balance.USDT.free < amount_usdt) {
+            return res.status(400).json({
+                success: false,
+                message: "Insufficient USDT balance for purchase."
+            });
+        }
+
+        // Calcular cantidad de asset a comprar
+        const currentPrice = ticker.ask || ticker.last;
+        const tradingFee = 0.001; // 0.1% fee
+        const grossAssetAmount = amount_usdt / currentPrice;
+        const assetAmount = grossAssetAmount * (1 - tradingFee);
+
+        // Simular delay de procesamiento
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        res.status(200).json({
+            success: true,
+            data: {
+                transaction_id,
+                exchange_id,
+                symbol,
+                usdt_spent: amount_usdt,
+                asset_amount: assetAmount,
+                buy_price: currentPrice,
+                trading_fee_percentage: tradingFee * 100,
+                status: 'completed',
+                timestamp: new Date().toISOString()
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * Transfers an asset between exchanges in sandbox mode for arbitrage operations.
+ */
+const transferAsset = async (req, res) => {
+    const { from_exchange, to_exchange, symbol, amount, transaction_id } = req.body;
+    if (!from_exchange || !to_exchange || !symbol || !amount || !transaction_id) {
+        return res.status(400).json({
+            success: false,
+            message: "from_exchange, to_exchange, symbol, amount, and transaction_id are required."
+        });
+    }
+
+    try {
+        const fromExchange = await connectToExchange(from_exchange, true);
+        const toExchange = await connectToExchange(to_exchange, true);
+
+        // Simular verificación de balance
+        const balance = await fromExchange.fetchBalance();
+        const baseCurrency = symbol.split('/')[0];
+        
+        if (balance[baseCurrency] && balance[baseCurrency].free < amount) {
+            return res.status(400).json({
+                success: false,
+                message: `Insufficient ${baseCurrency} balance for transfer.`
+            });
+        }
+
+        // Simular fee de transferencia
+        const transferFee = amount * 0.001; // 0.1% fee
+        const receivedAmount = amount - transferFee;
+
+        // Simular delay de transferencia (más largo)
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        res.status(200).json({
+            success: true,
+            data: {
+                transaction_id,
+                from_exchange,
+                to_exchange,
+                symbol,
+                amount_sent: amount,
+                transfer_fee: transferFee,
+                received_amount: receivedAmount,
+                status: 'completed',
+                timestamp: new Date().toISOString()
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * Sells an asset for USDT in sandbox mode for arbitrage operations.
+ */
+const sellAsset = async (req, res) => {
+    const { exchange_id, symbol, amount, transaction_id } = req.body;
+    if (!exchange_id || !symbol || !amount || !transaction_id) {
+        return res.status(400).json({
+            success: false,
+            message: "exchange_id, symbol, amount, and transaction_id are required."
+        });
+    }
+
+    try {
+        const exchange = await connectToExchange(exchange_id, true);
+        const balance = await exchange.fetchBalance();
+        const ticker = await exchange.fetchTicker(symbol);
+
+        // Verificar balance del asset
+        const baseCurrency = symbol.split('/')[0];
+        if (balance[baseCurrency] && balance[baseCurrency].free < amount) {
+            return res.status(400).json({
+                success: false,
+                message: `Insufficient ${baseCurrency} balance for sale.`
+            });
+        }
+
+        // Calcular USDT obtenido
+        const currentPrice = ticker.bid || ticker.last;
+        const tradingFee = 0.001; // 0.1% fee
+        const grossUsdtAmount = amount * currentPrice;
+        const finalUsdt = grossUsdtAmount * (1 - tradingFee);
+
+        // Simular delay de procesamiento
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        res.status(200).json({
+            success: true,
+            data: {
+                transaction_id,
+                exchange_id,
+                symbol,
+                asset_amount_sold: amount,
+                sell_price: currentPrice,
+                gross_usdt: grossUsdtAmount,
+                final_usdt: finalUsdt,
+                trading_fee_percentage: tradingFee * 100,
+                status: 'completed',
+                timestamp: new Date().toISOString()
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     connect,
     getWalletBalance,
@@ -159,4 +368,8 @@ module.exports = {
     sellSymbol,
     getOperationHistory,
     getSymbolNetworks,
+    withdrawUsdt,
+    buyAsset,
+    transferAsset,
+    sellAsset,
 };
