@@ -183,6 +183,7 @@ class DataPersistence:
         except Exception as e:
             self.logger.error(f"Error cargando cache de balances: {e}")
             return None
+        
     
     # Datos de entrenamiento
     
