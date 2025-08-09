@@ -89,15 +89,15 @@ def check_config_file():
     """Verifica el archivo de configuración."""
     print("\nVerificando configuración...")
     
-    config_file = Path(__file__).parent / "config_v3.py"
-    example_file = Path(__file__).parent / "config_example.py"
+    config_file = Path(__file__).parent.parent / "shared/config_v3.py"
+    example_file = Path(__file__).parent.parent / "config_example.py"
     
     if config_file.exists():
         print("✅ config_v3.py - Existe")
         try:
             # Intentar importar la configuración
-            sys.path.insert(0, str(Path(__file__).parent))
-            import config_v3
+            sys.path.insert(0, str(Path(__file__).parent.parent))
+            from shared import config_v3
             print("✅ config_v3.py - Válido")
             return True
         except Exception as e:
@@ -114,24 +114,26 @@ def check_scripts():
     print("\nVerificando scripts principales...")
     
     base_dir = Path(__file__).parent
-    required_scripts = [
-        "main_v3.py",
-        "start_v3.py", 
-        "train_model.py",
-        "backtest.py",
-        "simulate.py",
-        "analyze_results.py",
-        "run_experiments.py"
-    ]
+    parent_dir = base_dir.parent
+
+    required_scripts = {
+        "main_v3.py": parent_dir,
+        "start_v3.py": base_dir,
+        "train_model.py": base_dir,
+        "backtest.py": base_dir,
+        "simulate.py": base_dir,
+        "analyze_results.py": base_dir,
+        "run_experiments.py": base_dir
+    }
     
     missing_scripts = []
     
-    for script in required_scripts:
-        script_path = base_dir / script
+    for script, location in required_scripts.items():
+        script_path = location / script
         if script_path.exists():
             print(f"✅ {script}")
         else:
-            print(f"❌ {script} - No encontrado")
+            print(f"❌ {script} - No encontrado en {location}")
             missing_scripts.append(script)
     
     return missing_scripts
@@ -175,19 +177,19 @@ def run_basic_tests():
     
     try:
         # Test de importación de módulos principales
-        sys.path.insert(0, str(Path(__file__).parent))
+        sys.path.insert(0, str(Path(__file__).parent.parent))
         
-        print("  Probando importación de utils...")
-        import utils
-        print("  ✅ utils")
+        print("  Probando importación de shared.utils...")
+        from shared import utils
+        print("  ✅ shared.utils")
         
-        print("  Probando importación de ai_model...")
-        import ai_model
-        print("  ✅ ai_model")
+        print("  Probando importación de core.ai_model...")
+        from core import ai_model
+        print("  ✅ core.ai_model")
         
-        print("  Probando importación de simulation_engine...")
-        import simulation_engine
-        print("  ✅ simulation_engine")
+        print("  Probando importación de core.simulation_engine...")
+        from core import simulation_engine
+        print("  ✅ core.simulation_engine")
         
         print("  Probando creación de modelo de IA...")
         model = ai_model.ArbitrageAIModel()

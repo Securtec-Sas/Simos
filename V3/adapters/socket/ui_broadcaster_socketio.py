@@ -6,8 +6,8 @@ import json
 import urllib.parse
 from typing import Dict, Any, Set, Optional, Callable
 import socketio
-from config_v3 import UI_WEBSOCKET_URL
-from utils import get_current_timestamp
+from shared.config_v3 import UI_WEBSOCKET_URL
+from shared.utils import get_current_timestamp
 
 class UIBroadcaster:
     """Maneja la comunicación Socket.IO con la interfaz de usuario."""

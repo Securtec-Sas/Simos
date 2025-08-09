@@ -9,10 +9,10 @@ from typing import Dict, Any, List, Optional, Tuple
 import pandas as pd
 import numpy as np
 
-from config_v3 import SIMULATION_DELAY, MIN_PROFIT_USDT, MIN_PROFIT_PERCENTAGE
-from utils import safe_float, safe_dict_get, get_current_timestamp, create_symbol_dict
-from ai_model import ArbitrageAIModel
-from data_persistence import DataPersistence
+from shared.config_v3 import SIMULATION_DELAY, MIN_PROFIT_USDT, MIN_PROFIT_PERCENTAGE
+from shared.utils import safe_float, safe_dict_get, get_current_timestamp, create_symbol_dict
+from core.ai_model import ArbitrageAIModel
+from adapters.persistence.data_persistence import DataPersistence
 
 class SimulationEngine:
     """Motor de simulación para entrenamiento y testing del modelo de IA."""

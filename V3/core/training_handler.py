@@ -11,11 +11,11 @@ import json
 import csv
 from io import StringIO
 
-from config_v3 import DATA_DIR
-from utils import get_current_timestamp, safe_float
-from ai_model import ArbitrageAIModel
-from data_persistence import DataPersistence
-from sebo_symbols_api import SeboSymbolsAPI
+from shared.config_v3 import DATA_DIR
+from shared.utils import get_current_timestamp, safe_float
+from core.ai_model import ArbitrageAIModel
+from adapters.persistence.data_persistence import DataPersistence
+from adapters.connectors.sebo_symbols_api import SeboSymbolsAPI
 
 class TrainingHandler:
     """Manejador para operaciones de entrenamiento del modelo de IA."""

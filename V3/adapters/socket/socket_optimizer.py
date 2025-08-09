@@ -5,9 +5,9 @@ import logging
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 
-from ui_broadcaster import UIBroadcaster
-from sebo_connector import SeboConnector
-from data_persistence import DataPersistence
+from adapters.socket.ui_broadcaster import UIBroadcaster
+from adapters.connectors.sebo_connector import SeboConnector
+from adapters.persistence.data_persistence import DataPersistence
 
 class SocketOptimizer:
     """Optimiza la comunicación por socket para mejorar el rendimiento."""

@@ -4,8 +4,8 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional, Tuple, List
 import ccxt.async_support as ccxt
-from config_v3 import API_KEYS, SUPPORTED_EXCHANGES, PREFERRED_NETWORKS, REQUEST_TIMEOUT, EXCHANGE_SANDBOX_MODE, SANDBOX_API_KEYS
-from utils import safe_float, find_cheapest_network, validate_exchange_id
+from shared.config_v3 import API_KEYS, SUPPORTED_EXCHANGES, PREFERRED_NETWORKS, REQUEST_TIMEOUT, EXCHANGE_SANDBOX_MODE, SANDBOX_API_KEYS
+from shared.utils import safe_float, find_cheapest_network, validate_exchange_id
 
 class ExchangeManager:
     """Maneja las interacciones con exchanges usando CCXT."""

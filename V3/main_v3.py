@@ -8,19 +8,18 @@ from typing import Dict, Any
 from flask import Flask
 
 # Importar módulos de V3
-from config_v3 import LOG_LEVEL, LOG_FILE_PATH
-from utils import setup_logging
-from sebo_connector import SeboConnector
-from ui_broadcaster import UIBroadcaster
-from exchange_manager import ExchangeManager
-from data_persistence import DataPersistence
-from trading_logic import TradingLogic
-from ai_model import ArbitrageAIModel
-from simulation_engine import SimulationEngine
-from api_v3_routes import APIv3Routes
-from socket_optimizer import SocketOptimizer
-from training_handler import TrainingHandler # Importar TrainingHandler
-
+from shared.config_v3 import LOG_LEVEL, LOG_FILE_PATH
+from shared.utils import setup_logging
+from adapters.connectors.sebo_connector import SeboConnector
+from adapters.socket.ui_broadcaster_socketio import UIBroadcaster
+from adapters.exchanges.exchange_manager import ExchangeManager
+from adapters.persistence.data_persistence import DataPersistence
+from core.trading_logic import TradingLogic
+from core.ai_model import ArbitrageAIModel
+from core.simulation_engine import SimulationEngine
+from adapters.api.api_v3_routes import APIv3Routes
+from adapters.socket.socket_optimizer import SocketOptimizer
+from core.training_handler import TrainingHandler # Importar TrainingHandler
 
 class CryptoArbitrageV3:
     """Aplicación principal de arbitraje de criptomonedas V3."""

@@ -6,11 +6,11 @@ import logging
 import asyncio
 from typing import Dict, Any
 
-from training_handler import TrainingHandler
-from simulation_handler import SimulationHandler
-from ai_model import ArbitrageAIModel
-from data_persistence import DataPersistence
-from sebo_connector import SeboConnector
+from core.training_handler import TrainingHandler
+from scripts.simulation_handler import SimulationHandler
+from core.ai_model import ArbitrageAIModel
+from adapters.persistence.data_persistence import DataPersistence
+from adapters.connectors.sebo_connector import SeboConnector
 
 class APIv3Routes:
     """Rutas de la API v3 para el sistema de entrenamiento y simulación."""

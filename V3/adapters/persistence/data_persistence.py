@@ -7,8 +7,8 @@ import os
 import pandas as pd
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
-from config_v3 import CSV_LOG_PATH, TRADING_STATE_FILE, BALANCE_CACHE_FILE
-from utils import save_json_file, load_json_file, get_current_timestamp, safe_float
+from shared.config_v3 import CSV_LOG_PATH, TRADING_STATE_FILE, BALANCE_CACHE_FILE
+from shared.utils import save_json_file, load_json_file, get_current_timestamp, safe_float
 
 class DataPersistence:
     """Maneja la persistencia de datos para V3."""
