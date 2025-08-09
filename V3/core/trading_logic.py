@@ -183,7 +183,6 @@ class TradingLogic:
             ai_decision = self.ai_model.predict(ai_input_data)
             ai_input_data["ai_decision"] = ai_decision
             
-            
             self.logger.info(f"Decisión IA para {symbol}: {ai_decision['should_execute']} (confianza: {ai_decision['confidence']:.3f})")
             
             # Ejecutar operación si es rentable
