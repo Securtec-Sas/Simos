@@ -8,13 +8,8 @@ const DataAI = ({
   headerStyle,
   sectionStyle,
 }) => {
-  // Se utiliza useEffect para solicitar los detalles del modelo cuando el componente se monta.
-  // El array de dependencias asegura que el efecto se ejecute solo cuando `handleRequest` cambia.
-  useEffect(() => {
-    if (handleRequest) {
-      handleRequest('get_ai_model_details');
-    }
-  }, [handleRequest]);
+  // Eliminado: No solicitar automáticamente los detalles del modelo
+  // Solo se solicitarán cuando el usuario haga clic en "Actualizar Detalles"
 
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif', display: 'flex', flexDirection: 'column', gap: '20px' }}>

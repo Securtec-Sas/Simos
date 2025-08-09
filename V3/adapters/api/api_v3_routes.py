@@ -42,8 +42,14 @@ class APIv3Routes:
         self.app.route('/api/v3/create-training-csv', methods=['POST'])(
             self._create_training_csv
         )
+        self.app.route('/api/v3/create-test-csv', methods=['POST'])(
+            self._create_test_csv
+        )
         self.app.route('/api/v3/start-training', methods=['POST'])(
             self._start_training
+        )
+        self.app.route('/api/v3/start-tests', methods=['POST'])(
+            self._start_tests
         )
         self.app.route('/api/v3/run-tests', methods=['POST'])(
             self._run_tests
@@ -100,6 +106,28 @@ class APIv3Routes:
                 "message": f"Error interno: {str(e)}"
             }), 500
     
+    def _create_test_csv(self):
+        """Endpoint para crear CSV de pruebas."""
+        try:
+            request_data = request.get_json()
+            
+            # Ejecutar de forma asíncrona
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(
+                self.training_handler.create_test_csv(request_data)
+            )
+            loop.close()
+            
+            return jsonify(result)
+            
+        except Exception as e:
+            self.logger.error(f"Error en create_test_csv: {e}")
+            return jsonify({
+                "status": "error",
+                "message": f"Error interno: {str(e)}"
+            }), 500
+    
     def _start_training(self):
         """Endpoint para iniciar entrenamiento."""
         try:
@@ -117,6 +145,28 @@ class APIv3Routes:
             
         except Exception as e:
             self.logger.error(f"Error en start_training: {e}")
+            return jsonify({
+                "status": "error",
+                "message": f"Error interno: {str(e)}"
+            }), 500
+    
+    def _start_tests(self):
+        """Endpoint para iniciar pruebas del modelo."""
+        try:
+            request_data = request.get_json()
+            
+            # Ejecutar de forma asíncrona
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(
+                self.training_handler.start_tests(request_data)
+            )
+            loop.close()
+            
+            return jsonify(result)
+            
+        except Exception as e:
+            self.logger.error(f"Error en start_tests: {e}")
             return jsonify({
                 "status": "error",
                 "message": f"Error interno: {str(e)}"

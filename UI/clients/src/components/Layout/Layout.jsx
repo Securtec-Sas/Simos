@@ -2,10 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import Sidebar from '../Sidebar/Sidebar.jsx';
 
-const Layout = ({ allExchanges, setAllExchanges, connectionStatus, balances }) => {
+const Layout = ({ allExchanges, setAllExchanges, connectionStatus, balances, v3Data }) => {
   const location = useLocation();
   const [showBalanceDetails, setShowBalanceDetails] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [trainingStatus, setTrainingStatus] = useState({
+    isTraining: false,
+    progress: 0,
+    status: 'idle',
+    filename: null
+  });
+  const [stableConnectionStatus, setStableConnectionStatus] = useState(connectionStatus);
 
   // Simular carga inicial
   useEffect(() => {
@@ -15,6 +22,30 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus, balances }) =
 
     return () => clearTimeout(timer);
   }, []);
+
+  // Estabilizar el estado de conexión para evitar parpadeo
+  useEffect(() => {
+    if (connectionStatus) {
+      const timer = setTimeout(() => {
+        setStableConnectionStatus(connectionStatus);
+      }, 500); // Esperar 500ms antes de actualizar para evitar cambios rápidos
+
+      return () => clearTimeout(timer);
+    }
+  }, [connectionStatus]);
+
+  // Monitorear estado de entrenamiento
+  useEffect(() => {
+    if (v3Data && v3Data.ai_training_update) {
+      const { progress, status, filepath } = v3Data.ai_training_update;
+      setTrainingStatus({
+        isTraining: status === 'STARTING' || status === 'IN_PROGRESS',
+        progress: progress || 0,
+        status: status || 'idle',
+        filename: filepath
+      });
+    }
+  }, [v3Data]);
 
   // Estilos del Navbar
   const navStyle = {
@@ -295,19 +326,27 @@ const Layout = ({ allExchanges, setAllExchanges, connectionStatus, balances }) =
 
           <div style={statusContainerStyle}>
             {/* Estado de conexión V3 */}
-            <div style={statusIndicatorStyle(connectionStatus?.v3 || 'disconnected')}>
-              <div style={statusDotStyle(connectionStatus?.v3 || 'disconnected')}></div>
-              <span>V3: {getStatusText(connectionStatus?.v3 || 'disconnected')}</span>
+            <div style={statusIndicatorStyle(stableConnectionStatus?.v3 || 'disconnected')}>
+              <div style={statusDotStyle(stableConnectionStatus?.v3 || 'disconnected')}></div>
+              <span>V3: {getStatusText(stableConnectionStatus?.v3 || 'disconnected')}</span>
             </div>
 
             {/* Estado de conexión Sebo */}
-            <div style={statusIndicatorStyle(connectionStatus?.sebo || 'disconnected')}>
-              <div style={statusDotStyle(connectionStatus?.sebo || 'disconnected')}></div>
-              <span>Sebo: {getStatusText(connectionStatus?.sebo || 'disconnected')}</span>
+            <div style={statusIndicatorStyle(stableConnectionStatus?.sebo || 'disconnected')}>
+              <div style={statusDotStyle(stableConnectionStatus?.sebo || 'disconnected')}></div>
+              <span>Sebo: {getStatusText(stableConnectionStatus?.sebo || 'disconnected')}</span>
             </div>
 
+            {/* Estado de entrenamiento */}
+            {trainingStatus.isTraining && (
+              <div style={statusIndicatorStyle('reconnecting')}>
+                <div style={statusDotStyle('reconnecting')}></div>
+                <span>🤖 Entrenando: {trainingStatus.progress.toFixed(0)}%</span>
+              </div>
+            )}
+
             {/* Balance */}
-            <div 
+            <div
               style={balanceContainerStyle}
               className="balance-container"
               onClick={() => setShowBalanceDetails(!showBalanceDetails)}

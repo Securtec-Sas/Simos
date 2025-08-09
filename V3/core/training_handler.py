@@ -37,6 +37,12 @@ class TrainingHandler:
         self.training_progress = 0
         self.training_filepath = None # Para persistir la ruta del archivo
         
+        # Estado de las pruebas
+        self.testing_in_progress = False
+        self.testing_results = {}
+        self.testing_progress = 0
+        self.testing_filepath = None
+        
     async def create_training_csv(self, request_data: Dict) -> Dict:
         """Crea un CSV de datos para entrenamiento."""
         try:
@@ -105,10 +111,20 @@ class TrainingHandler:
             self.training_in_progress = True
             self.training_progress = 0
             
-            # Obtener la ruta del archivo del payload
+            # Obtener la ruta del archivo del payload - manejar tanto csv_filename como filepath
+            csv_filename = request_data.get("csv_filename")
             filepath = request_data.get("filepath")
-            if not filepath or not os.path.exists(filepath):
-                return {"status": "error", "message": "Ruta de archivo CSV no válida o no encontrada"}
+            
+            if csv_filename:
+                # Si se proporciona csv_filename, construir la ruta completa
+                filepath = os.path.join(DATA_DIR, csv_filename)
+            elif not filepath:
+                self.training_in_progress = False
+                return {"status": "error", "message": "Se requiere csv_filename o filepath"}
+            
+            if not os.path.exists(filepath):
+                self.training_in_progress = False
+                return {"status": "error", "message": f"Archivo CSV no encontrado: {filepath}"}
             
             self.training_filepath = filepath # Guardar la ruta del archivo
 
@@ -126,8 +142,50 @@ class TrainingHandler:
             self.training_in_progress = False
             return {"status": "error", "message": f"Error interno: {str(e)}"}
     
+    async def start_tests(self, request_data: Dict) -> Dict:
+        """Inicia las pruebas del modelo."""
+        try:
+            if self.testing_in_progress:
+                return {"status": "error", "message": "Ya hay pruebas en progreso"}
+            
+            if self.training_in_progress:
+                return {"status": "error", "message": "No se pueden ejecutar pruebas mientras hay entrenamiento en progreso"}
+            
+            self.testing_in_progress = True
+            self.testing_progress = 0
+            
+            # Obtener la ruta del archivo del payload
+            csv_filename = request_data.get("csv_filename")
+            filepath = request_data.get("filepath")
+            
+            if csv_filename:
+                filepath = os.path.join(DATA_DIR, csv_filename)
+            elif not filepath:
+                self.testing_in_progress = False
+                return {"status": "error", "message": "Se requiere csv_filename o filepath"}
+            
+            if not os.path.exists(filepath):
+                self.testing_in_progress = False
+                return {"status": "error", "message": f"Archivo CSV no encontrado: {filepath}"}
+            
+            self.testing_filepath = filepath
+            
+            # Iniciar pruebas en background
+            asyncio.create_task(self._run_testing_process(filepath))
+            
+            return {
+                "status": "success",
+                "message": "Pruebas iniciadas",
+                "data": {"test_id": get_current_timestamp()}
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error iniciando pruebas: {e}")
+            self.testing_in_progress = False
+            return {"status": "error", "message": f"Error interno: {str(e)}"}
+
     async def run_tests(self, test_csv_file) -> Dict:
-        """Ejecuta pruebas con un CSV diferente."""
+        """Ejecuta pruebas con un CSV diferente (método legacy)."""
         try:
             # Leer archivo CSV de pruebas
             test_data = await self._load_csv_file(test_csv_file)
@@ -146,6 +204,65 @@ class TrainingHandler:
             
         except Exception as e:
             self.logger.error(f"Error ejecutando pruebas: {e}")
+            return {"status": "error", "message": f"Error interno: {str(e)}"}
+
+    async def create_test_csv(self, request_data: Dict) -> Dict:
+        """Crea un CSV de datos para pruebas (similar al de entrenamiento pero con datos diferentes)."""
+        try:
+            self.logger.info("Iniciando creación de CSV de pruebas")
+            
+            # Extraer parámetros
+            fecha = request_data.get("fecha")
+            operaciones = request_data.get("operaciones")
+            cantidad_simbolos = request_data.get("cantidadSimbolos")
+            lista_simbolos = request_data.get("listaSimbolos", [])
+            intervalo = request_data.get("intervalo", "5m")
+            
+            # Validar fecha
+            if not fecha:
+                return {"status": "error", "message": "Fecha es requerida"}
+            
+            fecha_obj = datetime.strptime(fecha, "%Y-%m-%d")
+            if fecha_obj >= datetime.now():
+                return {"status": "error", "message": "La fecha debe ser anterior a la actual"}
+            
+            # Obtener símbolos de Sebo
+            symbols_data = await self._get_symbols_from_sebo()
+            if not symbols_data:
+                return {"status": "error", "message": "No se pudieron obtener símbolos de Sebo"}
+            
+            # Seleccionar símbolos según el criterio
+            selected_symbols = self._select_symbols(symbols_data, cantidad_simbolos, lista_simbolos)
+            
+            # Calcular operaciones si no se especificó
+            if not operaciones:
+                operaciones = self._calculate_possible_operations(fecha_obj, intervalo)
+            
+            # Generar datos históricos simulados para pruebas (con variaciones)
+            csv_data = await self._generate_test_data(
+                fecha_obj, selected_symbols, operaciones, intervalo
+            )
+            
+            # Guardar CSV
+            filename = f"test_data_{fecha}_{intervalo}_{len(selected_symbols)}symbols.csv"
+            filepath = os.path.join(DATA_DIR, filename)
+            
+            await self._save_csv_data(csv_data, filepath)
+            
+            return {
+                "status": "success",
+                "message": "CSV de pruebas creado exitosamente",
+                "data": {
+                    "filename": filename,
+                    "filepath": filepath,
+                    "records": len(csv_data),
+                    "symbols": len(selected_symbols),
+                    "operations": operaciones
+                }
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error creando CSV de pruebas: {e}")
             return {"status": "error", "message": f"Error interno: {str(e)}"}
     
     async def _get_symbols_from_sebo(self) -> List[Dict]:
@@ -288,31 +405,78 @@ class TrainingHandler:
             self.training_filepath = filepath
             self.training_progress = 0
             
+            # Notificar inicio
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_training_progress(0, False, self.training_filepath)
+            
             # Cargar datos del CSV
+            self.training_progress = 10
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_training_progress(10, False, self.training_filepath)
+            
             training_data = await self._load_csv_file(filepath)
             
             if not training_data:
+                error_msg = "No se pudieron cargar los datos de entrenamiento"
+                self.logger.error(error_msg)
                 if self.ui_broadcaster:
-                    await self.ui_broadcaster.broadcast_training_error("No se pudieron cargar los datos de entrenamiento")
+                    await self.ui_broadcaster.broadcast_training_error(error_msg)
+                self.training_in_progress = False
+                return
+            
+            # Validar datos
+            self.training_progress = 20
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_training_progress(20, False, self.training_filepath)
+            
+            if len(training_data) < 10:
+                error_msg = f"Datos insuficientes para entrenamiento: {len(training_data)} registros (mínimo 10)"
+                self.logger.error(error_msg)
+                if self.ui_broadcaster:
+                    await self.ui_broadcaster.broadcast_training_error(error_msg)
                 self.training_in_progress = False
                 return
             
             # Optimizar datos antes del entrenamiento
+            self.training_progress = 30
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_training_progress(30, False, self.training_filepath)
+            
             optimized_data = self._optimize_training_data(training_data)
+            
+            if not optimized_data:
+                error_msg = "Error en la optimización de datos de entrenamiento"
+                self.logger.error(error_msg)
+                if self.ui_broadcaster:
+                    await self.ui_broadcaster.broadcast_training_error(error_msg)
+                self.training_in_progress = False
+                return
 
-            # Simular progreso de entrenamiento
-            for progress in range(0, 101, 10):
+            # Simular progreso de entrenamiento con pasos más realistas
+            training_steps = [40, 50, 60, 70, 80, 90, 95]
+            for progress in training_steps:
                 self.training_progress = progress
                 if self.ui_broadcaster:
                     await self.ui_broadcaster.broadcast_training_progress(progress, False, self.training_filepath)
-                await asyncio.sleep(1)  # Simular tiempo de procesamiento
+                await asyncio.sleep(2)  # Simular tiempo de procesamiento más realista
             
             # Ejecutar entrenamiento real con datos optimizados
-            results = self.ai_model.train(optimized_data)
+            try:
+                results = self.ai_model.train(optimized_data)
+                if not results:
+                    raise Exception("El modelo no devolvió resultados de entrenamiento")
+            except Exception as train_error:
+                error_msg = f"Error durante el entrenamiento del modelo: {str(train_error)}"
+                self.logger.error(error_msg)
+                if self.ui_broadcaster:
+                    await self.ui_broadcaster.broadcast_training_error(error_msg)
+                self.training_in_progress = False
+                return
             
             # Completar entrenamiento
             self.training_in_progress = False
             self.training_progress = 100
+            self.training_results = results
             
             if self.ui_broadcaster:
                 await self.ui_broadcaster.broadcast_training_complete(results)
@@ -320,10 +484,98 @@ class TrainingHandler:
             self.logger.info("Entrenamiento completado exitosamente")
             
         except Exception as e:
-            self.logger.error(f"Error en proceso de entrenamiento: {e}")
+            error_msg = f"Error crítico en proceso de entrenamiento: {str(e)}"
+            self.logger.error(error_msg)
             self.training_in_progress = False
             if self.ui_broadcaster:
-                await self.ui_broadcaster.broadcast_training_error(str(e))
+                await self.ui_broadcaster.broadcast_training_error(error_msg)
+
+    async def _run_testing_process(self, filepath: str):
+        """Ejecuta el proceso de pruebas en background."""
+        try:
+            self.logger.info(f"Iniciando proceso de pruebas con {filepath}")
+            self.testing_in_progress = True
+            self.testing_filepath = filepath
+            self.testing_progress = 0
+            
+            # Verificar que el modelo esté entrenado
+            if not self.ai_model.is_trained:
+                error_msg = "El modelo no está entrenado. Debe entrenar el modelo antes de ejecutar pruebas."
+                self.logger.error(error_msg)
+                if self.ui_broadcaster:
+                    await self.ui_broadcaster.broadcast_test_error(error_msg)
+                self.testing_in_progress = False
+                return
+            
+            # Notificar inicio
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_test_progress(0, False, self.testing_filepath)
+            
+            # Cargar datos del CSV
+            self.testing_progress = 10
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_test_progress(10, False, self.testing_filepath)
+            
+            test_data = await self._load_csv_file(filepath)
+            
+            if not test_data:
+                error_msg = "No se pudieron cargar los datos de prueba"
+                self.logger.error(error_msg)
+                if self.ui_broadcaster:
+                    await self.ui_broadcaster.broadcast_test_error(error_msg)
+                self.testing_in_progress = False
+                return
+            
+            # Validar datos
+            self.testing_progress = 20
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_test_progress(20, False, self.testing_filepath)
+            
+            if len(test_data) < 5:
+                error_msg = f"Datos insuficientes para pruebas: {len(test_data)} registros (mínimo 5)"
+                self.logger.error(error_msg)
+                if self.ui_broadcaster:
+                    await self.ui_broadcaster.broadcast_test_error(error_msg)
+                self.testing_in_progress = False
+                return
+            
+            # Ejecutar pruebas con progreso
+            test_steps = [30, 50, 70, 85, 95]
+            for progress in test_steps:
+                self.testing_progress = progress
+                if self.ui_broadcaster:
+                    await self.ui_broadcaster.broadcast_test_progress(progress, False, self.testing_filepath)
+                await asyncio.sleep(1)  # Simular tiempo de procesamiento
+            
+            # Ejecutar pruebas reales
+            try:
+                results = await self._run_model_tests(test_data)
+                if "error" in results:
+                    raise Exception(results["error"])
+            except Exception as test_error:
+                error_msg = f"Error durante las pruebas del modelo: {str(test_error)}"
+                self.logger.error(error_msg)
+                if self.ui_broadcaster:
+                    await self.ui_broadcaster.broadcast_test_error(error_msg)
+                self.testing_in_progress = False
+                return
+            
+            # Completar pruebas
+            self.testing_in_progress = False
+            self.testing_progress = 100
+            self.testing_results = results
+            
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_test_complete(results)
+            
+            self.logger.info("Pruebas completadas exitosamente")
+            
+        except Exception as e:
+            error_msg = f"Error crítico en proceso de pruebas: {str(e)}"
+            self.logger.error(error_msg)
+            self.testing_in_progress = False
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_test_error(error_msg)
     
     async def _load_csv_file(self, file_path_or_file) -> List[Dict]:
         """Carga datos desde un archivo CSV."""
@@ -417,9 +669,56 @@ class TrainingHandler:
         self.logger.info("Optimización de datos completada.")
         return df_optimized.to_dict(orient='records')
 
+    async def _generate_test_data(self, fecha: datetime, symbols: List[Dict],
+                                operaciones: int, intervalo: str) -> List[Dict]:
+        """Genera datos históricos simulados para pruebas (con variaciones diferentes al entrenamiento)."""
+        data = []
+        
+        # Configuración base (ligeramente diferente al entrenamiento)
+        base_investment = 150.0  # USDT (diferente al entrenamiento)
+        exchanges = ["binance", "kucoin", "okx", "bybit", "huobi"]  # Más exchanges
+        
+        for i in range(operaciones):
+            for symbol in symbols:
+                # Simular datos de operación con variaciones para pruebas
+                operation_data = {
+                    "timestamp": (fecha + timedelta(minutes=i * 7)).isoformat(),  # Intervalo diferente
+                    "symbol": symbol["name"],
+                    "buy_exchange_id": np.random.choice(exchanges),
+                    "sell_exchange_id": np.random.choice(exchanges),
+                    "current_price_buy": round(np.random.uniform(80, 60000), 2),  # Rango más amplio
+                    "current_price_sell": 0,
+                    "investment_usdt": base_investment,
+                    "estimated_buy_fee": round(np.random.uniform(0.05, 0.8), 3),  # Fees diferentes
+                    "estimated_sell_fee": round(np.random.uniform(0.05, 0.8), 3),
+                    "estimated_transfer_fee": round(np.random.uniform(0.5, 15), 2),
+                    "decision_outcome": np.random.choice([
+                        "EJECUTADA_EXITOSA", "EJECUTADA_PERDIDA", "NO_EJECUTADA_RIESGO",
+                        "NO_EJECUTADA_FEES", "NO_EJECUTADA_LIQUIDEZ"
+                    ], p=[0.3, 0.2, 0.2, 0.15, 0.15]),  # Probabilidades diferentes
+                    "net_profit_usdt": round(np.random.uniform(-8, 20), 4),  # Rango diferente
+                    "profit_percentage": round(np.random.uniform(-8, 20), 2),
+                    "total_fees_usdt": round(np.random.uniform(0.3, 4), 2),
+                    "execution_time_seconds": np.random.randint(20, 400)  # Tiempo diferente
+                }
+                
+                # Ajustar precio de venta basado en el de compra (con más volatilidad)
+                price_variation = np.random.uniform(0.99, 1.01)  # Más volatilidad
+                operation_data["current_price_sell"] = round(
+                    operation_data["current_price_buy"] * price_variation, 2
+                )
+                
+                data.append(operation_data)
+        
+        return data
+
     def get_training_status(self) -> (str, int, Optional[str]):
         """Retorna el estado actual del entrenamiento."""
         return self.training_in_progress, self.training_progress, self.training_filepath
+
+    def get_testing_status(self) -> (str, int, Optional[str]):
+        """Retorna el estado actual de las pruebas."""
+        return self.testing_in_progress, self.testing_progress, self.testing_filepath
 
 
 

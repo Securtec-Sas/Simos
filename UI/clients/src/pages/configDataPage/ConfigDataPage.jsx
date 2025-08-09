@@ -83,14 +83,8 @@ const ConfigDataPage = () => {
     handleRequest('get_ai_model_details');
   };
 
-  // Cargar datos AI solo una vez al montar el componente
-  useEffect(() => {
-    if (!initialDataLoaded.current) {
-      console.log("Cargando datos iniciales del modelo AI...");
-      handleRequest('get_ai_model_details');
-      initialDataLoaded.current = true;
-    }
-  }, []);
+  // Eliminado: No cargar datos automáticamente al montar el componente
+  // Los datos solo se cargarán cuando el usuario haga clic en "Actualizar Datos"
 
   // Actualizar el estado cuando se reciben datos desde V3
   useEffect(() => {

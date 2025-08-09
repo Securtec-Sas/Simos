@@ -44,12 +44,15 @@ class CryptoArbitrageV3:
         
         # Inicializar API v3
         self.api_v3 = APIv3Routes(
-            self.flask_app, 
-            self.sebo_connector, 
-            self.ai_model, 
+            self.flask_app,
+            self.sebo_connector,
+            self.ai_model,
             self.data_persistence,
             self.ui_broadcaster
         )
+        
+        # Pasar el training_handler a las rutas API
+        self.api_v3.training_handler = self.training_handler
         
         # Inicializar optimizador de socket
         self.socket_optimizer = SocketOptimizer(
@@ -79,7 +82,9 @@ class CryptoArbitrageV3:
         self.ui_broadcaster.set_get_ai_model_details_callback(self._on_get_ai_model_details_request)
         self.ui_broadcaster.set_get_latest_balance_callback(self.data_persistence.load_balance_cache)
         self.ui_broadcaster.set_train_ai_model_callback(self.training_handler.start_training) # Configurar callback para entrenamiento
+        self.ui_broadcaster.set_test_ai_model_callback(self.training_handler.start_tests) # Configurar callback para pruebas
         self.ui_broadcaster.set_get_training_status_callback(self.training_handler.get_training_status) # Nuevo: callback para obtener estado de entrenamiento
+        self.ui_broadcaster.set_get_test_status_callback(self.training_handler.get_testing_status) # Nuevo: callback para obtener estado de pruebas
         
         # Callbacks de TradingLogic
         self.trading_logic.set_operation_complete_callback(self._on_operation_complete)
@@ -305,10 +310,17 @@ class CryptoArbitrageV3:
             elif message_type in ["start_ai_training", "train_ai_model"]: # Manejar ambos tipos de mensaje
                 if self.ui_broadcaster.on_train_ai_model_callback:
                     await self.ui_broadcaster.on_train_ai_model_callback(payload)
+            elif message_type == "start_ai_test": # Manejar inicio de pruebas
+                if self.ui_broadcaster.on_test_ai_model_callback:
+                    await self.ui_broadcaster.on_test_ai_model_callback(payload)
             elif message_type == "get_training_status": # Manejar el nuevo tipo de mensaje
                 if self.ui_broadcaster.on_get_training_status_callback:
                     in_progress, progress, filepath = self.ui_broadcaster.on_get_training_status_callback()
                     await self.ui_broadcaster.broadcast_training_progress(progress, not in_progress, filepath)
+            elif message_type == "get_test_status": # Manejar estado de pruebas
+                if self.ui_broadcaster.on_get_test_status_callback:
+                    in_progress, progress, filepath = self.ui_broadcaster.on_get_test_status_callback()
+                    await self.ui_broadcaster.broadcast_test_progress(progress, not in_progress, filepath)
             else:
                 self.logger.warning(f"Tipo de mensaje UI no reconocido: {message_type}")
                 

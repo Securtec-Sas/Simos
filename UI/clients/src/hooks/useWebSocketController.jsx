@@ -11,8 +11,7 @@ const useWebSocketController = () => {
   const v3SocketRef = useRef(null);
   const v3ReconnectTimeoutRef = useRef(null);
   const v3ReconnectAttemptsRef = useRef(0);
-  const maxReconnectAttempts = 10;
-  const heartbeatIntervalRef = useRef(null);
+  const maxReconnectAttempts = 10;  
 
   useEffect(() => {
     const connectV3 = () => {
@@ -37,17 +36,6 @@ const useWebSocketController = () => {
           
           // Solicitar estado inicial del sistema
           socket.send(JSON.stringify({ type: 'get_system_status' }));
-          
-          // Configurar heartbeat
-          if (heartbeatIntervalRef.current) {
-            clearInterval(heartbeatIntervalRef.current);
-          }
-          
-          heartbeatIntervalRef.current = setInterval(() => {
-            if (socket.readyState === WebSocket.OPEN) {
-              socket.send(JSON.stringify({ type: 'ping' }));
-            }
-          }, 30000); // Ping cada 30 segundos
         };
 
         socket.onmessage = (event) => {
@@ -151,11 +139,6 @@ const useWebSocketController = () => {
                 // No actualizar estado para heartbeat, solo confirmar conexión
                 break;
                 
-              case 'pong':
-                console.log('🏓 Pong recibido de V3');
-                // Respuesta al ping, conexión activa
-                break;
-                
               default:
                 console.log('❓ Tipo de mensaje desconocido de V3:', message.type, message.payload);
                 setV3Data(prev => ({ ...prev, [message.type]: message.payload }));
@@ -174,12 +157,6 @@ const useWebSocketController = () => {
           console.log(`🔌 WebSocket V3 desconectado - Código: ${event.code}, Razón: ${event.reason}`);
           setConnectionStatus(prev => ({ ...prev, v3: 'disconnected' }));
           window.v3SocketInstance = null;
-          
-          // Limpiar heartbeat
-          if (heartbeatIntervalRef.current) {
-            clearInterval(heartbeatIntervalRef.current);
-            heartbeatIntervalRef.current = null;
-          }
 
           // Intentar reconectar si no fue un cierre intencional
           if (event.code !== 1000 && v3ReconnectAttemptsRef.current < maxReconnectAttempts) {
@@ -212,12 +189,6 @@ const useWebSocketController = () => {
       
       if (v3ReconnectTimeoutRef.current) {
         clearTimeout(v3ReconnectTimeoutRef.current);
-        v3ReconnectTimeoutRef.current = null;
-      }
-      
-      if (heartbeatIntervalRef.current) {
-        clearInterval(heartbeatIntervalRef.current);
-        heartbeatIntervalRef.current = null;
       }
       
       if (v3SocketRef.current && 
@@ -281,4 +252,3 @@ const useWebSocketController = () => {
 };
 
 export default useWebSocketController;
-

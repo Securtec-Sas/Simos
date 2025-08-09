@@ -30,8 +30,10 @@ class UIBroadcaster:
         self.on_trading_stop_callback: Optional[Callable] = None
         self.on_ui_message_callback: Optional[Callable] = None
         self.on_train_ai_model_callback: Optional[Callable] = None
+        self.on_test_ai_model_callback: Optional[Callable] = None
         self.get_latest_balance_callback: Optional[Callable] = None
         self.on_get_training_status_callback: Optional[Callable] = None
+        self.on_get_test_status_callback: Optional[Callable] = None
         self.get_ai_model_details_callback: Optional[Callable] = None
         
         # Estado del trading
@@ -66,9 +68,9 @@ class UIBroadcaster:
                 self._handle_ui_client,
                 host,
                 port,
-                ping_interval=20,
-                ping_timeout=10,
-                close_timeout=10
+                ping_interval=30,  # Envía un ping cada 30 segundos
+                ping_timeout=20,   # Espera 20 segundos por el pong
+                close_timeout=10   # Tiempo para cerrar la conexión
             )
             
             self.is_running = True
@@ -152,11 +154,26 @@ class UIBroadcaster:
             elif message_type == 'train_ai_model':
                 if self.on_train_ai_model_callback:
                     await self.on_train_ai_model_callback(payload)
+            elif message_type == 'start_ai_training':
+                # Manejar específicamente el mensaje de inicio de entrenamiento
+                if self.on_train_ai_model_callback:
+                    self.logger.info(f"Iniciando entrenamiento de IA con payload: {payload}")
+                    await self.on_train_ai_model_callback(payload)
+                else:
+                    self.logger.error("No hay callback configurado para entrenamiento de IA")
+            elif message_type == 'start_ai_test':
+                # Manejar específicamente el mensaje de inicio de pruebas
+                if self.on_test_ai_model_callback:
+                    self.logger.info(f"Iniciando pruebas de IA con payload: {payload}")
+                    await self.on_test_ai_model_callback(payload)
+                else:
+                    self.logger.error("No hay callback configurado para pruebas de IA")
             elif message_type == 'get_training_status':
                 if self.on_get_training_status_callback:
                     await self.on_get_training_status_callback(websocket)
-            elif message_type == 'ping':
-                await self._send_pong(websocket)
+            elif message_type == 'get_test_status':
+                if self.on_get_test_status_callback:
+                    await self.on_get_test_status_callback(websocket)
             else:
                 # Callback genérico para otros mensajes
                 if self.on_ui_message_callback:
@@ -230,18 +247,6 @@ class UIBroadcaster:
         except Exception as e:
             self.logger.error(f"Error enviando estado del sistema: {e}")
     
-    async def _send_pong(self, websocket):
-        """Responde a un ping de la UI."""
-        pong_message = {
-            "type": "pong",
-            "payload": {"timestamp": get_current_timestamp()}
-        }
-        
-        try:
-            await websocket.send(json.dumps(pong_message))
-        except Exception as e:
-            self.logger.error(f"Error enviando pong: {e}")
-    
     def _is_valid_data(self, data: Any, min_size: int = 1) -> bool:
         """Valida que los datos no estén vacíos."""
         try:
@@ -273,9 +278,17 @@ class UIBroadcaster:
         """Establece el callback para la solicitud de entrenamiento del modelo de IA."""
         self.on_train_ai_model_callback = callback
 
+    def set_test_ai_model_callback(self, callback: Callable):
+        """Establece el callback para la solicitud de pruebas del modelo de IA."""
+        self.on_test_ai_model_callback = callback
+
     def set_get_training_status_callback(self, callback: Callable):
         """Establece el callback para la solicitud del estado de entrenamiento."""
         self.on_get_training_status_callback = callback
+
+    def set_get_test_status_callback(self, callback: Callable):
+        """Establece el callback para la solicitud del estado de pruebas."""
+        self.on_get_test_status_callback = callback
 
     def set_get_ai_model_details_callback(self, callback: Callable):
         """Establece el callback para obtener los detalles del modelo de IA."""
@@ -549,6 +562,100 @@ class UIBroadcaster:
         }
         
         await self.broadcast_message(message)
+    
+    async def broadcast_training_progress(self, progress: float, completed: bool, filepath: str = None):
+        """Envía el progreso del entrenamiento a la UI."""
+        status = "COMPLETED" if completed else ("IN_PROGRESS" if progress > 0 else "STARTING")
+        
+        message = {
+            "type": "ai_training_update",
+            "payload": {
+                "progress": progress,
+                "status": status,
+                "filepath": filepath,
+                "timestamp": get_current_timestamp()
+            }
+        }
+        
+        await self.broadcast_message(message)
+        self.logger.debug(f"Progreso de entrenamiento enviado: {progress}% - {status}")
+    
+    async def broadcast_training_complete(self, results: Dict):
+        """Envía el resultado del entrenamiento completado a la UI."""
+        message = {
+            "type": "ai_training_update",
+            "payload": {
+                "progress": 100,
+                "status": "COMPLETED",
+                "results": results,
+                "timestamp": get_current_timestamp()
+            }
+        }
+        
+        await self.broadcast_message(message)
+        self.logger.info("Entrenamiento completado - resultado enviado a UI")
+    
+    async def broadcast_training_error(self, error_message: str):
+        """Envía un error de entrenamiento a la UI."""
+        message = {
+            "type": "ai_training_update",
+            "payload": {
+                "progress": 0,
+                "status": "FAILED",
+                "error": error_message,
+                "timestamp": get_current_timestamp()
+            }
+        }
+        
+        await self.broadcast_message(message)
+        self.logger.error(f"Error de entrenamiento enviado a UI: {error_message}")
+    
+    async def broadcast_test_progress(self, progress: float, completed: bool, filepath: str = None):
+        """Envía el progreso de las pruebas a la UI."""
+        status = "COMPLETED" if completed else ("IN_PROGRESS" if progress > 0 else "STARTING")
+        
+        message = {
+            "type": "ai_test_update",
+            "payload": {
+                "progress": progress,
+                "status": status,
+                "filepath": filepath,
+                "timestamp": get_current_timestamp()
+            }
+        }
+        
+        await self.broadcast_message(message)
+        self.logger.debug(f"Progreso de pruebas enviado: {progress}% - {status}")
+    
+    async def broadcast_test_complete(self, results: Dict):
+        """Envía el resultado de las pruebas completadas a la UI."""
+        message = {
+            "type": "ai_test_update",
+            "payload": {
+                "progress": 100,
+                "status": "COMPLETED",
+                "results": results,
+                "timestamp": get_current_timestamp()
+            }
+        }
+        
+        await self.broadcast_message(message)
+        self.logger.info("Pruebas completadas - resultado enviado a UI")
+    
+    async def broadcast_test_error(self, error_message: str):
+        """Envía un error de pruebas a la UI."""
+        message = {
+            "type": "ai_test_update",
+            "payload": {
+                "progress": 0,
+                "status": "FAILED",
+                "error": error_message,
+                "timestamp": get_current_timestamp()
+            }
+        }
+        
+        await self.broadcast_message(message)
+        self.logger.error(f"Error de pruebas enviado a UI: {error_message}")
     
     def set_callbacks(self, **callbacks):
         """Configura los callbacks para diferentes eventos."""

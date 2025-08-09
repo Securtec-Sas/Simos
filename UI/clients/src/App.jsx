@@ -44,6 +44,7 @@ function App() {
             setAllExchanges={setAllExchanges}
             connectionStatus={connectionStatus}
             balances={balances}
+            v3Data={v3Data}
           />
         }>
           <Route path="conexion" element={<ActiveExchangesTable selectedExchanges={selectedExchanges} />} />
