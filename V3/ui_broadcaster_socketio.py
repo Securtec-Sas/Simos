@@ -31,7 +31,6 @@ class UIBroadcaster:
         self.on_train_ai_model_callback: Optional[Callable] = None
         self.on_test_ai_model_callback: Optional[Callable] = None
         self.on_start_ai_simulation_callback: Optional[Callable] = None
-        self.on_get_latest_balance_callback: Optional[Callable] = None
         
         # Estado del trading
         self.trading_active = False
@@ -54,17 +53,6 @@ class UIBroadcaster:
             self.logger.info(f"Cliente UI conectado: {sid}")
             # Enviar estado inicial al cliente
             await self._send_initial_state(sid)
-
-            # Enviar último balance cacheado al conectar
-            if self.on_get_latest_balance_callback:
-                try:
-                    balance_data = self.on_get_latest_balance_callback()
-                    if balance_data:
-                        # Usar el método broadcast_balances_update para consistencia
-                        await self.broadcast_balances_update(balance_data)
-                        self.logger.info(f"Último balance enviado a {sid} en conexión.")
-                except Exception as e:
-                    self.logger.error(f"Error enviando el último balance en conexión: {e}")
         
         @self.sio.event
         async def disconnect(sid):
@@ -334,10 +322,6 @@ class UIBroadcaster:
     def set_start_ai_simulation_callback(self, callback: Callable):
         """Establece el callback para la solicitud de simulación de IA."""
         self.on_start_ai_simulation_callback = callback
-
-    def set_get_latest_balance_callback(self, callback: Callable):
-        """Establece el callback para obtener el último balance cacheado."""
-        self.on_get_latest_balance_callback = callback
 
     # Métodos para actualizar estadísticas
     

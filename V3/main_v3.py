@@ -21,7 +21,6 @@ from api_v3_routes import APIv3Routes
 from socket_optimizer import SocketOptimizer
 from training_handler import TrainingHandler # Importar TrainingHandler
 
-
 class CryptoArbitrageV3:
     """Aplicación principal de arbitraje de criptomonedas V3."""
     
@@ -303,7 +302,7 @@ class CryptoArbitrageV3:
                 await self._send_trading_stats()
             elif message_type == "export_data":
                 await self._handle_data_export(payload)
-            elif message_type in ["start_ai_training", "train_ai_model"]: # Manejar ambos tipos de mensaje
+            elif message_type == "start_ai_training": # Manejar el nuevo tipo de mensaje
                 if self.ui_broadcaster.on_train_ai_model_callback:
                     await self.ui_broadcaster.on_train_ai_model_callback(payload)
             elif message_type == "get_training_status": # Manejar el nuevo tipo de mensaje

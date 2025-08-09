@@ -277,7 +277,7 @@ class UIBroadcaster:
         }
         
         await self.broadcast_message(message)
-        self.logger.info(f"Estado de trading cambiado: {'ACTIVO' if is_active else 'INACTIVO'}")
+        self.logger.info(f"Estado de trading cambiado: {"ACTIVO" if is_active else "INACTIVO"}")
     
     async def broadcast_log_message(self, level: str, message: str, data: Dict = None):
         """Envía un mensaje de log a la UI."""
