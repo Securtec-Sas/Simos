@@ -277,7 +277,7 @@ class UIBroadcaster:
         }
         
         await self.broadcast_message(message)
-        self.logger.info(f"Estado de trading cambiado: {'ACTIVO' if is_active else 'INACTIVO'}")
+        self.logger.info(f"Estado de trading cambiado: {"ACTIVO" if is_active else "INACTIVO"}")
     
     async def broadcast_log_message(self, level: str, message: str, data: Dict = None):
         """Envía un mensaje de log a la UI."""
@@ -417,14 +417,17 @@ class UIBroadcaster:
         await self.broadcast_message(message)
 
     async def broadcast_training_error(self, error_message: str):
-        """Envía un error de entrenamiento a todos los clientes UI."""
-        self.update_training_status("idle", 0, None)
+        """Envía un mensaje de error de entrenamiento a todos los clientes UI."""
+        self.update_training_status("error", 0, self.training_filepath)
         message = {
             "type": "training_error",
             "payload": {"message": error_message}
         }
         await self.broadcast_message(message)
 
+    def get_training_status(self) -> (str, int, Optional[str]):
+        """Retorna el estado actual del entrenamiento."""
+        return self.training_status, self.training_progress, self.training_filepath
 
 
 

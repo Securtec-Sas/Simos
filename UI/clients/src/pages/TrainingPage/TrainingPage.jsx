@@ -133,7 +133,7 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
 
       // Enviar la ruta del archivo CSV a V3 a través de un comando de socket
       sendV3Command({
-        type: 'start_training',
+        type: 'start_ai_training',
         payload: { filepath: csvData.filepath }
       });
       
@@ -478,20 +478,13 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
                     <span className="metric-value">{testResults.f1Score}%</span>
                   </div>
                   <div className="result-item">
-                    <label>Operaciones exitosas:</label>
-                    <span className="metric-value">{testResults.successfulOperations}/{testResults.totalOperations}</span>
+                    <label>Operaciones Exitosas:</label>
+                    <span className="metric-value">{testResults.successfulOperations}</span>
                   </div>
-                </div>
-                
-                <div className="test-summary">
-                  <h4>Resumen de Pruebas</h4>
-                  <p>
-                    El modelo procesó {testResults.totalOperations} operaciones de prueba, 
-                    de las cuales {testResults.successfulOperations} fueron predichas correctamente.
-                  </p>
-                  <p>
-                    Esto representa una precisión del {testResults.accuracy}% en datos no vistos durante el entrenamiento.
-                  </p>
+                  <div className="result-item">
+                    <label>Operaciones Totales:</label>
+                    <span className="metric-value">{testResults.totalOperations}</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -501,32 +494,22 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
         {activeSection === 'simulation' && (
           <div className="simulation-section">
             <h2>Simulación de Trading</h2>
+            <p>Configure los parámetros para la simulación de trading.</p>
             
             <div className="form-group">
               <label htmlFor="simulationDays">Duración de la simulación (días):</label>
-              <input
-                type="number"
-                id="simulationDays"
-                defaultValue="7"
-                min="1"
-                max="30"
-              />
+              <input type="number" id="simulationDays" defaultValue="30" />
             </div>
             <div className="form-group">
               <label htmlFor="initialBalance">Balance inicial (USDT):</label>
-              <input
-                type="number"
-                id="initialBalance"
-                defaultValue="1000"
-                min="100"
-              />
+              <input type="number" id="initialBalance" defaultValue="1000" />
             </div>
             <div className="form-group">
-              <label htmlFor="simulationInterval">Intervalo de tiempo:</label>
+              <label htmlFor="simulationInterval">Intervalo de datos:</label>
               <select id="simulationInterval">
-                <option value="5m">5 minutos</option>
-                <option value="15m">15 minutos</option>
                 <option value="1h">1 hora</option>
+                <option value="4h">4 horas</option>
+                <option value="1d">1 día</option>
               </select>
             </div>
             <div className="form-group">
@@ -537,35 +520,14 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
                 <option value="high">Alta</option>
               </select>
             </div>
-            <button 
-              className="start-simulation-btn"
-              onClick={handleStartSimulation}
-            >
-              Iniciar Simulación
-            </button>
+            <button onClick={handleStartSimulation}>Iniciar Simulación</button>
 
             {simulationResults && (
               <div className="simulation-results">
                 <h3>Resultados de la Simulación</h3>
-                <div className="results-grid">
-                  <div className="result-item">
-                    <label>ROI:</label>
-                    <span className="metric-value">{simulationResults.roi}%</span>
-                  </div>
-                  <div className="result-item">
-                    <label>Ganancia Total:</label>
-                    <span className="metric-value">{simulationResults.totalProfit} USDT</span>
-                  </div>
-                  <div className="result-item">
-                    <label>Operaciones Exitosas:</label>
-                    <span className="metric-value">{simulationResults.successfulTrades}</span>
-                  </div>
-                  <div className="result-item">
-                    <label>Drawdown Máximo:</label>
-                    <span className="metric-value">{simulationResults.maxDrawdown}%</span>
-                  </div>
-                </div>
-                <p>Balance Final: {simulationResults.finalBalance} USDT</p>
+                <p>Ganancia Total: {simulationResults.totalProfitUsdt} USDT</p>
+                <p>Operaciones Exitosas: {simulationResults.successfulOperations}</p>
+                <p>Operaciones Totales: {simulationResults.totalOperations}</p>
               </div>
             )}
           </div>
@@ -574,6 +536,7 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
     </div>
   );
 };
+
 
 export default TrainingPage;
 

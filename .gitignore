@@ -44,3 +44,4 @@ migrations/
 
 V3/data/
 V3/log/
+.log

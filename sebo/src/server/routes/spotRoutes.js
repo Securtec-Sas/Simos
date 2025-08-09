@@ -255,7 +255,7 @@ router.get('/training-files', tradingController.getTrainingCSVFiles);
  */
 
 
-
+router.post('/nets',analizerController.updateAnalysisWithdrawDepositFee);
 
 
 module.exports = router;

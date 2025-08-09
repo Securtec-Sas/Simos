@@ -160,7 +160,7 @@ class CryptoArbitrageV3:
         
         try:
             # Detener trading si está activo
-            if self.trading_logic.is_trading_active():
+            if self.trading_logic.is_trading_active:
                 await self.trading_logic.stop_trading()
             
             # Cerrar componentes en orden inverso
@@ -211,7 +211,7 @@ class CryptoArbitrageV3:
                         "sebo_connected": self.sebo_connector.is_connected,
                         "ui_clients": self.ui_broadcaster.get_connected_clients_count(),
                         "active_exchanges": len(active_exchanges),
-                        "trading_active": self.trading_logic.is_trading_active(),
+                        "trading_active": self.trading_logic.is_trading_active,
                         "operation_stats": stats
                     }
                 })
@@ -302,6 +302,13 @@ class CryptoArbitrageV3:
                 await self._send_trading_stats()
             elif message_type == "export_data":
                 await self._handle_data_export(payload)
+            elif message_type == "start_ai_training": # Manejar el nuevo tipo de mensaje
+                if self.ui_broadcaster.on_train_ai_model_callback:
+                    await self.ui_broadcaster.on_train_ai_model_callback(payload)
+            elif message_type == "get_training_status": # Manejar el nuevo tipo de mensaje
+                if self.ui_broadcaster.on_get_training_status_callback:
+                    in_progress, progress, filepath = self.ui_broadcaster.on_get_training_status_callback()
+                    await self.ui_broadcaster.broadcast_training_progress(progress, not in_progress, filepath)
             else:
                 self.logger.warning(f"Tipo de mensaje UI no reconocido: {message_type}")
                 
@@ -315,7 +322,7 @@ class CryptoArbitrageV3:
                 "sebo_connected": self.sebo_connector.is_connected,
                 "ui_clients": self.ui_broadcaster.get_connected_clients_count(),
                 "active_exchanges": self.exchange_manager.get_active_exchanges(),
-                "trading_active": self.trading_logic.is_trading_active(),
+                "trading_active": self.trading_logic.is_trading_active,
                 "current_operation": self.trading_logic.get_current_operation()
             }
             
