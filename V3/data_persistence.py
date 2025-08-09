@@ -372,3 +372,4 @@ class DataPersistence:
             self.logger.error(f"Error exportando datos: {e}")
             return False
 
+
