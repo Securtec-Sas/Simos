@@ -11,7 +11,7 @@ from flask import Flask
 from shared.config_v3 import LOG_LEVEL, LOG_FILE_PATH
 from shared.utils import setup_logging
 from adapters.connectors.sebo_connector import SeboConnector
-from adapters.socket.ui_broadcaster_socketio import UIBroadcaster
+from adapters.socket.ui_broadcaster import UIBroadcaster
 from adapters.exchanges.exchange_manager import ExchangeManager
 from adapters.persistence.data_persistence import DataPersistence
 from core.trading_logic import TradingLogic
