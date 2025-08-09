@@ -11,7 +11,7 @@ from flask import Flask
 from config_v3 import LOG_LEVEL, LOG_FILE_PATH
 from utils import setup_logging
 from sebo_connector import SeboConnector
-from ui_broadcaster import UIBroadcaster
+from ui_broadcaster_socketio import UIBroadcaster
 from exchange_manager import ExchangeManager
 from data_persistence import DataPersistence
 from trading_logic import TradingLogic
@@ -302,7 +302,7 @@ class CryptoArbitrageV3:
                 await self._send_trading_stats()
             elif message_type == "export_data":
                 await self._handle_data_export(payload)
-            elif message_type == "train_ai_model": # Manejar el nuevo tipo de mensaje
+            elif message_type in ["start_ai_training", "train_ai_model"]: # Manejar ambos tipos de mensaje
                 if self.ui_broadcaster.on_train_ai_model_callback:
                     await self.ui_broadcaster.on_train_ai_model_callback(payload)
             elif message_type == "get_training_status": # Manejar el nuevo tipo de mensaje
