@@ -55,33 +55,62 @@ El sistema funciona de la siguiente manera:
 
 ## Estructura de Carpetas y Archivos
 
-A continuación se presenta una vista simplificada de la estructura del proyecto:
+A continuación se presenta una vista detallada de la estructura del proyecto, destacando las carpetas y archivos más importantes.
 
 ```
-simos/
+.
 ├── UI/
-│   ├── clients/         # Código fuente de la aplicación React
+│   ├── clients/
+│   │   ├── public/
 │   │   ├── src/
+│   │   │   ├── components/
+│   │   │   │   ├── AIDataPage/
+│   │   │   │   ├── SimulationPage/
+│   │   │   │   └── ...
+│   │   │   ├── pages/
+│   │   │   │   ├── ConnectionPage/
+│   │   │   │   └── ...
+│   │   │   ├── App.jsx
+│   │   │   └── main.jsx
 │   │   ├── package.json
 │   │   └── vite.config.js
 │   └── README.md
 │
 ├── V3/
-│   ├── core/            # Lógica principal (simulador, IA, arbitraje)
-│   ├── adapters/        # Conectores a sebo, APIs, etc.
-│   ├── scripts/         # Scripts para ejecutar tareas (simular, entrenar)
-│   ├── main_v3.py       # Punto de entrada principal
+│   ├── adapters/
+│   │   ├── api/
+│   │   ├── connectors/
+│   │   └── ...
+│   ├── core/
+│   │   ├── advanced_simulation_engine.py
+│   │   ├── ai_model.py
+│   │   ├── arbitrage_calculator.py
+│   │   └── simulation_engine.py
+│   ├── models/
+│   │   └── arbitrage_model.pkl
+│   ├── scripts/
+│   │   ├── simulate.py
+│   │   └── train_model.py
+│   ├── shared/
+│   │   └── config_v3.py
+│   ├── main_v3.py
 │   └── requirements.txt
 │
 ├── sebo/
 │   ├── src/
-│   │   ├── server/      # Código del servidor Node.js (Express)
+│   │   ├── server/
 │   │   │   ├── controllers/
+│   │   │   │   ├── spotController.js
+│   │   │   │   └── sandboxOperationController.js
 │   │   │   ├── routes/
+│   │   │   │   ├── spotRoutes.js
+│   │   │   │   └── sandboxOperationRoutes.js
+│   │   │   ├── data/
 │   │   │   └── app.js
-│   │   └── data/        # Datos históricos o cacheados
-│   └── package.json
+│   │   └── data/
+│   ├── package.json
+│   └── .env.example
 │
-├── simosRead.md         # Este archivo de documentación
-└── ...                  # Otros archivos de configuración y scripts
+├── simosRead.md
+└── ... (otros archivos de configuración y documentación)
 ```
