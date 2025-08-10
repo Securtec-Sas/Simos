@@ -55,62 +55,468 @@ El sistema funciona de la siguiente manera:
 
 ## Estructura de Carpetas y Archivos
 
-A continuación se presenta una vista detallada de la estructura del proyecto, destacando las carpetas y archivos más importantes.
+A continuación se presenta la estructura completa de archivos y carpetas del proyecto.
 
 ```
-.
-├── UI/
-│   ├── clients/
-│   │   ├── public/
-│   │   ├── src/
-│   │   │   ├── components/
-│   │   │   │   ├── AIDataPage/
-│   │   │   │   ├── SimulationPage/
-│   │   │   │   └── ...
-│   │   │   ├── pages/
-│   │   │   │   ├── ConnectionPage/
-│   │   │   │   └── ...
-│   │   │   ├── App.jsx
-│   │   │   └── main.jsx
-│   │   ├── package.json
-│   │   └── vite.config.js
-│   └── README.md
-│
-├── V3/
-│   ├── adapters/
-│   │   ├── api/
-│   │   ├── connectors/
-│   │   └── ...
-│   ├── core/
-│   │   ├── advanced_simulation_engine.py
-│   │   ├── ai_model.py
-│   │   ├── arbitrage_calculator.py
-│   │   └── simulation_engine.py
-│   ├── models/
-│   │   └── arbitrage_model.pkl
-│   ├── scripts/
-│   │   ├── simulate.py
-│   │   └── train_model.py
-│   ├── shared/
-│   │   └── config_v3.py
-│   ├── main_v3.py
-│   └── requirements.txt
-│
-├── sebo/
-│   ├── src/
-│   │   ├── server/
-│   │   │   ├── controllers/
-│   │   │   │   ├── spotController.js
-│   │   │   │   └── sandboxOperationController.js
-│   │   │   ├── routes/
-│   │   │   │   ├── spotRoutes.js
-│   │   │   │   └── sandboxOperationRoutes.js
-│   │   │   ├── data/
-│   │   │   └── app.js
-│   │   └── data/
-│   ├── package.json
-│   └── .env.example
-│
-├── simosRead.md
-└── ... (otros archivos de configuración y documentación)
+.:
+Cambios Implementados en Simos - Rama manusUpdate.docx
+Environment_Variables.txt
+INFORME_ANALISIS_COMPLETO.md
+INFORME_OPTIMIZACION_ENTRENAMIENTO.md
+INSTRUCCIONES_INSTALACION.md
+LICENCIA
+README_SOCKET_FIXES.md
+Tareas.md
+UI
+V1
+V2
+V3
+analysis_report.md
+archivos_modificados
+createDoc.sh
+docs
+manage_all.sh
+package-lock.json
+prompPrivate.docx
+run_all.sh
+run_proy.docx
+run_proy.sh
+sebo
+seboSis.docx
+simosRead.md
+stop_proy.sh
+todo.md
+
+./UI:
+README.md
+clients
+desktop.ini
+
+./UI/clients:
+App.jsx
+README.md
+desktop.ini
+eslint.config.js
+index.html
+package-lock.json
+package.json
+public
+separar_componentes.sh
+src
+tailwind.config.js
+vite.config.js
+yarn.lock
+
+./UI/clients/public:
+desktop.ini
+vite.svg
+
+./UI/clients/src:
+App.jsx
+App.module.css
+App_old.jsx
+App_pl.jsx
+components
+config
+desktop.ini
+hooks
+index.css
+index.jsx
+main.jsx
+pages
+
+./UI/clients/src/components:
+AIDataPage
+ActiveExchangesTable
+BalanceDisplay
+DataStreamPage
+ExchangeList
+ExchangeManager
+Layout
+Sidebar
+SimulationPage
+SpotsMenu
+Top20DetailedPage
+TopSpotData
+TrainingPage
+desktop.ini
+
+./UI/clients/src/components/AIDataPage:
+DataAI.jsx
+Simulation.jsx
+Test.jsx
+Training.jsx
+desktop.ini
+
+./UI/clients/src/components/ActiveExchangesTable:
+ActiveExchangesTable.jsx
+ActiveExchangesTable.module.css
+desktop.ini
+
+./UI/clients/src/components/BalanceDisplay:
+BalanceDisplay.jsx
+BalanceDisplay.module.css
+desktop.ini
+
+./UI/clients/src/components/DataStreamPage:
+DataStreamPage.jsx
+desktop.ini
+
+./UI/clients/src/components/ExchangeList:
+ExchangeList.jsx
+ExchangeList.module.css
+desktop.ini
+
+./UI/clients/src/components/ExchangeManager:
+ExchangeManager.jsx
+desktop.ini
+
+./UI/clients/src/components/Layout:
+Layout.jsx
+Layout.module.css
+Layoutssss.jsx
+desktop.ini
+
+./UI/clients/src/components/Sidebar:
+Sidebar.jsx
+Sidebar.module.css
+desktop.ini
+
+./UI/clients/src/components/SimulationPage:
+SimulationPage.css
+SimulationPage.jsx
+
+./UI/clients/src/components/SpotsMenu:
+SpotsMenu.jsx
+SpotsMenu.module.css
+desktop.ini
+
+./UI/clients/src/components/Top20DetailedPage:
+Top20DetailedPage.jsx
+desktop.ini
+
+./UI/clients/src/components/TopSpotData:
+TopSpotData.jsx
+TopSpotData.module.css
+desktop.ini
+
+./UI/clients/src/components/TrainingPage:
+TrainingPage.css
+TrainingPage.jsx
+TrainingVisualization.css
+TrainingVisualization.jsx
+desktop.ini
+
+./UI/clients/src/config:
+api.js
+
+./UI/clients/src/hooks:
+desktop.ini
+useWebSocketController.jsx
+
+./UI/clients/src/pages:
+ConnectionPage
+DataViewPage
+Top20DetailedPage
+TrainingPage
+aiDataPage.jsx
+configDataPage
+desktop.ini
+exchangesApis
+
+./UI/clients/src/pages/ConnectionPage:
+ConnectionPage.jsx
+desktop.ini
+
+./UI/clients/src/pages/DataViewPage:
+DataViewPage.jsx
+DataViewPage.module.css
+desktop.ini
+
+./UI/clients/src/pages/Top20DetailedPage:
+Top20DetailedPage.jsx
+desktop.ini
+
+./UI/clients/src/pages/TrainingPage:
+TrainingPage.css
+TrainingPage.jsx
+TrainingVisualization.css
+TrainingVisualization.jsx
+desktop.ini
+
+./UI/clients/src/pages/configDataPage:
+ConfigDataPage.jsx
+desktop.ini
+
+./UI/clients/src/pages/exchangesApis:
+ExchangeAPIsPage.jsx
+desktop.ini
+exhangeApis.jsx
+
+./V1:
+desktop.ini
+templates
+
+./V1/templates:
+desktop.ini
+index.html
+
+./V2:
+Aplicación de Arbitraje de Criptomonedas con IA.md
+Creación de App Python con IA para Trading Automatizado.zip
+app_core.py
+arbitrage_calculator.py
+arbitrage_executor.py
+config.py
+config_old.py
+controllera
+data_logger.py
+desktop.ini
+logs
+main.py
+main_old.py
+model.py
+model_old.py
+opportunity_processor.py
+package-lock.json
+requirements.txt
+sio_event_handlers.py
+todo.md
+trained_arbitrage_model.joblib
+ui_command_handlers.py
+v2_helpers.py
+
+./V2/controllera:
+data.py
+desktop.ini
+
+./V2/logs:
+desktop.ini
+v2_operation_logs.csv
+
+./V3:
+GUIA_INICIO_RAPIDO.md
+RESUMEN_IMPLEMENTACION_SIMULACION.md
+SIMULACION_V3_DOCUMENTACION.md
+V2_Analysis.md
+V3_Plan.md
+__pycache__
+adapters
+config_example.py
+core
+desktop.ini
+experiments
+logs
+main_v3.py
+models
+requirements.txt
+scripts
+shared
+simple_test.py
+test_simulation.py
+test_training_flow.py
+ui_broadcaster.py
+v3_enhanced.py
+
+./V3/__pycache__:
+training_handler.cpython-311.pyc
+
+./V3/adapters:
+__init__.py
+api
+connectors
+exchanges
+persistence
+socket
+
+./V3/adapters/api:
+__init__.py
+api_v3_routes.py
+
+./V3/adapters/connectors:
+__init__.py
+sebo_connector.py
+sebo_symbols_api.py
+
+./V3/adapters/exchanges:
+__init__.py
+exchange_manager.py
+
+./V3/adapters/persistence:
+__init__.py
+data_persistence.py
+
+./V3/adapters/socket:
+__init__.py
+socket_optimizer.py
+ui_broadcaster.py
+
+./V3/core:
+__init__.py
+advanced_simulation_engine.py
+ai_model.py
+arbitrage_calculator.py
+arbitrage_executor.py
+model.py
+simulation_engine.py
+trading_logic.py
+training_handler.py
+
+./V3/experiments:
+desktop.ini
+experiment_20250708_012906_config.json
+experiment_20250708_013005
+experiment_20250708_013005_config.json
+experiment_20250708_022021_config.json
+experiment_20250708_022046
+experiment_20250708_022046_config.json
+
+./V3/experiments/experiment_20250708_013005:
+desktop.ini
+training_results.json
+
+./V3/experiments/experiment_20250708_022046:
+desktop.ini
+training_results.json
+
+./V3/logs:
+desktop.ini
+
+./V3/models:
+arbitrage_model.pkl
+desktop.ini
+
+./V3/scripts:
+__init__.py
+analyze_results.py
+backtest.py
+check_installation.py
+run_dev.py
+run_experiments.py
+simulate.py
+simulation_handler.py
+start_v3.py
+train_model.py
+
+./V3/shared:
+__init__.py
+config_v3.py
+utils.py
+
+./archivos_modificados:
+README_CAMBIOS.md
+desktop.ini
+
+./docs:
+data
+desktop.ini
+
+./docs/data:
+desktop.ini
+
+./sebo:
+desktop.ini
+package-lock.json
+package.json
+package_old.json
+run.sh
+src
+yarn.lock
+
+./sebo/src:
+data
+desktop.ini
+public
+server
+
+./sebo/src/data:
+realData_2025-08-01_10m.csv
+realData_2025-08-01_15m.csv
+
+./sebo/src/public:
+css
+desktop.ini
+index.html
+js
+
+./sebo/src/public/css:
+desktop.ini
+style.css
+
+./sebo/src/public/js:
+desktop.ini
+script.js
+
+./sebo/src/server:
+app.js
+app_old.js
+config
+controllers
+data
+desktop.ini
+routes
+utils
+
+./sebo/src/server/config:
+desktop.ini
+swaggerConfig.js
+
+./sebo/src/server/controllers:
+TradingController.js
+analizerController.js
+balanceController.js
+configController.js
+dbCotroller.js
+desktop.ini
+echangeSecurityController.js
+exchangeController.js
+operationController.js
+sandboxOperationController.js
+spotController.js
+spotController_old.js
+spotSocketController.js
+spotSocketController_old.js
+symbolController.js
+
+./sebo/src/server/data:
+dataBase
+desktop.ini
+exchanges_config.json
+realData(2025-07-15_5m).csv
+spot_usdt_coins.json
+
+./sebo/src/server/data/dataBase:
+connectio.js
+desktop.ini
+modelosBD
+
+./sebo/src/server/data/dataBase/modelosBD:
+analysis.model.js
+balance.model.js
+config.model.js
+desktop.ini
+exchange.model.js
+exchangeSecurity.model.js
+exchangeSymbol.model.js
+exxhangeSecurity.model.js.old
+networks.model.js
+symbol.model.js
+
+./sebo/src/server/routes:
+balanceRoutes.js
+configRoutes copy.js
+configRoutes.js
+desktop.ini
+exchangeRoutes.js
+operationRoutes.js
+sandboxOperationRoutes.js
+spotRoutes.js
+symbolRoutes.js
+tradingRoutes.js
+
+./sebo/src/server/utils:
+config.js
+desktop.ini
+exchangeConnector.js
+timeframeConverter.js
 ```
