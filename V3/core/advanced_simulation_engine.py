@@ -27,6 +27,7 @@ class SimulationMode(Enum):
     """Modos de simulación disponibles."""
     LOCAL = "local"  # Simulación local con datos del socket
     SEBO_SANDBOX = "sebo_sandbox"  # Simulación usando API sandbox de Sebo
+    REAL = "real"  # Operaciones reales en exchanges
 
 class TransactionStep(Enum):
     """Pasos de una transacción de arbitraje."""
@@ -193,7 +194,7 @@ class AdvancedSimulationEngine:
                 'message': error_msg
             }
     
-    async def stop_simulation(self) -> Dict:
+    async def stop_simulation(self, force_stop: bool = False) -> Dict:
         """Detiene la simulación actual."""
         if not self.is_simulation_running:
             return {
@@ -202,16 +203,56 @@ class AdvancedSimulationEngine:
             }
         
         try:
+            # Marcar que se está deteniendo para evitar nuevas operaciones
             self.is_simulation_running = False
+            
+            if not force_stop:
+                # Esperar a que las transacciones activas se completen
+                self.logger.info("Esperando a que las transacciones activas se completen...")
+                
+                # Notificar a UI que se está deteniendo
+                if self.ui_broadcaster:
+                    await self.ui_broadcaster.broadcast_message({
+                        'type': 'simulation_stopping',
+                        'payload': {
+                            'message': 'Esperando a que las operaciones activas se completen...',
+                            'active_transactions': len([tx for tx in self.active_transactions.values() 
+                                                      if tx['step'] not in [TransactionStep.COMPLETED, TransactionStep.FAILED]])
+                        }
+                    })
+                
+                # Esperar hasta que todas las transacciones se completen o timeout
+                timeout = 60  # 60 segundos máximo
+                start_wait = time.time()
+                
+                while time.time() - start_wait < timeout:
+                    active_count = len([tx for tx in self.active_transactions.values() 
+                                      if tx['step'] not in [TransactionStep.COMPLETED, TransactionStep.FAILED]])
+                    
+                    if active_count == 0:
+                        break
+                    
+                    await asyncio.sleep(1)  # Esperar 1 segundo antes de verificar de nuevo
+                
+                # Si aún hay transacciones activas después del timeout, marcarlas como fallidas
+                remaining_active = [tx for tx in self.active_transactions.values() 
+                                  if tx['step'] not in [TransactionStep.COMPLETED, TransactionStep.FAILED]]
+                
+                if remaining_active:
+                    self.logger.warning(f"Timeout alcanzado. Marcando {len(remaining_active)} transacciones como fallidas")
+                    for tx_data in remaining_active:
+                        tx_data['step'] = TransactionStep.FAILED
+                        tx_data['end_time'] = get_current_timestamp()
+                        tx_data['failure_reason'] = 'Timeout en detención de simulación'
+            else:
+                # Detención forzada: marcar todas las transacciones pendientes como fallidas
+                for tx_id, tx_data in self.active_transactions.items():
+                    if tx_data['step'] not in [TransactionStep.COMPLETED, TransactionStep.FAILED]:
+                        tx_data['step'] = TransactionStep.FAILED
+                        tx_data['end_time'] = get_current_timestamp()
+                        tx_data['failure_reason'] = 'Simulación detenida forzadamente'
+            
             self.simulation_stats['end_time'] = get_current_timestamp()
-            
-            # Completar transacciones pendientes como fallidas
-            for tx_id, tx_data in self.active_transactions.items():
-                if tx_data['step'] != TransactionStep.COMPLETED:
-                    tx_data['step'] = TransactionStep.FAILED
-                    tx_data['end_time'] = get_current_timestamp()
-                    tx_data['failure_reason'] = 'Simulación detenida'
-            
             self.logger.info("Simulación detenida")
             
             # Notificar a UI
@@ -220,13 +261,14 @@ class AdvancedSimulationEngine:
                     'type': 'simulation_stopped',
                     'payload': {
                         'stats': self.simulation_stats,
-                        'final_balance': self.simulation_stats['current_balance']
+                        'final_balance': self.simulation_stats['current_balance'],
+                        'forced_stop': force_stop
                     }
                 })
             
             return {
                 'success': True,
-                'message': 'Simulación detenida',
+                'message': 'Simulación detenida' + (' forzadamente' if force_stop else ''),
                 'final_stats': self.simulation_stats
             }
             
@@ -300,10 +342,34 @@ class AdvancedSimulationEngine:
             # Ejecutar según el modo
             if self.current_mode == SimulationMode.LOCAL:
                 result = await self._execute_local_simulation(tx_id)
-            else:  # SEBO_SANDBOX
+            elif self.current_mode == SimulationMode.SEBO_SANDBOX:
                 result = await self._execute_sebo_sandbox_simulation(tx_id)
+            elif self.current_mode == SimulationMode.REAL:
+                result = await self._execute_real_transaction(tx_id)
             
-            return result
+            return resultsaction = self.active_transactions[tx_id]
+        
+        try:
+            # Iniciar tarea asíncrona para procesar la transacción
+            asyncio.create_task(self._process_sebo_sandbox_transaction(tx_id))
+            
+            return {
+                'success': True,
+                'message': 'Transacción Sandbox iniciada',
+                'transaction_id': tx_id,
+                'symbol': transaction['symbol']
+            }
+            
+        except Exception as e:
+            error_msg = f"Error en simulación Sandbox: {e}"
+            self.logger.error(error_msg)
+            transaction['step'] = TransactionStep.FAILED
+            transaction['end_time'] = get_current_timestamp()
+            return {
+                'success': False,
+                'message': error_msg,
+                'transaction_id': tx_id
+            }
             
         except Exception as e:
             error_msg = f"Error procesando oportunidad: {e}"
@@ -878,3 +944,277 @@ class AdvancedSimulationEngine:
                 'error': error_msg
             }
             
+
+    async def _process_sebo_sandbox_transaction(self, tx_id: str):
+        """Procesa una transacción en modo Sandbox de Sebo paso a paso."""
+        transaction = self.active_transactions[tx_id]
+        
+        try:
+            symbol = transaction["symbol"]
+            ai_data = transaction["ai_input_data"]
+            investment = ai_data["investment_usdt"]
+            
+            # Paso 1: Retirar USDT (simulado en sandbox)
+            await self._simulate_step(
+                transaction, 
+                TransactionStep.WITHDRAWING_USDT,
+                f"Retirando {investment:.2f} USDT para comprar {symbol} en Sandbox"
+            )
+            
+            # Simular tiempo de retiro
+            await asyncio.sleep(self.simulation_config["time_between_transfers"])
+            
+            # Paso 2: Comprar asset (simulado en sandbox)
+            await self._simulate_step(
+                transaction,
+                TransactionStep.BUYING_ASSET,
+                f"Comprando {symbol} en {ai_data["buy_exchange_id"]} en Sandbox"
+            )
+            
+            # Simular tiempo de compra
+            await asyncio.sleep(self.simulation_config["time_between_transfers"])
+            
+            # Paso 3: Transferir asset (simulado en sandbox)
+            await self._simulate_step(
+                transaction,
+                TransactionStep.TRANSFERRING_ASSET,
+                f"Transfiriendo {symbol} a {ai_data["sell_exchange_id"]} en Sandbox"
+            )
+            
+            # Simular tiempo de transferencia (más largo)
+            await asyncio.sleep(self.simulation_config["time_between_transfers"] * 2)
+            
+            # Paso 4: Vender asset (simulado en sandbox)
+            await self._simulate_step(
+                transaction,
+                TransactionStep.SELLING_ASSET,
+                f"Vendiendo {symbol} en {ai_data["sell_exchange_id"]} en Sandbox"
+            )
+            
+            # Simular tiempo de venta
+            await asyncio.sleep(self.simulation_config["time_between_transfers"])
+            
+            # Calcular resultado final (simulado)
+            profit_loss = await self._calculate_final_result(transaction)
+            
+            transaction["profit_loss"] = profit_loss
+            transaction["success"] = True
+            transaction["step"] = TransactionStep.COMPLETED
+            transaction["end_time"] = get_current_timestamp()
+            
+            self.simulation_stats["successful_operations"] += 1
+            self.simulation_stats["total_profit_usdt"] += profit_loss
+            self.simulation_stats["current_balance"] += profit_loss
+            
+            self.logger.info(f"Transacción Sandbox {tx_id} completada. Ganancia: {profit_loss:.4f} USDT")
+            
+            # Notificar a UI
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_message({
+                    "type": "simulation_transaction_completed",
+                    "payload": {
+                        "transaction_id": tx_id,
+                        "symbol": symbol,
+                        "profit_loss": profit_loss,
+                        "final_balance": self.simulation_stats["current_balance"],
+                        "mode": self.current_mode.value
+                    }
+                })
+                
+        except Exception as e:
+            error_msg = f"Error procesando transacción Sandbox {tx_id}: {e}"
+            self.logger.error(error_msg)
+            transaction["step"] = TransactionStep.FAILED
+            transaction["end_time"] = get_current_timestamp()
+            transaction["failure_reason"] = str(e)
+            
+            self.simulation_stats["failed_operations"] += 1
+            self.simulation_stats["total_loss_usdt"] += transaction["ai_input_data"]["investment_usdt"]
+            
+            # Notificar a UI
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_message({
+                    "type": "simulation_transaction_failed",
+                    "payload": {
+                        "transaction_id": tx_id,
+                        "symbol": symbol,
+                        "error": error_msg,
+                        "mode": self.current_mode.value
+                    }
+                })
+        finally:
+            self.simulation_stats["total_operations"] += 1
+            self.simulation_stats["transactions_log"].append(transaction)
+            
+            # Notificar actualización de estadísticas generales
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_message({
+                    "type": "simulation_stats_update",
+                    "payload": self.simulation_stats
+                })
+
+
+
+
+
+    async def _execute_real_transaction(self, tx_id: str) -> Dict:
+        """Ejecuta una transacción en modo Real."""
+        transaction = self.active_transactions[tx_id]
+        
+        if not self.exchange_manager:
+            raise ValueError("ExchangeManager no está inicializado para operaciones reales.")
+
+        try:
+            symbol = transaction["symbol"]
+            symbol_dict = transaction["symbol_dict"]
+            ai_data = transaction["ai_input_data"]
+            investment = ai_data["investment_usdt"]
+            
+            buy_exchange_id = symbol_dict["buy_exchange_id"]
+            sell_exchange_id = symbol_dict["sell_exchange_id"]
+            
+            # Paso 1: Retirar USDT del exchange de origen (donde está el balance)
+            # Asumimos que el balance inicial está en el exchange de compra (id_exDatamin)
+            # En un escenario real, esto implicaría una transferencia interna o que el balance ya esté allí.
+            # Por simplicidad, simulamos que el USDT ya está disponible en el exchange de compra.
+            self.logger.info(f"[REAL] Preparando {investment:.2f} USDT para comprar {symbol} en {buy_exchange_id}")
+            await self._simulate_step(
+                transaction, 
+                TransactionStep.WITHDRAWING_USDT,
+                f"[REAL] Retirando {investment:.2f} USDT para comprar {symbol}"
+            )
+            
+            # Paso 2: Comprar asset en el exchange de compra
+            self.logger.info(f"[REAL] Comprando {symbol} en {buy_exchange_id} con {investment:.2f} USDT")
+            buy_order_result = await self.exchange_manager.create_order(
+                exchange_id=buy_exchange_id,
+                symbol=symbol,
+                side=\'buy\',
+                amount=investment, # Asumimos que es un monto en USDT para una orden de mercado
+                price=ai_data["current_price_buy"], # Precio de referencia, la orden de mercado usará el precio actual
+                order_type=\'market\'
+            )
+            
+            if not buy_order_result or not buy_order_result.get("success"):
+                raise Exception(f"Fallo al comprar {symbol}: {buy_order_result.get("message", "Desconocido")}")
+            
+            bought_amount = buy_order_result.get("filled_amount", 0)
+            bought_price = buy_order_result.get("price", ai_data["current_price_buy"])
+            buy_fee = buy_order_result.get("fee", 0)
+
+            await self._simulate_step(
+                transaction,
+                TransactionStep.BUYING_ASSET,
+                f"[REAL] Comprado {bought_amount:.4f} {symbol} @ {bought_price:.4f} en {buy_exchange_id}. Fee: {buy_fee:.4f}"
+            )
+            
+            # Paso 3: Transferir asset al exchange de venta
+            self.logger.info(f"[REAL] Transfiriendo {bought_amount:.4f} {symbol} de {buy_exchange_id} a {sell_exchange_id}")
+            transfer_result = await self.exchange_manager.transfer_asset(
+                from_exchange_id=buy_exchange_id,
+                to_exchange_id=sell_exchange_id,
+                symbol=symbol,
+                amount=bought_amount
+            )
+            
+            if not transfer_result or not transfer_result.get("success"):
+                raise Exception(f"Fallo al transferir {symbol}: {transfer_result.get("message", "Desconocido")}")
+            
+            transfer_fee = transfer_result.get("fee", 0)
+
+            await self._simulate_step(
+                transaction,
+                TransactionStep.TRANSFERRING_ASSET,
+                f"[REAL] Transferido {bought_amount:.4f} {symbol}. Fee: {transfer_fee:.4f}"
+            )
+            
+            # Simular tiempo de transferencia (puede ser largo en real)
+            await asyncio.sleep(self.simulation_config["time_between_transfers"] * 5) # Mayor delay para real
+            
+            # Paso 4: Vender asset en el exchange de venta
+            self.logger.info(f"[REAL] Vendiendo {bought_amount:.4f} {symbol} en {sell_exchange_id}")
+            sell_order_result = await self.exchange_manager.create_order(
+                exchange_id=sell_exchange_id,
+                symbol=symbol,
+                side=\'sell\',
+                amount=bought_amount,
+                price=ai_data["current_price_sell"], # Precio de referencia
+                order_type=\'market\'
+            )
+            
+            if not sell_order_result or not sell_order_result.get("success"):
+                raise Exception(f"Fallo al vender {symbol}: {sell_order_result.get("message", "Desconocido")}")
+            
+            sold_amount_usdt = sell_order_result.get("filled_amount_usdt", 0)
+            sell_fee = sell_order_result.get("fee", 0)
+
+            await self._simulate_step(
+                transaction,
+                TransactionStep.SELLING_ASSET,
+                f"[REAL] Vendido {bought_amount:.4f} {symbol} por {sold_amount_usdt:.4f} USDT en {sell_exchange_id}. Fee: {sell_fee:.4f}"
+            )
+            
+            # Calcular ganancia/pérdida real
+            # profit_loss = (sold_amount_usdt - investment) - (buy_fee + transfer_fee + sell_fee)
+            # La ganancia ya está implícita en sold_amount_usdt si se compara con investment inicial
+            # y las fees ya fueron aplicadas por el exchange_manager
+            profit_loss = sold_amount_usdt - investment # Esto es una simplificación, la lógica de cálculo de ganancia debe ser más robusta
+            
+            transaction["profit_loss"] = profit_loss
+            transaction["success"] = True
+            transaction["step"] = TransactionStep.COMPLETED
+            transaction["end_time"] = get_current_timestamp()
+            
+            self.simulation_stats["successful_operations"] += 1
+            self.simulation_stats["total_profit_usdt"] += profit_loss
+            self.simulation_stats["current_balance"] += profit_loss # Actualizar balance simulado para estadísticas
+            
+            self.logger.info(f"Transacción REAL {tx_id} completada. Ganancia: {profit_loss:.4f} USDT")
+            
+            # Notificar a UI
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_message({
+                    "type": "simulation_transaction_completed",
+                    "payload": {
+                        "transaction_id": tx_id,
+                        "symbol": symbol,
+                        "profit_loss": profit_loss,
+                        "final_balance": self.simulation_stats["current_balance"],
+                        "mode": self.current_mode.value
+                    }
+                })
+                
+        except Exception as e:
+            error_msg = f"Error procesando transacción REAL {tx_id}: {e}"
+            self.logger.error(error_msg)
+            transaction["step"] = TransactionStep.FAILED
+            transaction["end_time"] = get_current_timestamp()
+            transaction["failure_reason"] = str(e)
+            
+            self.simulation_stats["failed_operations"] += 1
+            self.simulation_stats["total_loss_usdt"] += transaction["ai_input_data"]["investment_usdt"]
+            
+            # Notificar a UI
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_message({
+                    "type": "simulation_transaction_failed",
+                    "payload": {
+                        "transaction_id": tx_id,
+                        "symbol": symbol,
+                        "error": error_msg,
+                        "mode": self.current_mode.value
+                    }
+                })
+        finally:
+            self.simulation_stats["total_operations"] += 1
+            self.simulation_stats["transactions_log"].append(transaction)
+            
+            # Notificar actualización de estadísticas generales
+            if self.ui_broadcaster:
+                await self.ui_broadcaster.broadcast_message({
+                    "type": "simulation_stats_update",
+                    "payload": self.simulation_stats
+                })
+
+
+

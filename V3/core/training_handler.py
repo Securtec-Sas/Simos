@@ -558,3 +558,6 @@ class TrainingHandler:
     def get_testing_status(self) -> (str, int, Optional[str]):
         """Retorna el estado actual de las pruebas."""
         return self.testing_in_progress, self.testing_progress, self.testing_filepath
+
+
+

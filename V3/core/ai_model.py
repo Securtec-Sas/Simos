@@ -331,30 +331,134 @@ class ArbitrageAIModel:
             
             # Validación cruzada
             cv_scores = cross_val_score(self.profitability_classifier, X_train_scaled, y_success_train, cv=5)
-            training_results['cv_mean_accuracy'] = cv_scores.mean()
-            training_results['cv_std_accuracy'] = cv_scores.std()
-            
-            # Importancia de características
-            feature_importance = self.profitability_classifier.feature_importances_
-            training_results['feature_importance'] = dict(zip(self.feature_names, feature_importance))
-            
-            # Guardar historial
-            self.training_history = {
-                'last_training': get_current_timestamp(),
-                'training_samples': len(training_data),
-                'results': training_results
-            }
-            
+            training_results["profitability_cv_mean"] = np.mean(cv_scores)
+            training_results["profitability_cv_std"] = np.std(cv_scores)
+
             self.is_trained = True
+            self.training_history = {
+                "last_training": get_current_timestamp(),
+                "num_records": len(training_data),
+                "results": training_results
+            }
             self.save_model()
-            
-            self.logger.info(f"Entrenamiento completado. Precisión: {training_results['profitability_accuracy']:.4f}")
-            
-            return training_results
-            
+            self.logger.info("Entrenamiento completado y modelo guardado.")
+            return {"success": True, "message": "Modelo entrenado exitosamente", "results": training_results}
+
         except Exception as e:
-            self.logger.error(f"Error durante entrenamiento: {e}")
-            raise
+            self.logger.error(f"Error durante el entrenamiento del modelo: {e}")
+            self.is_trained = False
+            return {"success": False, "message": f"Error durante el entrenamiento: {e}"}
+
+    def _prepare_training_data(self, training_data: List[Dict]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Prepara los datos de entrenamiento a partir de la lista de diccionarios."""
+        features_list = []
+        profit_list = []
+        success_list = []
+        risk_list = []
+
+        # Recopilar todos los nombres de características posibles
+        all_feature_keys = set()
+        for data in training_data:
+            temp_features = self.prepare_features(data)
+            if self.feature_names:
+                all_feature_keys.update(self.feature_names)
+            else:
+                # Si feature_names aún no está definido, inferir de la primera data
+                # Esto es un fallback, idealmente feature_names se define antes
+                all_feature_keys.update(temp_features.flatten())
+
+        # Asegurar que self.feature_names esté establecido antes de procesar todos los datos
+        if not self.feature_names:
+            self.feature_names = sorted(list(all_feature_keys))
+
+        for data in training_data:
+            try:
+                # Asegurarse de que prepare_features use el self.feature_names ya establecido
+                features_vector = self.prepare_features(data).flatten()
+                
+                # Asegurar que el vector de características tenga la longitud correcta
+                if len(features_vector) != len(self.feature_names):
+                    self.logger.warning(f"Longitud de características inconsistente para un registro. Esperado: {len(self.feature_names)}, Obtenido: {len(features_vector)}")
+                    continue # Saltar este registro si es inconsistente
+
+                features_list.append(features_vector)
+
+                # Etiquetas
+                net_profit_usdt = safe_float(data.get("net_profit_usdt", 0))
+                profit_list.append(net_profit_usdt)
+
+                # Definir éxito: ganancia neta > umbral mínimo
+                is_successful = 1 if net_profit_usdt >= MIN_PROFIT_USDT else 0
+                success_list.append(is_successful)
+
+                # Definir riesgo: usar el score de riesgo calculado
+                # Asegurarse de que _calculate_risk_score reciba las características correctas
+                # Para simplificar, asumimos que un score > 0.5 es 'riesgoso'
+                current_risk_score = self._calculate_risk_score(dict(zip(self.feature_names, features_vector))) # Pasar un diccionario de características
+                is_risky = 1 if current_risk_score > 0.5 else 0
+                risk_list.append(is_risky)
+            except Exception as e:
+                self.logger.error(f"Error preparando un registro de entrenamiento: {e}")
+                continue
+
+        if not features_list:
+            raise ValueError("No se pudieron extraer características válidas de los datos de entrenamiento.")
+
+        X = np.array(features_list)
+        y_profit = np.array(profit_list)
+        y_success = np.array(success_list)
+        y_risk = np.array(risk_list)
+
+        return X, y_profit, y_success, y_risk
+
+    def predict(self, input_data: Dict) -> Dict:
+        """Realiza una predicción sobre una nueva oportunidad de arbitraje."""
+        if not self.is_trained:
+            self.logger.warning("Modelo no entrenado. No se puede predecir.")
+            return {"should_execute": False, "reason": "Modelo no entrenado", "confidence": 0.0, "predicted_profit_usdt": 0.0, "predicted_risk": "unknown"}
+
+        try:
+            # Preparar características
+            features = self.prepare_features(input_data)
+            features_scaled = self.feature_scaler.transform(features)
+
+            # Predicción de rentabilidad
+            profit_proba = self.profitability_classifier.predict_proba(features_scaled)[0][1] # Probabilidad de ser rentable (clase 1)
+            should_execute = profit_proba >= self.confidence_threshold
+
+            # Predicción de ganancia
+            predicted_profit_usdt = self.profit_regressor.predict(features_scaled)[0]
+
+            # Predicción de riesgo
+            predicted_risk_label = self.risk_classifier.predict(features_scaled)[0] # 0 o 1
+            predicted_risk = "high" if predicted_risk_label == 1 else "low"
+
+            reason = "" if should_execute else f"Confianza ({profit_proba:.2f}) por debajo del umbral ({self.confidence_threshold:.2f})"
+            if should_execute and predicted_profit_usdt < MIN_PROFIT_USDT:
+                should_execute = False
+                reason = f"Ganancia predicha ({predicted_profit_usdt:.2f} USDT) por debajo del mínimo ({MIN_PROFIT_USDT:.2f} USDT)"
+
+            return {
+                "should_execute": should_execute,
+                "reason": reason,
+                "confidence": float(profit_proba),
+                "predicted_profit_usdt": float(predicted_profit_usdt),
+                "predicted_risk": predicted_risk
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error durante la predicción: {e}")
+            return {"should_execute": False, "reason": f"Error en la predicción: {e}", "confidence": 0.0, "predicted_profit_usdt": 0.0, "predicted_risk": "unknown"}
+
+    def get_model_details(self) -> Dict:
+        """Retorna detalles del modelo para la UI."""
+        return {
+            "is_trained": self.is_trained,
+            "feature_count": len(self.feature_names),
+            "last_updated": self.training_history.get("last_training", "N/A"),
+            "confidence_threshold": self.confidence_threshold,
+            "training_history": self.training_history
+        }
     
     def _prepare_training_data(self, training_data: List[Dict]) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Prepara los datos de entrenamiento."""

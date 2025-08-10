@@ -15,7 +15,11 @@ const ConfigDataPage = () => {
   const [tabIndex, setTabIndex] = useState(0);
   const [aiModelDetails, setAiModelDetails] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  // Estados para simulaciones
   const [simulationStatus, setSimulationStatus] = useState({ status: "IDLE", data: {} });
+  const [localSimulationStatus, setLocalSimulationStatus] = useState({ status: "IDLE", data: {} });
+  const [sandboxSimulationStatus, setSandboxSimulationStatus] = useState({ status: "IDLE", data: {} });
+  const [realSimulationStatus, setRealSimulationStatus] = useState({ status: "IDLE", data: {} });
   const [simulationDuration, setSimulationDuration] = useState(30); // en minutos
   const [dataUpdateRequested, setDataUpdateRequested] = useState(false);
   
@@ -129,6 +133,57 @@ const ConfigDataPage = () => {
         }
         return prevStatus;
       });
+    }
+    
+    // Procesar actualizaciones de simulaciones específicas (local, sandbox, real)
+    else if (v3Data.type === 'simulation_started' && v3Data.payload) {
+      const mode = v3Data.payload.mode;
+      if (mode === 'local') {
+        setLocalSimulationStatus({ status: "RUNNING", data: v3Data.payload });
+      } else if (mode === 'sebo_sandbox') {
+        setSandboxSimulationStatus({ status: "RUNNING", data: v3Data.payload });
+      } else if (mode === 'real') {
+        setRealSimulationStatus({ status: "RUNNING", data: v3Data.payload });
+      }
+    }
+    
+    else if (v3Data.type === 'simulation_stopped' && v3Data.payload) {
+      const mode = v3Data.payload.mode || 'unknown';
+      if (mode === 'local') {
+        setLocalSimulationStatus({ status: "IDLE", data: v3Data.payload });
+      } else if (mode === 'sebo_sandbox') {
+        setSandboxSimulationStatus({ status: "IDLE", data: v3Data.payload });
+      } else if (mode === 'real') {
+        setRealSimulationStatus({ status: "IDLE", data: v3Data.payload });
+      }
+    }
+    
+    else if (v3Data.type === 'simulation_stopping' && v3Data.payload) {
+      const mode = v3Data.payload.mode || 'unknown';
+      if (mode === 'local') {
+        setLocalSimulationStatus(prev => ({ ...prev, status: "STOPPING" }));
+      } else if (mode === 'sebo_sandbox') {
+        setSandboxSimulationStatus(prev => ({ ...prev, status: "STOPPING" }));
+      } else if (mode === 'real') {
+        setRealSimulationStatus(prev => ({ ...prev, status: "STOPPING" }));
+      }
+    }
+    
+    else if (v3Data.type === 'simulation_stats_update' && v3Data.payload) {
+      // Actualizar estadísticas de simulación en tiempo real
+      // Determinar qué simulación actualizar basándose en el contexto
+      // Por simplicidad, actualizamos todas las simulaciones activas
+      const updateData = { data: v3Data.payload };
+      
+      setLocalSimulationStatus(prev => 
+        prev.status === "RUNNING" ? { ...prev, ...updateData } : prev
+      );
+      setSandboxSimulationStatus(prev => 
+        prev.status === "RUNNING" ? { ...prev, ...updateData } : prev
+      );
+      setRealSimulationStatus(prev => 
+        prev.status === "RUNNING" ? { ...prev, ...updateData } : prev
+      );
     }
 
     // Procesar otros tipos de datos si es necesario (compatibilidad con formato anterior)
@@ -301,6 +356,9 @@ const ConfigDataPage = () => {
             setSimulationDuration={setSimulationDuration}
             handleRequest={handleRequest}
             simulationStatus={simulationStatus}
+            localSimulationStatus={localSimulationStatus}
+            sandboxSimulationStatus={sandboxSimulationStatus}
+            realSimulationStatus={realSimulationStatus}
             buttonStyle={buttonStyle}
             inputStyle={inputStyle}
             controlGroupStyle={controlGroupStyle}
