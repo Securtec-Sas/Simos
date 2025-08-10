@@ -90,8 +90,8 @@ class CryptoArbitrageV3:
         self.ui_broadcaster.set_get_latest_balance_callback(self.data_persistence.load_balance_cache)
         self.ui_broadcaster.set_train_ai_model_callback(self.training_handler.start_training) # Configurar callback para entrenamiento
         self.ui_broadcaster.set_test_ai_model_callback(self.training_handler.start_tests) # Configurar callback para pruebas
-        self.ui_broadcaster.set_get_training_status_callback(self._get_training_status_wrapper) # Callback wrapper para estado de entrenamiento
-        self.ui_broadcaster.set_get_test_status_callback(self._get_test_status_wrapper) # Callback wrapper para estado de pruebas
+        self.ui_broadcaster.set_get_training_status_callback(self.training_handler.get_training_status)  # Callback wrapper para estado de entrenamiento
+        self.ui_broadcaster.set_get_test_status_callback(self.training_handler.get_testing_status) # Callback wrapper para estado de pruebas
         
         # Callbacks de TradingLogic
         self.trading_logic.set_operation_complete_callback(self._on_operation_complete)

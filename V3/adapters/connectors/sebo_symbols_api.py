@@ -46,7 +46,7 @@ class SeboSymbolsAPI:
             await self.initialize()
             
             # Endpoint para obtener símbolos de Sebo
-            url = f"{SEBO_API_BASE_URL}/api/symbols"
+            url = f"{SEBO_API_BASE_URL}/symbols"
             
             self.logger.info(f"Obteniendo símbolos desde Sebo: {url}")
             
@@ -92,7 +92,7 @@ class SeboSymbolsAPI:
         try:
             await self.initialize()
             
-            url = f"{SEBO_API_BASE_URL}/api/symbols/{symbol_id}"
+            url = f"{SEBO_API_BASE_URL}/symbols/{symbol_id}"
             
             self.logger.debug(f"Obteniendo símbolo {symbol_id} desde Sebo")
             
@@ -123,7 +123,7 @@ class SeboSymbolsAPI:
         try:
             await self.initialize()
             
-            url = f"{SEBO_API_BASE_URL}/api/symbols/add-for-exchanges"
+            url = f"{SEBO_API_BASE_URL}/symbols/add-for-exchanges"
             
             self.logger.info("Solicitando a Sebo agregar símbolos para exchanges activos")
             

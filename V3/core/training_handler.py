@@ -43,64 +43,7 @@ class TrainingHandler:
         self.testing_progress = 0
         self.testing_filepath = None
         
-    async def create_training_csv(self, request_data: Dict) -> Dict:
-        """Crea un CSV de datos para entrenamiento."""
-        try:
-            self.logger.info("Iniciando creación de CSV de entrenamiento")
-            
-            # Extraer parámetros
-            fecha = request_data.get("fecha")
-            operaciones = request_data.get("operaciones")
-            cantidad_simbolos = request_data.get("cantidadSimbolos")
-            lista_simbolos = request_data.get("listaSimbolos", [])
-            intervalo = request_data.get("intervalo", "5m")
-            
-            # Validar fecha
-            if not fecha:
-                return {"status": "error", "message": "Fecha es requerida"}
-            
-            fecha_obj = datetime.strptime(fecha, "%Y-%m-%d")
-            if fecha_obj >= datetime.now():
-                return {"status": "error", "message": "La fecha debe ser anterior a la actual"}
-            
-            # Obtener símbolos de Sebo
-            symbols_data = await self._get_symbols_from_sebo()
-            if not symbols_data:
-                return {"status": "error", "message": "No se pudieron obtener símbolos de Sebo"}
-            
-            # Seleccionar símbolos según el criterio
-            selected_symbols = self._select_symbols(symbols_data, cantidad_simbolos, lista_simbolos)
-            
-            # Calcular operaciones si no se especificó
-            if not operaciones:
-                operaciones = self._calculate_possible_operations(fecha_obj, intervalo)
-            
-            # Generar datos históricos simulados
-            csv_data = await self._generate_historical_data(
-                fecha_obj, selected_symbols, operaciones, intervalo
-            )
-            
-            # Guardar CSV
-            filename = f"training_data_{fecha}_{intervalo}_{len(selected_symbols)}symbols.csv"
-            filepath = os.path.join(DATA_DIR, filename)
-            
-            await self._save_csv_data(csv_data, filepath)
-            
-            return {
-                "status": "success",
-                "message": "CSV de entrenamiento creado exitosamente",
-                "data": {
-                    "filename": filename,
-                    "filepath": filepath,
-                    "records": len(csv_data),
-                    "symbols": len(selected_symbols),
-                    "operations": operaciones
-                }
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error creando CSV de entrenamiento: {e}")
-            return {"status": "error", "message": f"Error interno: {str(e)}"}
+
     
     async def start_training(self, request_data: Dict) -> Dict:
         """Inicia el entrenamiento del modelo."""
@@ -111,20 +54,16 @@ class TrainingHandler:
             self.training_in_progress = True
             self.training_progress = 0
             
-            # Obtener la ruta del archivo del payload - manejar tanto csv_filename como filepath
-            csv_filename = request_data.get("csv_filename")
+            # Obtener la ruta del archivo del payload
             filepath = request_data.get("filepath")
             
-            if csv_filename:
-                # Si se proporciona csv_filename, construir la ruta completa
-                filepath = os.path.join(DATA_DIR, csv_filename)
-            elif not filepath:
+            if not filepath:
                 self.training_in_progress = False
-                return {"status": "error", "message": "Se requiere csv_filename o filepath"}
+                return {"status": "error", "message": "Se requiere la ruta del archivo de entrenamiento (filepath)"}
             
             if not os.path.exists(filepath):
                 self.training_in_progress = False
-                return {"status": "error", "message": f"Archivo CSV no encontrado: {filepath}"}
+                return {"status": "error", "message": f"Archivo de entrenamiento no encontrado: {filepath}"}
             
             self.training_filepath = filepath # Guardar la ruta del archivo
 
@@ -206,64 +145,7 @@ class TrainingHandler:
             self.logger.error(f"Error ejecutando pruebas: {e}")
             return {"status": "error", "message": f"Error interno: {str(e)}"}
 
-    async def create_test_csv(self, request_data: Dict) -> Dict:
-        """Crea un CSV de datos para pruebas (similar al de entrenamiento pero con datos diferentes)."""
-        try:
-            self.logger.info("Iniciando creación de CSV de pruebas")
-            
-            # Extraer parámetros
-            fecha = request_data.get("fecha")
-            operaciones = request_data.get("operaciones")
-            cantidad_simbolos = request_data.get("cantidadSimbolos")
-            lista_simbolos = request_data.get("listaSimbolos", [])
-            intervalo = request_data.get("intervalo", "5m")
-            
-            # Validar fecha
-            if not fecha:
-                return {"status": "error", "message": "Fecha es requerida"}
-            
-            fecha_obj = datetime.strptime(fecha, "%Y-%m-%d")
-            if fecha_obj >= datetime.now():
-                return {"status": "error", "message": "La fecha debe ser anterior a la actual"}
-            
-            # Obtener símbolos de Sebo
-            symbols_data = await self._get_symbols_from_sebo()
-            if not symbols_data:
-                return {"status": "error", "message": "No se pudieron obtener símbolos de Sebo"}
-            
-            # Seleccionar símbolos según el criterio
-            selected_symbols = self._select_symbols(symbols_data, cantidad_simbolos, lista_simbolos)
-            
-            # Calcular operaciones si no se especificó
-            if not operaciones:
-                operaciones = self._calculate_possible_operations(fecha_obj, intervalo)
-            
-            # Generar datos históricos simulados para pruebas (con variaciones)
-            csv_data = await self._generate_test_data(
-                fecha_obj, selected_symbols, operaciones, intervalo
-            )
-            
-            # Guardar CSV
-            filename = f"test_data_{fecha}_{intervalo}_{len(selected_symbols)}symbols.csv"
-            filepath = os.path.join(DATA_DIR, filename)
-            
-            await self._save_csv_data(csv_data, filepath)
-            
-            return {
-                "status": "success",
-                "message": "CSV de pruebas creado exitosamente",
-                "data": {
-                    "filename": filename,
-                    "filepath": filepath,
-                    "records": len(csv_data),
-                    "symbols": len(selected_symbols),
-                    "operations": operaciones
-                }
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error creando CSV de pruebas: {e}")
-            return {"status": "error", "message": f"Error interno: {str(e)}"}
+
     
     async def _get_symbols_from_sebo(self) -> List[Dict]:
         """Obtiene la lista de símbolos desde Sebo."""
@@ -342,48 +224,7 @@ class TrainingHandler:
         
         return max(1, total_operations)
     
-    async def _generate_historical_data(self, fecha: datetime, symbols: List[Dict], 
-                                      operaciones: int, intervalo: str) -> List[Dict]:
-        """Genera datos históricos simulados para entrenamiento."""
-        data = []
-        
-        # Configuración base
-        base_investment = 100.0  # USDT
-        exchanges = ["binance", "kucoin", "okx", "bybit"]
-        
-        for i in range(operaciones):
-            for symbol in symbols:
-                # Simular datos de operación
-                operation_data = {
-                    "timestamp": (fecha + timedelta(minutes=i * 5)).isoformat(),
-                    "symbol": symbol["name"],
-                    "buy_exchange_id": np.random.choice(exchanges),
-                    "sell_exchange_id": np.random.choice(exchanges),
-                    "current_price_buy": round(np.random.uniform(100, 50000), 2),
-                    "current_price_sell": 0,
-                    "investment_usdt": base_investment,
-                    "estimated_buy_fee": round(np.random.uniform(0.1, 0.5), 3),
-                    "estimated_sell_fee": round(np.random.uniform(0.1, 0.5), 3),
-                    "estimated_transfer_fee": round(np.random.uniform(1, 10), 2),
-                    "decision_outcome": np.random.choice([
-                        "EJECUTADA_EXITOSA", "EJECUTADA_PERDIDA", "NO_EJECUTADA_RIESGO",
-                        "NO_EJECUTADA_FEES", "NO_EJECUTADA_LIQUIDEZ"
-                    ]),
-                    "net_profit_usdt": round(np.random.uniform(-5, 15), 4),
-                    "profit_percentage": round(np.random.uniform(-5, 15), 2),
-                    "total_fees_usdt": round(np.random.uniform(0.5, 3), 2),
-                    "execution_time_seconds": np.random.randint(30, 300)
-                }
-                
-                # Ajustar precio de venta basado en el de compra
-                price_variation = np.random.uniform(0.995, 1.005)
-                operation_data["current_price_sell"] = round(
-                    operation_data["current_price_buy"] * price_variation, 2
-                )
-                
-                data.append(operation_data)
-        
-        return data
+
     
     async def _save_csv_data(self, data: List[Dict], filepath: str):
         """Guarda los datos en un archivo CSV."""
@@ -407,12 +248,20 @@ class TrainingHandler:
             
             # Notificar inicio
             if self.ui_broadcaster:
-                await self.ui_broadcaster.broadcast_training_progress(0, False, self.training_filepath)
+                await self.ui_broadcaster.broadcast_training_update(
+                    status="IN_PROGRESS",
+                    progress=0,
+                    filepath=self.training_filepath
+                )
             
             # Cargar datos del CSV
             self.training_progress = 10
             if self.ui_broadcaster:
-                await self.ui_broadcaster.broadcast_training_progress(10, False, self.training_filepath)
+                await self.ui_broadcaster.broadcast_training_update(
+                    status="IN_PROGRESS",
+                    progress=10,
+                    filepath=self.training_filepath
+                )
             
             training_data = await self._load_csv_file(filepath)
             
@@ -420,35 +269,57 @@ class TrainingHandler:
                 error_msg = "No se pudieron cargar los datos de entrenamiento"
                 self.logger.error(error_msg)
                 if self.ui_broadcaster:
-                    await self.ui_broadcaster.broadcast_training_error(error_msg)
+                    await self.ui_broadcaster.broadcast_training_update(
+                        status="FAILED",
+                        progress=self.training_progress,
+                        filepath=self.training_filepath,
+                        error=error_msg
+                    )
                 self.training_in_progress = False
                 return
             
             # Validar datos
             self.training_progress = 20
             if self.ui_broadcaster:
-                await self.ui_broadcaster.broadcast_training_progress(20, False, self.training_filepath)
+                await self.ui_broadcaster.broadcast_training_update(
+                    status="IN_PROGRESS",
+                    progress=20,
+                    filepath=self.training_filepath
+                )
             
             if len(training_data) < 10:
                 error_msg = f"Datos insuficientes para entrenamiento: {len(training_data)} registros (mínimo 10)"
                 self.logger.error(error_msg)
                 if self.ui_broadcaster:
-                    await self.ui_broadcaster.broadcast_training_error(error_msg)
+                    await self.ui_broadcaster.broadcast_training_update(
+                        status="FAILED",
+                        progress=self.training_progress,
+                        filepath=self.training_filepath,
+                        error=error_msg
+                    )
                 self.training_in_progress = False
                 return
             
             # Optimizar datos antes del entrenamiento
             self.training_progress = 30
             if self.ui_broadcaster:
-                await self.ui_broadcaster.broadcast_training_progress(30, False, self.training_filepath)
-            
+                await self.ui_broadcaster.broadcast_training_update(
+                    status="IN_PROGRESS",
+                    progress=30,
+                    filepath=self.training_filepath
+                )
             optimized_data = self._optimize_training_data(training_data)
             
             if not optimized_data:
                 error_msg = "Error en la optimización de datos de entrenamiento"
                 self.logger.error(error_msg)
                 if self.ui_broadcaster:
-                    await self.ui_broadcaster.broadcast_training_error(error_msg)
+                    await self.ui_broadcaster.broadcast_training_update(
+                        status="FAILED",
+                        progress=self.training_progress,
+                        filepath=self.training_filepath,
+                        error=error_msg
+                    )
                 self.training_in_progress = False
                 return
 
@@ -457,8 +328,12 @@ class TrainingHandler:
             for progress in training_steps:
                 self.training_progress = progress
                 if self.ui_broadcaster:
-                    await self.ui_broadcaster.broadcast_training_progress(progress, False, self.training_filepath)
-                await asyncio.sleep(2)  # Simular tiempo de procesamiento más realista
+                    await self.ui_broadcaster.broadcast_training_update(
+                        status="IN_PROGRESS",
+                        progress=progress,
+                        filepath=self.training_filepath
+                    )
+                await asyncio.sleep(5)  # Simular tiempo de procesamiento más realista
             
             # Ejecutar entrenamiento real con datos optimizados
             try:
@@ -469,7 +344,12 @@ class TrainingHandler:
                 error_msg = f"Error durante el entrenamiento del modelo: {str(train_error)}"
                 self.logger.error(error_msg)
                 if self.ui_broadcaster:
-                    await self.ui_broadcaster.broadcast_training_error(error_msg)
+                    await self.ui_broadcaster.broadcast_training_update(
+                        status="FAILED",
+                        progress=self.training_progress,
+                        filepath=self.training_filepath,
+                        error=error_msg
+                    )
                 self.training_in_progress = False
                 return
             
@@ -669,48 +549,7 @@ class TrainingHandler:
         self.logger.info("Optimización de datos completada.")
         return df_optimized.to_dict(orient='records')
 
-    async def _generate_test_data(self, fecha: datetime, symbols: List[Dict],
-                                operaciones: int, intervalo: str) -> List[Dict]:
-        """Genera datos históricos simulados para pruebas (con variaciones diferentes al entrenamiento)."""
-        data = []
-        
-        # Configuración base (ligeramente diferente al entrenamiento)
-        base_investment = 150.0  # USDT (diferente al entrenamiento)
-        exchanges = ["binance", "kucoin", "okx", "bybit", "huobi"]  # Más exchanges
-        
-        for i in range(operaciones):
-            for symbol in symbols:
-                # Simular datos de operación con variaciones para pruebas
-                operation_data = {
-                    "timestamp": (fecha + timedelta(minutes=i * 7)).isoformat(),  # Intervalo diferente
-                    "symbol": symbol["name"],
-                    "buy_exchange_id": np.random.choice(exchanges),
-                    "sell_exchange_id": np.random.choice(exchanges),
-                    "current_price_buy": round(np.random.uniform(80, 60000), 2),  # Rango más amplio
-                    "current_price_sell": 0,
-                    "investment_usdt": base_investment,
-                    "estimated_buy_fee": round(np.random.uniform(0.05, 0.8), 3),  # Fees diferentes
-                    "estimated_sell_fee": round(np.random.uniform(0.05, 0.8), 3),
-                    "estimated_transfer_fee": round(np.random.uniform(0.5, 15), 2),
-                    "decision_outcome": np.random.choice([
-                        "EJECUTADA_EXITOSA", "EJECUTADA_PERDIDA", "NO_EJECUTADA_RIESGO",
-                        "NO_EJECUTADA_FEES", "NO_EJECUTADA_LIQUIDEZ"
-                    ], p=[0.3, 0.2, 0.2, 0.15, 0.15]),  # Probabilidades diferentes
-                    "net_profit_usdt": round(np.random.uniform(-8, 20), 4),  # Rango diferente
-                    "profit_percentage": round(np.random.uniform(-8, 20), 2),
-                    "total_fees_usdt": round(np.random.uniform(0.3, 4), 2),
-                    "execution_time_seconds": np.random.randint(20, 400)  # Tiempo diferente
-                }
-                
-                # Ajustar precio de venta basado en el de compra (con más volatilidad)
-                price_variation = np.random.uniform(0.99, 1.01)  # Más volatilidad
-                operation_data["current_price_sell"] = round(
-                    operation_data["current_price_buy"] * price_variation, 2
-                )
-                
-                data.append(operation_data)
-        
-        return data
+
 
     def get_training_status(self) -> (str, int, Optional[str]):
         """Retorna el estado actual del entrenamiento."""
@@ -719,6 +558,3 @@ class TrainingHandler:
     def get_testing_status(self) -> (str, int, Optional[str]):
         """Retorna el estado actual de las pruebas."""
         return self.testing_in_progress, self.testing_progress, self.testing_filepath
-
-
-

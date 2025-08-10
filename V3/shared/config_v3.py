@@ -36,7 +36,7 @@ SANDBOX_API_KEYS = {
 # URLs de conexión
 WEBSOCKET_URL = "ws://localhost:3031/api/spot/arb"  # WebSocket de sebo
 UI_WEBSOCKET_URL = "ws://localhost:3001/api/spot/ui"  # WebSocket para la UI
-SEBO_API_BASE_URL = "http://localhost:3000/api"  # API base de Sebo
+SEBO_API_BASE_URL = "http://localhost:3031/api"  # API base de Sebo
 
 # Parámetros para la lógica de arbitraje
 MIN_PROFIT_PERCENTAGE = 0.6  # Porcentaje mínimo de ganancia para realizar una operación

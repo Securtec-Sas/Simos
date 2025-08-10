@@ -22,7 +22,7 @@ const useWebSocketController = () => {
           v3SocketRef.current = null;
         }
 
-        const wsUrl = 'ws://localhost:3001';
+        const wsUrl = 'ws://localhost:3002';
         console.log(`Intentando conectar a V3 WebSocket: ${wsUrl}`);
         
         const socket = new WebSocket(wsUrl);

@@ -59,7 +59,7 @@ class UIBroadcaster:
         """Inicia el servidor WebSocket para la UI."""
         try:
             # Configurar puerto y host
-            port = 3001
+            port = 3002
             host = "0.0.0.0"  # Permitir conexiones desde cualquier IP
             
             self.logger.info(f"Iniciando servidor WebSocket UI en {host}:{port}")
@@ -700,3 +700,22 @@ class UIBroadcaster:
     def is_server_running(self) -> bool:
         """Retorna si el servidor está ejecutándose."""
         return self.is_running and self.server is not None
+
+
+    async def broadcast_training_update(self, status: str, progress: float, filepath: str = None, results: Dict = None, error: str = None):
+        """Envía actualizaciones de progreso y estado del entrenamiento a la UI."""
+        message = {
+            "type": "ai_training_update",
+            "payload": {
+                "status": status,
+                "progress": progress,
+                "filepath": filepath,
+                "results": results,
+                "error": error,
+                "timestamp": get_current_timestamp()
+            }
+        }
+        self.logger.debug(f"Enviando actualización de entrenamiento: {message}")
+        await self.broadcast_message(message)
+
+
