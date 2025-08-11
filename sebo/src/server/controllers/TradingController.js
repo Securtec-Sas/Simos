@@ -238,7 +238,7 @@ const createTrainingCSV = async (req, res) => {
     const csv = json2csvParser.parse(results);
 
     const filename = `realData_${fecha}_${intervalo}.csv`;
-    const dataDir = path.join(__dirname, '..', './../../../../docs/data/csv_exports/');
+    const dataDir = path.join(__dirname, '..', './../data/csv_exports/');
     
     // Asegurar que el directorio de datos existe
     await fs.mkdir(dataDir, { recursive: true });
