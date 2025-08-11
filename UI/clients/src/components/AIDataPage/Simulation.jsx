@@ -21,7 +21,8 @@ const Simulation = ({
     initial_balance: 1000,
     time_between_transfers: 2,
     max_concurrent_operations: 3,
-    success_rate: 85
+    success_rate: 85,
+    investment_per_operation: 100
   });
   
   const [sandboxConfig, setSandboxConfig] = useState({
@@ -41,6 +42,7 @@ const Simulation = ({
       config: config
     };
     
+    // Usar handleRequest que ya está configurado para enviar mensajes al WebSocket
     handleRequest(command, payload);
   };
 
@@ -82,19 +84,6 @@ const Simulation = ({
               style={inputStyle}
               min="1"
               max="10"
-            />
-          </label>
-        )}
-        {config.success_rate !== undefined && (
-          <label>
-            Tasa de éxito (%):
-            <input
-              type="number"
-              value={config.success_rate}
-              onChange={(e) => setConfig({...config, success_rate: parseFloat(e.target.value)})}
-              style={inputStyle}
-              min="0"
-              max="100"
             />
           </label>
         )}

@@ -70,7 +70,7 @@ class UIBroadcaster:
                 port,
                 ping_interval=30,  # Envía un ping cada 30 segundos
                 ping_timeout=20,   # Espera 20 segundos por el pong
-                close_timeout=10   # Tiempo para cerrar la conexión
+                close_timeout=35  # Tiempo para cerrar la conexión
             )
             
             self.is_running = True
@@ -96,11 +96,12 @@ class UIBroadcaster:
         self.ui_clients.add(websocket)
         
         try:
-            # Enviar estado inicial y datos adicionales al cliente
+            # Enviar solo estado inicial al conectarse
             await self._send_initial_state(websocket)
-            await self.send_ai_model_details(websocket)
-            await self.send_latest_balance(websocket)
             await self.send_latest_top20(websocket)
+            
+            # Enviar balance una sola vez después de 2 segundos
+            asyncio.create_task(self._send_delayed_balance(websocket))
             
             # Escuchar mensajes del cliente
             async for message in websocket:
@@ -132,6 +133,17 @@ class UIBroadcaster:
         except Exception as e:
             self.logger.error(f"Error enviando estado inicial: {e}")
     
+    async def _send_delayed_balance(self, websocket):
+        """Envía el balance después de 2 segundos de la conexión inicial."""
+        try:
+            await asyncio.sleep(2)  # Esperar 2 segundos
+            # Verificar que el websocket sigue conectado
+            if websocket in self.ui_clients:
+                await self.send_latest_balance(websocket)
+                self.logger.debug("Balance inicial enviado después de 2 segundos")
+        except Exception as e:
+            self.logger.error(f"Error enviando balance inicial retrasado: {e}")
+    
     async def _process_ui_message(self, websocket, message: str):
         """Procesa mensajes recibidos de la UI."""
         try:
@@ -151,6 +163,8 @@ class UIBroadcaster:
                 await self._send_system_status(websocket)
             elif message_type == 'get_ai_model_details':
                 await self.send_ai_model_details(websocket)
+            elif message_type == 'get_latest_balance':
+                await self.send_latest_balance(websocket)
             elif message_type == 'train_ai_model':
                 if self.on_train_ai_model_callback:
                     await self.on_train_ai_model_callback(payload)
