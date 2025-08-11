@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { API_URLS } from '../../config/api.js';
 
+// Función helper para obtener el nombre del archivo de una ruta
+const getFileName = (filePath) => {
+  return filePath.split(/[\\/]/).pop();
+};
+
 const Training = ({ 
   sendV3Command, 
   v3Data, 
@@ -32,6 +37,10 @@ const Training = ({
 
   const [csvFiles, setCsvFiles] = useState([]);
   const [selectedCsv, setSelectedCsv] = useState('');
+  const [csvData, setCsvData] = useState([]);
+  const [isLoadingCsv, setIsLoadingCsv] = useState(false);
+  const [showCsvData, setShowCsvData] = useState(false);
+  const [fileFullPath, setFileFullPath] = useState('');
 
   // Función para guardar estado en localStorage
   const saveTrainingState = (state) => {
@@ -83,7 +92,11 @@ const Training = ({
         if (csvResponse.ok) {
           const files = await csvResponse.json();
           setCsvFiles(files);
-          if (files.length > 0) setSelectedCsv(files[0]);
+          if (files.length > 0) {
+            // Usar solo el nombre del archivo
+            setSelectedCsv(files[0].filename);
+            setFileFullPath(files[0].value);
+          }
         }
       } catch (error) { console.error('Error fetching CSV files:', error); }
     };
@@ -117,6 +130,91 @@ const Training = ({
     }));
   };
 
+  // Función para obtener la ruta completa del archivo
+  const getFilePath = async (filename) => {
+    try {
+      const response = await fetch(API_URLS.sebo.getFilePath, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ filename })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error al obtener la ruta del archivo: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return result.fullPath;
+    } catch (error) {
+      console.error('Error obteniendo ruta del archivo:', error);
+      throw error;
+    }
+  };
+
+  const handleLoadCsv = async () => {
+    if (!selectedCsv) {
+      alert('Por favor, seleccione un archivo CSV para cargar.');
+      return;
+    }
+
+    setIsLoadingCsv(true);
+    setCsvData([]);
+    setShowCsvData(false);
+
+    try {
+      // selectedCsv contiene el nombre del archivo
+      const filename = selectedCsv;
+      console.log('Nombre del archivo:', filename);
+
+      // Construir la ruta para obtener el contenido del archivo CSV
+      const csvPath = `${API_URLS.sebo.trainingFiles}/${filename}`;
+      const response = await fetch(csvPath, {
+        headers: {
+          'Accept': 'text/csv, text/plain, */*'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error al cargar el archivo: ${response.status} - ${response.statusText}`);
+      }
+
+      const csvText = await response.text();
+      
+      // Parsear CSV manualmente
+      const lines = csvText.split('\n').filter(line => line.trim());
+      if (lines.length < 2) {
+        throw new Error('El archivo CSV está vacío o no tiene datos válidos');
+      }
+
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      const data = [];
+
+      // Tomar solo los primeros 20 registros (más el header)
+      const dataLines = lines.slice(1, 21);
+      
+      for (const line of dataLines) {
+        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+        const row = {};
+        headers.forEach((header, index) => {
+          row[header] = values[index] || '';
+        });
+        data.push(row);
+      }
+
+      setCsvData(data);
+      setShowCsvData(true);
+      console.log(`CSV cargado exitosamente: ${data.length} registros`);
+      
+    } catch (error) {
+      console.error('Error cargando CSV:', error);
+      alert(`Error al cargar el archivo CSV: ${error.message}`);
+    } finally {
+      setIsLoadingCsv(false);
+    }
+  };
+
   const handleCreateCSV = async () => {
     setIsCreatingCsv(true);
     setCsvCreationStatus({ status: 'creating', data: null });
@@ -137,7 +235,11 @@ const Training = ({
             setCsvFiles(files);
             // Select the newly created file
             if (result.filename) {
-                setSelectedCsv(result.filename);
+                const newFile = files.find(f => f.filename === result.filename);
+                if (newFile) {
+                    setSelectedCsv(newFile.filename);
+                    setFileFullPath(newFile.value);
+                }
             }
         }
       } else {
@@ -153,7 +255,7 @@ const Training = ({
     }
   };
 
-  const handleStartTraining = () => {
+  const handleStartTraining = async () => {
     if (!selectedCsv) {
       alert('Por favor, seleccione un archivo CSV para el entrenamiento.');
       return;
@@ -171,36 +273,50 @@ const Training = ({
       return;
     }
 
-    console.log(`Iniciando entrenamiento con el archivo: ${selectedCsv}`);
-    const startTime = new Date();
-    
-    setTrainingStatus('STARTING');
-    setTrainingProgress(0);
-    setTrainingResults(null);
-    setTrainingError(null);
-    setTrainingStartTime(startTime);
-    setTrainingFilename(selectedCsv);
+    try {
+      // selectedCsv contiene el nombre del archivo
+      const filename = selectedCsv;
+      // Obtener la ruta completa del archivo seleccionado
+      const selectedFile = csvFiles.find(f => f.filename === filename);
+      const fullFilePath = selectedFile ? selectedFile.value : '';
+      
+      console.log(`Iniciando entrenamiento con el archivo: ${filename}`);
+      console.log('Ruta completa para entrenamiento:', fullFilePath);
+      
+      const startTime = new Date();
+      
+      setTrainingStatus('STARTING');
+      setTrainingProgress(0);
+      setTrainingResults(null);
+      setTrainingError(null);
+      setTrainingStartTime(startTime);
+      setTrainingFilename(filename);
 
-    // Guardar estado inicial en localStorage
-    saveTrainingState({
-      status: 'STARTING',
-      progress: 0,
-      filename: selectedCsv,
-      startTime: startTime,
-      results: null,
-      error: null
-    });
+      // Guardar estado inicial en localStorage
+      saveTrainingState({
+        status: 'STARTING',
+        progress: 0,
+        filename: filename,
+        startTime: startTime,
+        results: null,
+        error: null
+      });
 
-    // Enviar comando con verificación de éxito
-    const success = sendV3Command('start_ai_training', {
-      csv_filename: selectedCsv
-    });
+      // Enviar comando con la ruta completa del archivo
+      const success = sendV3Command('start_ai_training', {
+        csv_filename: filename,
+        filepath: fullFilePath
+      });
 
-    if (!success) {
-      console.error("Error enviando comando de entrenamiento");
-      setTrainingStatus('idle');
-      setTrainingError('Error de conexión al enviar comando de entrenamiento');
-      alert("Error: No se pudo enviar el comando de entrenamiento. Verifique la conexión WebSocket.");
+      if (!success) {
+        console.error("Error enviando comando de entrenamiento");
+        setTrainingStatus('idle');
+        setTrainingError('Error de conexión al enviar comando de entrenamiento');
+        alert("Error: No se pudo enviar el comando de entrenamiento. Verifique la conexión WebSocket.");
+      }
+    } catch (error) {
+      console.error('Error obteniendo ruta del archivo para entrenamiento:', error);
+      alert(`Error: No se pudo obtener la ruta del archivo. ${error.message}`);
     }
   };
 
@@ -318,6 +434,82 @@ const Training = ({
     );
   };
 
+  const renderCsvDataTable = () => {
+    if (!showCsvData || !csvData.length) return null;
+
+    const headers = Object.keys(csvData[0]);
+    
+    return (
+      <div style={{
+        marginTop: '20px',
+        border: '1px solid #ddd',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        backgroundColor: '#f9f9f9'
+      }}>
+        <div style={{
+          backgroundColor: '#007bff',
+          color: 'white',
+          padding: '10px',
+          fontWeight: 'bold'
+        }}>
+          Vista Previa del Archivo CSV - Primeros {csvData.length} registros
+        </div>
+        <div style={{
+          maxHeight: '400px',
+          overflowY: 'auto',
+          overflowX: 'auto'
+        }}>
+          <table style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            fontSize: '12px'
+          }}>
+            <thead style={{
+              backgroundColor: '#e9ecef',
+              position: 'sticky',
+              top: 0
+            }}>
+              <tr>
+                {headers.map((header, index) => (
+                  <th key={index} style={{
+                    padding: '8px',
+                    border: '1px solid #ddd',
+                    textAlign: 'left',
+                    fontWeight: 'bold',
+                    minWidth: '100px'
+                  }}>
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {csvData.map((row, rowIndex) => (
+                <tr key={rowIndex} style={{
+                  backgroundColor: rowIndex % 2 === 0 ? 'white' : '#f8f9fa'
+                }}>
+                  {headers.map((header, colIndex) => (
+                    <td key={colIndex} style={{
+                      padding: '6px 8px',
+                      border: '1px solid #ddd',
+                      maxWidth: '150px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {row[header] || '-'}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   const possibleOperations = 0; // Placeholder, as original logic was complex and might be removed
 
   return (
@@ -411,17 +603,41 @@ const Training = ({
               disabled={csvFiles.length === 0 || ['STARTING', 'IN_PROGRESS'].includes(trainingStatus)}
             >
               {csvFiles.length > 0 ? (
-                csvFiles.map(file => <option key={file} value={file}>{file}</option>)
+                csvFiles.map(file => <option key={file.filename} value={file.filename}>{file.name}</option>)
               ) : (
                 <option value="">No hay archivos CSV disponibles</option>
               )}
             </select>
             <button
+              onClick={handleLoadCsv}
+              disabled={!selectedCsv || isLoadingCsv}
+              style={{
+                ...buttonStyle,
+                backgroundColor: isLoadingCsv ? '#6c757d' : '#17a2b8',
+                marginLeft: '10px'
+              }}
+            >
+              {isLoadingCsv ? 'Cargando...' : 'Cargar'}
+            </button>
+          </div>
+
+          {/* Botones centrados */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '15px',
+            marginTop: '20px',
+            marginBottom: '20px'
+          }}>
+            <button
               onClick={handleStartTraining}
               disabled={!selectedCsv || ['STARTING', 'IN_PROGRESS'].includes(trainingStatus)}
               style={{
                 ...buttonStyle,
-                backgroundColor: ['STARTING', 'IN_PROGRESS'].includes(trainingStatus) ? '#6c757d' : '#28a745'
+                backgroundColor: ['STARTING', 'IN_PROGRESS'].includes(trainingStatus) ? '#6c757d' : '#28a745',
+                minWidth: '200px',
+                fontSize: '16px',
+                fontWeight: 'bold'
               }}
             >
               {['STARTING', 'IN_PROGRESS'].includes(trainingStatus)
@@ -430,6 +646,9 @@ const Training = ({
               }
             </button>
           </div>
+
+          {/* Tabla de datos del CSV */}
+          {renderCsvDataTable()}
 
           {trainingStatus === 'STARTING' && (
             <div style={statusBoxStyle('IN_PROGRESS')}>

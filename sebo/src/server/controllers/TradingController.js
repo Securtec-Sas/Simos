@@ -138,7 +138,7 @@ const getRandomAnalysis = async (count) => {
 const createTrainingCSV = async (req, res) => {
   try {
     // 1. Desestructurar el cuerpo de la solicitud sin 'await'
-    const { fecha, operaciones, cantidadSimbolos, listaSimbolos, intervalo = '1h' } = req.body;
+    const { fecha, operaciones, cantidadSimbolos, listaSimbolos, intervalo } = req.body;
 
     let symbols = [];
     if (listaSimbolos && listaSimbolos.length > 0) {
@@ -238,7 +238,7 @@ const createTrainingCSV = async (req, res) => {
     const csv = json2csvParser.parse(results);
 
     const filename = `realData_${fecha}_${intervalo}.csv`;
-    const dataDir = path.join(__dirname, '..', './../data/');
+    const dataDir = path.join(__dirname, '..', './../../../../docs/data/csv_exports/');
     
     // Asegurar que el directorio de datos existe
     await fs.mkdir(dataDir, { recursive: true });
@@ -262,10 +262,21 @@ const createTrainingCSV = async (req, res) => {
 
 const getTrainingCSVFiles = async (req, res) => {
   try {
-    const dataDir = path.join(__dirname, '..', './../data/');
+    const dataDir = path.join(__dirname, '..', './../data/csv_exports/');
     const files = await fs.readdir(dataDir);
     const csvFiles = files.filter(file => file.endsWith('.csv'));
-    res.status(200).json(csvFiles);
+    
+    // Crear array con nombre y ruta completa de cada archivo
+    const filesWithPaths = csvFiles.map(filename => {
+      const fullPath = path.join(dataDir, filename);
+      return {
+        name: filename,
+        value: fullPath,
+        filename: filename
+      };
+    });
+    
+    res.status(200).json(filesWithPaths);
   } catch (error) {
     console.error('Error listing training CSV files:', error);
     if (error.code === 'ENOENT') {
@@ -276,7 +287,76 @@ const getTrainingCSVFiles = async (req, res) => {
   }
 };
 
+const getCSVFilePath = async (req, res) => {
+  try {
+    const { filename } = req.body;
+    
+    if (!filename) {
+      return res.status(400).json({ error: 'Se requiere el nombre del archivo en el body' });
+    }
+
+    // Construir la ruta completa del archivo
+    const dataDir = path.join(__dirname, '..', './../../data/csv_exports/');
+    const fullPath = path.join(dataDir, filename);
+    
+    // Verificar que el archivo existe
+    try {
+      await fs.access(fullPath);
+    } catch (error) {
+      return res.status(404).json({ error: 'Archivo no encontrado' });
+    }
+
+    // Retornar la ruta completa del archivo
+    res.status(200).json({
+      filename: filename,
+      fullPath: fullPath,
+      relativePath: `docs/data/csv_exports/${filename}`,
+      exists: true
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo ruta del archivo CSV:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+const serveCSVFile = async (req, res) => {
+  try {
+    const { filename } = req.params;
+    
+    if (!filename) {
+      return res.status(400).json({ error: 'Se requiere el nombre del archivo' });
+    }
+
+    // Construir la ruta completa del archivo
+    const dataDir = path.join(__dirname, '..', './../../../../docs/data/csv_exports/');
+    const filePath = path.join(dataDir, filename);
+    
+    // Verificar que el archivo existe
+    try {
+      await fs.access(filePath);
+    } catch (error) {
+      return res.status(404).json({ error: 'Archivo no encontrado' });
+    }
+
+    // Leer y servir el archivo CSV
+    const csvContent = await fs.readFile(filePath, 'utf8');
+    
+    // Configurar headers para CSV
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    res.status(200).send(csvContent);
+
+  } catch (error) {
+    console.error('Error sirviendo archivo CSV:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
 module.exports = {
   createTrainingCSV,
   getTrainingCSVFiles,
+  getCSVFilePath,
+  serveCSVFile,
 };
