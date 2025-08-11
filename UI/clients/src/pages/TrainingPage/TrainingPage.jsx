@@ -14,6 +14,9 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
     symbolSelectionType: 'cantidad' // 'cantidad' o 'lista'
   });
   const [csvData, setCsvData] = useState(null);
+  const [uploadedCsvData, setUploadedCsvData] = useState(null);
+  const [csvPreview, setCsvPreview] = useState([]);
+  const [showCsvPreview, setShowCsvPreview] = useState(false);
   const [trainingStatus, setTrainingStatus] = useState('idle'); // idle, training, completed
   const [trainingProgress, setTrainingProgress] = useState(0);
   const [testResults, setTestResults] = useState(null);
@@ -325,7 +328,7 @@ const TrainingPage = ({ sendV3Command, v3Data }) => {
                   Lista específica de símbolos
                 </label>
               </div>
-            )}
+            </div>
 
             {formData.symbolSelectionType === 'cantidad' && (
               <div className="form-group">
