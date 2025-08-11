@@ -1,16 +1,52 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 
 const DataAI = ({
-  aiModelDetails,
+  aiModelDetails: propAiModelDetails,
   isLoading,
   handleRequest,
   buttonStyle,
   headerStyle,
   sectionStyle,
 }) => {
+  // Estado local para mantener los datos del modelo AI
+  const [localAiModelDetails, setLocalAiModelDetails] = useState(propAiModelDetails);
+  
   // Ref para controlar el throttling de solicitudes
   const lastRequestTime = useRef(0);
-  const requestThrottleMs = 10000; // 2 segundos entre solicitudes
+  const requestThrottleMs = 10000; // 10 segundos entre solicitudes
+
+  // Cargar datos del localStorage al montar el componente
+  useEffect(() => {
+    try {
+      const savedAiModelDetails = localStorage.getItem('dataAI_modelDetails');
+      if (savedAiModelDetails) {
+        const parsedData = JSON.parse(savedAiModelDetails);
+        // Solo cargar si los datos son recientes (menos de 1 hora)
+        if (parsedData.timestamp && (Date.now() - parsedData.timestamp) < 3600000) {
+          setLocalAiModelDetails(parsedData.data);
+          console.log('Datos del modelo AI cargados desde localStorage en DataAI');
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando datos del localStorage en DataAI:', error);
+    }
+  }, []);
+
+  // Actualizar estado local cuando cambian las props
+  useEffect(() => {
+    if (propAiModelDetails) {
+      setLocalAiModelDetails(propAiModelDetails);
+      // Guardar en localStorage
+      try {
+        localStorage.setItem('dataAI_modelDetails', JSON.stringify({
+          data: propAiModelDetails,
+          timestamp: Date.now()
+        }));
+      } catch (error) {
+        console.error('Error guardando datos en localStorage desde DataAI:', error);
+      }
+    }
+  }, [propAiModelDetails]);
 
   // Función throttled para manejar solicitudes
   const handleThrottledRequest = useCallback(() => {
@@ -23,6 +59,9 @@ const DataAI = ({
     lastRequestTime.current = now;
     handleRequest('get_ai_model_details');
   }, [handleRequest]);
+
+  // Usar datos locales o de props
+  const aiModelDetails = localAiModelDetails || propAiModelDetails;
 
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif', display: 'flex', flexDirection: 'column', gap: '20px' }}>

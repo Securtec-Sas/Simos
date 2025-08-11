@@ -93,6 +93,23 @@ const ConfigDataPage = () => {
   // Ref para evitar procesamiento duplicado de mensajes
   const lastProcessedMessage = useRef(null);
 
+  // Cargar datos del localStorage al montar el componente
+  useEffect(() => {
+    try {
+      const savedAiModelDetails = localStorage.getItem('aiModelDetails');
+      if (savedAiModelDetails) {
+        const parsedData = JSON.parse(savedAiModelDetails);
+        // Solo cargar si los datos son recientes (menos de 1 hora)
+        if (parsedData.timestamp && (Date.now() - parsedData.timestamp) < 3600000) {
+          setAiModelDetails(parsedData.data);
+          console.log('Datos del modelo AI cargados desde localStorage');
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando datos del localStorage:', error);
+    }
+  }, []);
+
   // Actualizar el estado cuando se reciben datos desde V3
   useEffect(() => {
     if (!v3Data) return;
@@ -114,6 +131,15 @@ const ConfigDataPage = () => {
       setAiModelDetails(prevDetails => {
         // Solo actualizar si los datos son diferentes o si no hay datos previos
         if (!prevDetails || JSON.stringify(prevDetails) !== JSON.stringify(v3Data.payload)) {
+          // Guardar en localStorage
+          try {
+            localStorage.setItem('aiModelDetails', JSON.stringify({
+              data: v3Data.payload,
+              timestamp: Date.now()
+            }));
+          } catch (error) {
+            console.error('Error guardando datos en localStorage:', error);
+          }
           return v3Data.payload;
         }
         return prevDetails;
@@ -191,6 +217,15 @@ const ConfigDataPage = () => {
       console.log("Recibidos datos del modelo AI (formato anterior):", v3Data.ai_model_details);
       setAiModelDetails(prevDetails => {
         if (!prevDetails || JSON.stringify(prevDetails) !== JSON.stringify(v3Data.ai_model_details)) {
+          // Guardar en localStorage
+          try {
+            localStorage.setItem('aiModelDetails', JSON.stringify({
+              data: v3Data.ai_model_details,
+              timestamp: Date.now()
+            }));
+          } catch (error) {
+            console.error('Error guardando datos en localStorage:', error);
+          }
           return v3Data.ai_model_details;
         }
         return prevDetails;

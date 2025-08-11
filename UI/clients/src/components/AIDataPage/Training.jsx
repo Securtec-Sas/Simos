@@ -537,7 +537,42 @@ const Training = ({
     );
   };
 
-  const possibleOperations = 0; // Placeholder, as original logic was complex and might be removed
+  // Función para calcular las operaciones posibles basado en fecha e intervalo
+  const calculatePossibleOperations = () => {
+    if (!formData.fecha || !formData.intervalo) return 0;
+    
+    const selectedDate = new Date(formData.fecha);
+    const currentDate = new Date();
+    
+    // Calcular la diferencia en días
+    const timeDiff = currentDate.getTime() - selectedDate.getTime();
+    const daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+    
+    if (daysDiff <= 0) return 0;
+    
+    // Definir minutos por intervalo
+    const intervalMinutes = {
+      '5m': 5,
+      '10m': 10,
+      '15m': 15,
+      '30m': 30,
+      '1h': 60,
+      '4h': 240,
+      '1d': 1440
+    };
+    
+    const minutesPerInterval = intervalMinutes[formData.intervalo] || 5;
+    
+    // Calcular operaciones por día (asumiendo 24 horas de trading)
+    const operationsPerDay = (24 * 60) / minutesPerInterval;
+    
+    // Total de operaciones posibles
+    const totalOperations = Math.floor(operationsPerDay * daysDiff);
+    
+    return totalOperations;
+  };
+
+  const possibleOperations = calculatePossibleOperations();
 
   return (
     <div className="training-page">
@@ -584,9 +619,43 @@ const Training = ({
             <div className="form-group">
               <label htmlFor="intervalo">Intervalo de tiempo:</label>
               <select id="intervalo" name="intervalo" value={formData.intervalo} onChange={handleInputChange}>
-                <option value="5m">5 minutos</option><option value="1h">1 hora</option><option value="4h">4 horas</option><option value="1d">1 día</option>
+                <option value="5m">5 minutos</option>
+                <option value="10m">10 minutos</option>
+                <option value="15m">15 minutos</option>
+                <option value="30m">30 minutos</option>
+                <option value="1h">1 hora</option>
+                <option value="4h">4 horas</option>
+                <option value="1d">1 día</option>
               </select>
             </div>
+            {formData.fecha && formData.intervalo && (
+              <div className="form-group" style={{
+                backgroundColor: '#e8f4fd',
+                padding: '10px',
+                borderRadius: '5px',
+                border: '1px solid #bee5eb'
+              }}>
+                <label style={{ fontWeight: 'bold', color: '#0c5460' }}>
+                  📊 Operaciones calculadas automáticamente:
+                </label>
+                <div style={{
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  color: '#155724',
+                  marginTop: '5px'
+                }}>
+                  {possibleOperations.toLocaleString()} operaciones
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#6c757d',
+                  marginTop: '3px'
+                }}>
+                  Basado en {Math.floor((new Date() - new Date(formData.fecha)) / (1000 * 3600 * 24))} días
+                  con intervalos de {formData.intervalo}
+                </div>
+              </div>
+            )}
             <button onClick={handleCreateCSV} disabled={!formData.fecha || isCreatingCsv} style={{...buttonStyle}}>
               {isCreatingCsv ? 'Creando CSV...' : 'Crear CSV de Entrenamiento'}
             </button>

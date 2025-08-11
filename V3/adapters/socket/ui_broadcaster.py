@@ -25,6 +25,10 @@ class UIBroadcaster:
         self.last_top20_timestamp = None
         self.last_balance_timestamp = None
         
+        # Cache para datos del modelo AI
+        self.last_valid_ai_model_data = None
+        self.last_ai_model_timestamp = None
+        
         # Callbacks para mensajes de la UI
         self.on_trading_start_callback: Optional[Callable] = None
         self.on_trading_stop_callback: Optional[Callable] = None
@@ -124,6 +128,9 @@ class UIBroadcaster:
             # Enviar solo estado inicial al conectarse
             await self._send_initial_state(websocket)
             await self.send_latest_top20(websocket)
+            
+            # Enviar datos del modelo AI si están disponibles
+            await self.send_latest_ai_model_details(websocket)
             
             # Enviar balance una sola vez después de 2 segundos
             asyncio.create_task(self._send_delayed_balance(websocket))
@@ -492,23 +499,66 @@ class UIBroadcaster:
             }
             
             if self.get_ai_model_details_callback:
-                callback_info = await self.get_ai_model_details_callback()
-                if self._is_valid_data(callback_info):
-                    model_info.update(callback_info)
+                try:
+                    # Intentar llamar al callback - puede ser async o sync
+                    callback_info = self.get_ai_model_details_callback()
+                    
+                    # Si es una corrutina, hacer await
+                    if hasattr(callback_info, '__await__'):
+                        callback_info = await callback_info
+                    
+                    if self._is_valid_data(callback_info):
+                        model_info.update(callback_info)
+                        # Actualizar cache con datos válidos
+                        self.last_valid_ai_model_data = model_info
+                        self.last_ai_model_timestamp = get_current_timestamp()
+                        self.logger.debug(f"Datos del modelo AI obtenidos del callback: {model_info}")
+                    else:
+                        self.logger.debug("Callback del modelo AI devolvió datos inválidos")
+                        
+                except Exception as e:
+                    self.logger.error(f"Error llamando callback del modelo AI: {e}")
+            else:
+                self.logger.debug("No hay callback configurado para obtener detalles del modelo AI")
             
             message = {
                 "type": "ai_model_details",
                 "payload": model_info,
-                "timestamp": get_current_timestamp()
+                "timestamp": self.last_ai_model_timestamp or get_current_timestamp()
             }
             
             if websocket:
                 await websocket.send(json.dumps(message))
+                self.logger.debug("Detalles del modelo AI enviados a cliente específico")
             else:
                 await self.broadcast_message(message)
+                self.logger.debug("Detalles del modelo AI enviados a todos los clientes")
                 
         except Exception as e:
             self.logger.error(f"Error enviando detalles del modelo de IA: {e}")
+
+    async def send_latest_ai_model_details(self, websocket=None):
+        """Envía los últimos datos del modelo AI cacheados a un cliente específico o a todos."""
+        try:
+            if self.last_valid_ai_model_data:
+                message = {
+                    "type": "ai_model_details",
+                    "payload": self.last_valid_ai_model_data,
+                    "timestamp": self.last_ai_model_timestamp or get_current_timestamp()
+                }
+                
+                if websocket:
+                    await websocket.send(json.dumps(message))
+                    self.logger.debug("Datos del modelo AI cacheados enviados a cliente específico")
+                else:
+                    await self.broadcast_message(message)
+                    self.logger.debug("Datos del modelo AI cacheados enviados a todos los clientes")
+            else:
+                # Si no hay datos cacheados, intentar obtenerlos
+                await self.send_ai_model_details(websocket)
+                
+        except Exception as e:
+            self.logger.error(f"Error enviando los últimos datos del modelo AI: {e}")
 
     async def send_latest_balance(self, websocket=None):
         """Envía el último balance cacheado a un cliente específico o a todos."""
@@ -626,7 +676,7 @@ class UIBroadcaster:
         await self.broadcast_message(message)
         self.logger.debug(f"Progreso de entrenamiento enviado: {progress}% - {status}")
     
-    async def broadcast_training_complete(self, results: Dict):
+    async def broadcast_training_complete(self, results: Dict, filepath: str = None):
         """Envía el resultado del entrenamiento completado a la UI."""
         message = {
             "type": "ai_training_update",
@@ -634,14 +684,22 @@ class UIBroadcaster:
                 "progress": 100,
                 "status": "COMPLETED",
                 "results": results,
+                "filepath": filepath,
                 "timestamp": get_current_timestamp()
             }
         }
         
         await self.broadcast_message(message)
-        self.logger.info("Entrenamiento completado - resultado enviado a UI")
+        self.logger.info(f"Entrenamiento completado - resultado enviado a UI: {filepath}")
+        
+        # Actualizar datos del modelo AI después de completar entrenamiento
+        try:
+            await self.send_ai_model_details()
+            self.logger.debug("Datos del modelo AI actualizados después del entrenamiento")
+        except Exception as e:
+            self.logger.error(f"Error actualizando datos del modelo AI después del entrenamiento: {e}")
     
-    async def broadcast_training_error(self, error_message: str):
+    async def broadcast_training_error(self, error_message: str, filepath: str = None):
         """Envía un error de entrenamiento a la UI."""
         message = {
             "type": "ai_training_update",
@@ -649,12 +707,13 @@ class UIBroadcaster:
                 "progress": 0,
                 "status": "FAILED",
                 "error": error_message,
+                "filepath": filepath,
                 "timestamp": get_current_timestamp()
             }
         }
         
         await self.broadcast_message(message)
-        self.logger.error(f"Error de entrenamiento enviado a UI: {error_message}")
+        self.logger.error(f"Error de entrenamiento enviado a UI: {error_message} - Archivo: {filepath}")
     
     async def broadcast_test_progress(self, progress: float, completed: bool, filepath: str = None):
         """Envía el progreso de las pruebas a la UI."""
@@ -795,8 +854,17 @@ class UIBroadcaster:
                 "timestamp": get_current_timestamp()
             }
         }
-        self.logger.debug(f"Enviando actualización de entrenamiento: {message}")
+        
         await self.broadcast_message(message)
+        self.logger.debug(f"Actualización de entrenamiento enviada: {status} - {progress}% - {filepath}")
+        
+        # Si el entrenamiento se completó exitosamente, actualizar datos del modelo AI
+        if status == "COMPLETED" and results:
+            try:
+                await self.send_ai_model_details()
+                self.logger.debug("Datos del modelo AI actualizados después de completar entrenamiento")
+            except Exception as e:
+                self.logger.error(f"Error actualizando datos del modelo AI: {e}")
 
     async def _send_training_status_response(self, websocket):
         """Envía el estado actual del entrenamiento a un cliente específico."""
