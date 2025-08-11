@@ -323,8 +323,8 @@ class TrainingHandler:
                 self.training_in_progress = False
                 return
 
-            # Simular progreso de entrenamiento con pasos más realistas
-            training_steps = [40, 50, 60, 70, 80, 90, 95]
+            # Simular progreso de entrenamiento con pasos más realistas y frecuentes
+            training_steps = [40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95]
             for progress in training_steps:
                 self.training_progress = progress
                 if self.ui_broadcaster:
@@ -333,7 +333,7 @@ class TrainingHandler:
                         progress=progress,
                         filepath=self.training_filepath
                     )
-                await asyncio.sleep(5)  # Simular tiempo de procesamiento más realista
+                await asyncio.sleep(2)  # Actualizaciones más frecuentes cada 2 segundos
             
             # Ejecutar entrenamiento real con datos optimizados
             try:
@@ -359,7 +359,12 @@ class TrainingHandler:
             self.training_results = results
             
             if self.ui_broadcaster:
-                await self.ui_broadcaster.broadcast_training_complete(results)
+                await self.ui_broadcaster.broadcast_training_update(
+                    status="COMPLETED",
+                    progress=100,
+                    filepath=self.training_filepath,
+                    results=results
+                )
             
             self.logger.info("Entrenamiento completado exitosamente")
             
@@ -558,6 +563,60 @@ class TrainingHandler:
     def get_testing_status(self) -> (str, int, Optional[str]):
         """Retorna el estado actual de las pruebas."""
         return self.testing_in_progress, self.testing_progress, self.testing_filepath
+
+    async def get_training_status_dict(self) -> Dict:
+        """Retorna el estado actual del entrenamiento como diccionario para WebSocket."""
+        try:
+            if self.training_in_progress:
+                status = "IN_PROGRESS"
+            elif self.training_results:
+                status = "COMPLETED"
+            else:
+                status = "idle"
+            
+            return {
+                "status": status,
+                "progress": self.training_progress,
+                "filepath": self.training_filepath,
+                "results": self.training_results if self.training_results else None,
+                "error": None
+            }
+        except Exception as e:
+            self.logger.error(f"Error obteniendo estado de entrenamiento: {e}")
+            return {
+                "status": "error",
+                "progress": 0,
+                "filepath": None,
+                "results": None,
+                "error": str(e)
+            }
+
+    async def get_testing_status_dict(self) -> Dict:
+        """Retorna el estado actual de las pruebas como diccionario para WebSocket."""
+        try:
+            if self.testing_in_progress:
+                status = "IN_PROGRESS"
+            elif self.testing_results:
+                status = "COMPLETED"
+            else:
+                status = "idle"
+            
+            return {
+                "status": status,
+                "progress": self.testing_progress,
+                "filepath": self.testing_filepath,
+                "results": self.testing_results if self.testing_results else None,
+                "error": None
+            }
+        except Exception as e:
+            self.logger.error(f"Error obteniendo estado de pruebas: {e}")
+            return {
+                "status": "error",
+                "progress": 0,
+                "filepath": None,
+                "results": None,
+                "error": str(e)
+            }
 
 
 

@@ -70,11 +70,16 @@ class UIBroadcaster:
                 port,
                 ping_interval=30,  # Envía un ping cada 30 segundos
                 ping_timeout=20,   # Espera 20 segundos por el pong
-                close_timeout=35  # Tiempo para cerrar la conexión
+                close_timeout=35,  # Tiempo para cerrar la conexión
+                max_size=2**20,    # 1MB max message size
+                max_queue=32       # Max queue size
             )
             
             self.is_running = True
             self.logger.info(f"Servidor WebSocket UI iniciado en ws://{host}:{port}")
+            
+            # Iniciar tarea de limpieza periódica
+            asyncio.create_task(self._periodic_cleanup())
             
         except Exception as e:
             self.logger.error(f"Error iniciando servidor WebSocket UI: {e}")
@@ -91,7 +96,27 @@ class UIBroadcaster:
     async def _handle_ui_client(self, websocket, path):
         """Maneja conexiones de clientes UI."""
         client_address = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
-        self.logger.info(f"Cliente UI conectado: {client_address} (path: {path})")
+        
+        # Verificar si ya existe una conexión desde la misma IP
+        existing_connections = [
+            client for client in self.ui_clients
+            if hasattr(client, 'remote_address') and
+            client.remote_address[0] == websocket.remote_address[0]
+        ]
+        
+        if existing_connections:
+            self.logger.warning(f"Detectada conexión duplicada desde {client_address}. "
+                              f"Conexiones existentes: {len(existing_connections)}")
+            # Cerrar conexiones anteriores de la misma IP
+            for old_client in existing_connections:
+                try:
+                    await old_client.close(code=1000, reason="Nueva conexión desde la misma IP")
+                    self.ui_clients.discard(old_client)
+                    self.logger.info(f"Conexión anterior cerrada: {old_client.remote_address[0]}:{old_client.remote_address[1]}")
+                except Exception as e:
+                    self.logger.error(f"Error cerrando conexión anterior: {e}")
+        
+        self.logger.info(f"Cliente UI conectado: {client_address} (path: {path}) - Total clientes: {len(self.ui_clients) + 1}")
         
         self.ui_clients.add(websocket)
         
@@ -108,11 +133,12 @@ class UIBroadcaster:
                 await self._process_ui_message(websocket, message)
                 
         except ConnectionClosed:
-            self.logger.info(f"Cliente UI desconectado: {client_address}")
+            self.logger.info(f"Cliente UI desconectado: {client_address} - Total clientes: {len(self.ui_clients) - 1}")
         except Exception as e:
             self.logger.error(f"Error en cliente UI {client_address}: {e}")
         finally:
             self.ui_clients.discard(websocket)
+            self.logger.debug(f"Cliente removido del conjunto: {client_address} - Total clientes: {len(self.ui_clients)}")
     
     async def _send_initial_state(self, websocket):
         """Envía el estado inicial a un cliente UI recién conectado."""
@@ -183,11 +209,9 @@ class UIBroadcaster:
                 else:
                     self.logger.error("No hay callback configurado para pruebas de IA")
             elif message_type == 'get_training_status':
-                if self.on_get_training_status_callback:
-                    await self.on_get_training_status_callback(websocket)
+                await self._send_training_status_response(websocket)
             elif message_type == 'get_test_status':
-                if self.on_get_test_status_callback:
-                    await self.on_get_test_status_callback(websocket)
+                await self._send_test_status_response(websocket)
             else:
                 # Callback genérico para otros mensajes
                 if self.on_ui_message_callback:
@@ -326,10 +350,15 @@ class UIBroadcaster:
         
         message_json = json.dumps(message_data)
         disconnected_clients = set()
+        successful_sends = 0
         
-        for client in self.ui_clients:
+        for client in self.ui_clients.copy():  # Usar copia para evitar modificación durante iteración
             try:
-                await client.send(message_json)
+                if client.open:  # Verificar que la conexión esté abierta
+                    await client.send(message_json)
+                    successful_sends += 1
+                else:
+                    disconnected_clients.add(client)
             except ConnectionClosed:
                 disconnected_clients.add(client)
             except Exception as e:
@@ -341,7 +370,10 @@ class UIBroadcaster:
             self.ui_clients.discard(client)
         
         if disconnected_clients:
-            self.logger.info(f"Removidos {len(disconnected_clients)} clientes desconectados")
+            self.logger.info(f"Removidos {len(disconnected_clients)} clientes desconectados. "
+                           f"Mensajes enviados exitosamente: {successful_sends}")
+        else:
+            self.logger.debug(f"Mensaje enviado a {successful_sends} clientes UI")
     
     async def broadcast_top20_data(self, top20_data: list):
         """Retransmite datos del Top 20 a la UI solo si son válidos y han cambiado."""
@@ -685,11 +717,17 @@ class UIBroadcaster:
             
             # Cerrar todas las conexiones de clientes
             if self.ui_clients:
+                close_tasks = []
                 for client in self.ui_clients.copy():
                     try:
-                        await client.close()
+                        if client.open:
+                            close_tasks.append(client.close(code=1001, reason="Server shutdown"))
                     except Exception as e:
-                        self.logger.error(f"Error cerrando cliente: {e}")
+                        self.logger.error(f"Error preparando cierre de cliente: {e}")
+                
+                # Esperar a que se cierren todas las conexiones
+                if close_tasks:
+                    await asyncio.gather(*close_tasks, return_exceptions=True)
                 
                 self.ui_clients.clear()
             
@@ -700,6 +738,34 @@ class UIBroadcaster:
             
         except Exception as e:
             self.logger.error(f"Error en limpieza de UIBroadcaster: {e}")
+    
+    async def _periodic_cleanup(self):
+        """Limpieza periódica de conexiones muertas."""
+        while self.is_running:
+            try:
+                await asyncio.sleep(60)  # Ejecutar cada minuto
+                
+                if not self.ui_clients:
+                    continue
+                
+                dead_clients = set()
+                for client in self.ui_clients.copy():
+                    try:
+                        if not client.open:
+                            dead_clients.add(client)
+                        else:
+                            # Enviar ping para verificar conexión
+                            await client.ping()
+                    except Exception:
+                        dead_clients.add(client)
+                
+                if dead_clients:
+                    for client in dead_clients:
+                        self.ui_clients.discard(client)
+                    self.logger.info(f"Limpieza periódica: removidos {len(dead_clients)} clientes muertos")
+                
+            except Exception as e:
+                self.logger.error(f"Error en limpieza periódica: {e}")
     
     def get_connected_clients_count(self) -> int:
         """Retorna el número de clientes UI conectados."""
@@ -731,5 +797,91 @@ class UIBroadcaster:
         }
         self.logger.debug(f"Enviando actualización de entrenamiento: {message}")
         await self.broadcast_message(message)
+
+    async def _send_training_status_response(self, websocket):
+        """Envía el estado actual del entrenamiento a un cliente específico."""
+        try:
+            training_status = {
+                "status": "idle",
+                "progress": 0,
+                "filepath": None,
+                "results": None,
+                "error": None
+            }
+            
+            # Obtener estado del entrenamiento desde el callback si está disponible
+            if self.on_get_training_status_callback:
+                try:
+                    # Llamar al callback sin parámetros - no usar await ya que puede devolver tupla
+                    status_data = self.on_get_training_status_callback()
+                    if status_data:
+                        # Si es una tupla (método legacy), convertir a diccionario
+                        if isinstance(status_data, tuple) and len(status_data) >= 3:
+                            in_progress, progress, filepath = status_data[:3]
+                            training_status.update({
+                                "status": "IN_PROGRESS" if in_progress else "idle",
+                                "progress": progress,
+                                "filepath": filepath
+                            })
+                        # Si es un diccionario (método nuevo), usar directamente
+                        elif isinstance(status_data, dict):
+                            training_status.update(status_data)
+                except Exception as e:
+                    self.logger.error(f"Error obteniendo estado de entrenamiento: {e}")
+            
+            message = {
+                "type": "training_status",
+                "payload": training_status,
+                "timestamp": get_current_timestamp()
+            }
+            
+            await websocket.send(json.dumps(message))
+            self.logger.debug("Estado de entrenamiento enviado a cliente UI")
+            
+        except Exception as e:
+            self.logger.error(f"Error enviando estado de entrenamiento: {e}")
+
+    async def _send_test_status_response(self, websocket):
+        """Envía el estado actual de las pruebas a un cliente específico."""
+        try:
+            test_status = {
+                "status": "idle",
+                "progress": 0,
+                "filepath": None,
+                "results": None,
+                "error": None
+            }
+            
+            # Obtener estado de las pruebas desde el callback si está disponible
+            if self.on_get_test_status_callback:
+                try:
+                    # Llamar al callback sin parámetros - no usar await ya que puede devolver tupla
+                    status_data = self.on_get_test_status_callback()
+                    if status_data:
+                        # Si es una tupla (método legacy), convertir a diccionario
+                        if isinstance(status_data, tuple) and len(status_data) >= 3:
+                            in_progress, progress, filepath = status_data[:3]
+                            test_status.update({
+                                "status": "IN_PROGRESS" if in_progress else "idle",
+                                "progress": progress,
+                                "filepath": filepath
+                            })
+                        # Si es un diccionario (método nuevo), usar directamente
+                        elif isinstance(status_data, dict):
+                            test_status.update(status_data)
+                except Exception as e:
+                    self.logger.error(f"Error obteniendo estado de pruebas: {e}")
+            
+            message = {
+                "type": "test_status",
+                "payload": test_status,
+                "timestamp": get_current_timestamp()
+            }
+            
+            await websocket.send(json.dumps(message))
+            self.logger.debug("Estado de pruebas enviado a cliente UI")
+            
+        except Exception as e:
+            self.logger.error(f"Error enviando estado de pruebas: {e}")
 
 

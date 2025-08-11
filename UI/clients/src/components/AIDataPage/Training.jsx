@@ -111,8 +111,14 @@ const Training = ({
       setTrainingError(savedState.error || null);
     }
 
+    // Solicitar estado actual del entrenamiento desde V3
+    if (sendV3Command) {
+      console.log('🔍 Solicitando estado actual del entrenamiento...');
+      sendV3Command('get_training_status');
+    }
+
     fetchInitialData();
-  }, []);
+  }, [sendV3Command]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -322,6 +328,30 @@ const Training = ({
 
   useEffect(() => {
     if (!v3Data) return;
+
+    // Procesar respuesta del estado de entrenamiento
+    if (v3Data.training_status) {
+      const { status, progress, filepath, results, error } = v3Data.training_status;
+      console.log('📊 Estado de entrenamiento recibido:', v3Data.training_status);
+      
+      // Actualizar estados con la información recibida
+      if (status) setTrainingStatus(status);
+      if (progress !== undefined) setTrainingProgress(progress);
+      if (filepath) setTrainingFilename(filepath);
+      if (results) setTrainingResults(results);
+      if (error) setTrainingError(error);
+
+      // Guardar estado actualizado
+      const currentState = {
+        status: status || trainingStatus,
+        progress: progress !== undefined ? progress : trainingProgress,
+        filename: filepath || trainingFilename,
+        startTime: trainingStartTime,
+        results: results || trainingResults,
+        error: error || trainingError
+      };
+      saveTrainingState(currentState);
+    }
 
     // Procesar mensajes de entrenamiento
     if (v3Data.ai_training_update) {

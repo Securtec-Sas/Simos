@@ -29,8 +29,57 @@ const AIDataPage = ({ v3Data, sendV3Command }) => {
 
   useEffect(() => {
     // Cargar automáticamente detalles del modelo al cargar la página
+    console.log('🔍 Solicitando detalles del modelo AI al cargar la página...');
     handleRequest('get_ai_model_details');
-  }, []);
+  }, [sendV3Command]);
+
+  // Efecto para procesar respuestas de V3
+  useEffect(() => {
+    if (!v3Data) return;
+
+    // Procesar detalles del modelo AI
+    if (v3Data.ai_model_details) {
+      console.log('🤖 Detalles del modelo AI recibidos:', v3Data.ai_model_details);
+      setAiModelDetails(v3Data.ai_model_details);
+      setIsLoading(false);
+    }
+
+    // Procesar actualizaciones de entrenamiento
+    if (v3Data.ai_training_update) {
+      const { status, progress, results, error } = v3Data.ai_training_update;
+      console.log('🎯 Actualización de entrenamiento recibida:', v3Data.ai_training_update);
+      
+      setTrainingStatus({
+        status: status || trainingStatus.status,
+        progress: progress !== undefined ? progress : trainingStatus.progress,
+        details: results || trainingStatus.details
+      });
+
+      // Si el entrenamiento se completó, actualizar detalles del modelo
+      if (status === 'COMPLETED') {
+        console.log('✅ Entrenamiento completado, actualizando detalles del modelo...');
+        setTimeout(() => {
+          handleRequest('get_ai_model_details');
+        }, 1000);
+      }
+    }
+
+    // Procesar resultados de pruebas
+    if (v3Data.ai_test_results) {
+      console.log('🧪 Resultados de prueba recibidos:', v3Data.ai_test_results);
+      setTestResults(v3Data.ai_test_results);
+    }
+
+    // Procesar actualizaciones de simulación
+    if (v3Data.ai_simulation_update) {
+      console.log('🎮 Actualización de simulación recibida:', v3Data.ai_simulation_update);
+      const { status, data } = v3Data.ai_simulation_update;
+      setSimulationStatus({
+        status: status || simulationStatus.status,
+        data: data || simulationStatus.data
+      });
+    }
+  }, [v3Data]);
 
   const handleRequest = (command, payload = {}) => {
     if (sendV3Command) {
