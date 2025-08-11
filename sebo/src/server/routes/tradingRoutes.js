@@ -6,5 +6,6 @@ router.post('/create-training-csv', TradingController.createTrainingCSV);
 router.get('/training-files', TradingController.getTrainingCSVFiles);
 router.get('/training-files/:filename', TradingController.serveCSVFile);
 router.post('/get-file-path', TradingController.getCSVFilePath);
+router.post('/training-csv-from-analysis', TradingController.createTrainingCSVFromAnalysis);
 
 module.exports = router;
