@@ -7,6 +7,72 @@ const ccxt = require('ccxt');
 const fs = require('fs').promises;
 const path = require('path');
 
+const fetchAllHistoricalData = async (data, since, intervalo) => {
+  const { symbol, buyExchangeId, sellExchangeId } = data;
+  const limit = 1000; // Max limit for most exchanges
+  let allBuyData = [];
+  let allSellData = [];
+  let lastTimestamp = since;
+
+  try {
+    const buyExchange = initializeExchange(buyExchangeId);
+    const sellExchange = initializeExchange(sellExchangeId);
+
+    if (!buyExchange || !sellExchange) {
+      console.error(`Failed to initialize one or both exchanges for fetchAllHistoricalData: ${buyExchangeId}, ${sellExchangeId}`);
+      return [];
+    }
+
+    const buyIntervalo = getExchangeTimeframe(buyExchange, intervalo);
+    const sellIntervalo = getExchangeTimeframe(sellExchange, intervalo);
+
+    if (!buyExchange.has['fetchOHLCV'] || !sellExchange.has['fetchOHLCV']) {
+      console.error(`One of the exchanges does not support fetchOHLCV.`);
+      return [];
+    }
+
+    let moreData = true;
+    while (moreData) {
+      const [buyData, sellData] = await Promise.all([
+        buyExchange.fetchOHLCV(symbol, buyIntervalo, lastTimestamp, limit),
+        sellExchange.fetchOHLCV(symbol, sellIntervalo, lastTimestamp, limit)
+      ]);
+
+      if (buyData.length > 0) {
+        allBuyData = allBuyData.concat(buyData);
+        lastTimestamp = buyData[buyData.length - 1][0] + 1;
+      } else {
+        moreData = false;
+      }
+
+      if (sellData.length > 0) {
+        allSellData = allSellData.concat(sellData);
+      }
+    }
+
+    // Synchronize data by timestamp
+    const synchronizedData = [];
+    const sellDataMap = new Map(allSellData.map(candle => [candle[0], candle[4]])); // Map<timestamp, close_price>
+
+    for (const buyCandle of allBuyData) {
+      const timestamp = buyCandle[0];
+      const sellPrice = sellDataMap.get(timestamp);
+
+      if (sellPrice) {
+        synchronizedData.push({
+          timestamp: timestamp,
+          buyPrice: buyCandle[4], // close price
+          sellPrice: sellPrice
+        });
+      }
+    }
+    return synchronizedData;
+  } catch (error) {
+    console.error(`Error fetching historical data for ${symbol} on ${buyExchangeId}/${sellExchangeId}:`, error);
+    return [];
+  }
+};
+
 const fetchHistoricalData = async (data, fecha_inicio, intervalo, cantidad_operaciones) => {
   const { symbol, buyExchangeId, sellExchangeId } = data;
   const since = fecha_inicio ? new Date(fecha_inicio).getTime() : undefined;
@@ -357,9 +423,107 @@ const serveCSVFile = async (req, res) => {
   }
 };
 
+const createTrainingCSVFromAnalysis = async (req, res) => {
+  try {
+    const analysisList = await Analysis.find({})
+      .sort({ promedio: -1 })
+      .limit(30);
+
+    if (!analysisList || analysisList.length === 0) {
+      return res.status(404).json({ message: "No analysis documents found." });
+    }
+
+    const intervalo = '5m';
+    const daysBack = 30;
+    const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).getTime();
+
+    let balanceConfig = 20;
+    const results = [];
+
+    for (const analysis of analysisList) {
+      if (!analysis.id_exchsymbol) {
+        continue;
+      }
+
+      const symbolDoc = await ExchangeSymbol.findById(analysis.id_exchsymbol, 'sy_id');
+      if (!symbolDoc) {
+        console.warn(`Warning: Symbol with id_exchsymbol ${analysis.id_exchsymbol} not found`);
+        continue;
+      }
+
+      const transferFee = analysis.fee || 0.0005;
+
+      let data = {
+        symbol: symbolDoc.sy_id,
+        buyExchangeId: analysis.id_exdataMin,
+        sellExchangeId: analysis.id_exdataMax,
+        buyFees: analysis.taker_fee_exMin,
+        sellFees: analysis.taker_fee_exMax,
+        transferFee: transferFee
+      };
+
+      const historicalData = await fetchAllHistoricalData(data, since, intervalo);
+
+      for (const dataPoint of historicalData) {
+        const tradeResult = await simulateTrade(dataPoint, balanceConfig, data.buyFees, data.sellFees, data.transferFee, data.buyExchangeId, data.sellExchangeId, data.symbol);
+
+        if (tradeResult) {
+          results.push(tradeResult);
+          balanceConfig += tradeResult.net_profit_usdt;
+          if (balanceConfig < 0) balanceConfig = 0;
+        }
+      }
+    }
+
+    const fields = [
+      'buy_exchange_id',
+      'sell_exchange_id',
+      'symbol',
+      'decision_outcome',
+      'net_profit_usdt',
+      'current_price_buy',
+      'current_price_sell',
+      'investment_usdt',
+      'estimated_buy_fee',
+      'estimated_sell_fee',
+      'estimated_transfer_fee',
+      'total_fees_usdt',
+      'profit_percentage',
+      'market_data',
+      'execution_time_seconds',
+      'timestamp',
+      'balance_config',
+      'id_exch_balance'
+    ];
+    const json2csvParser = new Parser({ fields });
+    const csv = json2csvParser.parse(results);
+
+    const filename = `analysis_training_5m.csv`;
+    const dataDir = path.join(__dirname, '..', './../data/csv_exports/');
+
+    await fs.mkdir(dataDir, { recursive: true });
+
+    const filePath = path.join(dataDir, filename);
+
+    await fs.writeFile(filePath, csv, 'utf8');
+
+    return res.status(201).json({
+      message: 'CSV de entrenamiento guardado exitosamente en el servidor.',
+      filename: filename,
+      path: filePath,
+      records: results.length
+    });
+
+  } catch (error) {
+    console.error('Error in createTrainingCSVFromAnalysis:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 module.exports = {
   createTrainingCSV,
   getTrainingCSVFiles,
   getCSVFilePath,
   serveCSVFile,
+  createTrainingCSVFromAnalysis,
 };
