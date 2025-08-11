@@ -347,38 +347,23 @@ class AdvancedSimulationEngine:
             elif self.current_mode == SimulationMode.REAL:
                 result = await self._execute_real_transaction(tx_id)
             
-            return resultsaction = self.active_transactions[tx_id]
-        
-        try:
-            # Iniciar tarea asíncrona para procesar la transacción
-            asyncio.create_task(self._process_sebo_sandbox_transaction(tx_id))
-            
-            return {
-                'success': True,
-                'message': 'Transacción Sandbox iniciada',
-                'transaction_id': tx_id,
-                'symbol': transaction['symbol']
-            }
-            
-        except Exception as e:
-            error_msg = f"Error en simulación Sandbox: {e}"
-            self.logger.error(error_msg)
-            transaction['step'] = TransactionStep.FAILED
-            transaction['end_time'] = get_current_timestamp()
-            return {
-                'success': False,
-                'message': error_msg,
-                'transaction_id': tx_id
-            }
-            
+            return result
+
         except Exception as e:
             error_msg = f"Error procesando oportunidad: {e}"
             self.logger.error(error_msg)
+
+            # Intentar marcar la transacción como fallida si ya fue creada
+            if 'tx_id' in locals() and tx_id in self.active_transactions:
+                transaction = self.active_transactions[tx_id]
+                transaction['step'] = TransactionStep.FAILED
+                transaction['end_time'] = get_current_timestamp()
+                transaction['failure_reason'] = str(e)
+
             return {
                 'success': False,
                 'message': error_msg
             }
-    
     async def _prepare_ai_input_data(self, symbol_dict: Dict, opportunity_data: Dict) -> Dict:
         """Prepara los datos de entrada para la IA."""
         # Calcular monto de inversión basado en balance actual
@@ -950,9 +935,9 @@ class AdvancedSimulationEngine:
         transaction = self.active_transactions[tx_id]
         
         try:
-            symbol = transaction["symbol"]
-            ai_data = transaction["ai_input_data"]
-            investment = ai_data["investment_usdt"]
+            symbol = transaction['symbol']
+            ai_data = transaction['ai_input_data']
+            investment = ai_data['investment_usdt']
             
             # Paso 1: Retirar USDT (simulado en sandbox)
             await self._simulate_step(
@@ -962,49 +947,49 @@ class AdvancedSimulationEngine:
             )
             
             # Simular tiempo de retiro
-            await asyncio.sleep(self.simulation_config["time_between_transfers"])
+            await asyncio.sleep(self.simulation_config['time_between_transfers'])
             
             # Paso 2: Comprar asset (simulado en sandbox)
             await self._simulate_step(
                 transaction,
                 TransactionStep.BUYING_ASSET,
-                f"Comprando {symbol} en {ai_data["buy_exchange_id"]} en Sandbox"
+                f"Comprando {symbol} en {ai_data['buy_exchange_id']} en Sandbox"
             )
             
             # Simular tiempo de compra
-            await asyncio.sleep(self.simulation_config["time_between_transfers"])
+            await asyncio.sleep(self.simulation_config['time_between_transfers'])
             
             # Paso 3: Transferir asset (simulado en sandbox)
             await self._simulate_step(
                 transaction,
                 TransactionStep.TRANSFERRING_ASSET,
-                f"Transfiriendo {symbol} a {ai_data["sell_exchange_id"]} en Sandbox"
+                f"Transfiriendo {symbol} a {ai_data['sell_exchange_id']} en Sandbox"
             )
             
             # Simular tiempo de transferencia (más largo)
-            await asyncio.sleep(self.simulation_config["time_between_transfers"] * 2)
+            await asyncio.sleep(self.simulation_config['time_between_transfers'] * 2)
             
             # Paso 4: Vender asset (simulado en sandbox)
             await self._simulate_step(
                 transaction,
                 TransactionStep.SELLING_ASSET,
-                f"Vendiendo {symbol} en {ai_data["sell_exchange_id"]} en Sandbox"
+                f"Vendiendo {symbol} en {ai_data['sell_exchange_id']} en Sandbox"
             )
             
             # Simular tiempo de venta
-            await asyncio.sleep(self.simulation_config["time_between_transfers"])
+            await asyncio.sleep(self.simulation_config['time_between_transfers'])
             
             # Calcular resultado final (simulado)
             profit_loss = await self._calculate_final_result(transaction)
             
-            transaction["profit_loss"] = profit_loss
-            transaction["success"] = True
-            transaction["step"] = TransactionStep.COMPLETED
-            transaction["end_time"] = get_current_timestamp()
+            transaction['profit_loss'] = profit_loss
+            transaction['success'] = True
+            transaction['step'] = TransactionStep.COMPLETED
+            transaction['end_time'] = get_current_timestamp()
             
-            self.simulation_stats["successful_operations"] += 1
-            self.simulation_stats["total_profit_usdt"] += profit_loss
-            self.simulation_stats["current_balance"] += profit_loss
+            self.simulation_stats['successful_operations'] += 1
+            self.simulation_stats['total_profit_usdt'] += profit_loss
+            self.simulation_stats['current_balance'] += profit_loss
             
             self.logger.info(f"Transacción Sandbox {tx_id} completada. Ganancia: {profit_loss:.4f} USDT")
             
@@ -1016,7 +1001,7 @@ class AdvancedSimulationEngine:
                         "transaction_id": tx_id,
                         "symbol": symbol,
                         "profit_loss": profit_loss,
-                        "final_balance": self.simulation_stats["current_balance"],
+                        "final_balance": self.simulation_stats['current_balance'],
                         "mode": self.current_mode.value
                     }
                 })
@@ -1024,12 +1009,12 @@ class AdvancedSimulationEngine:
         except Exception as e:
             error_msg = f"Error procesando transacción Sandbox {tx_id}: {e}"
             self.logger.error(error_msg)
-            transaction["step"] = TransactionStep.FAILED
-            transaction["end_time"] = get_current_timestamp()
-            transaction["failure_reason"] = str(e)
+            transaction['step'] = TransactionStep.FAILED
+            transaction['end_time'] = get_current_timestamp()
+            transaction['failure_reason'] = str(e)
             
-            self.simulation_stats["failed_operations"] += 1
-            self.simulation_stats["total_loss_usdt"] += transaction["ai_input_data"]["investment_usdt"]
+            self.simulation_stats['failed_operations'] += 1
+            self.simulation_stats['total_loss_usdt'] += transaction['ai_input_data']['investment_usdt']
             
             # Notificar a UI
             if self.ui_broadcaster:
@@ -1043,8 +1028,8 @@ class AdvancedSimulationEngine:
                     }
                 })
         finally:
-            self.simulation_stats["total_operations"] += 1
-            self.simulation_stats["transactions_log"].append(transaction)
+            self.simulation_stats['total_operations'] += 1
+            self.simulation_stats['transactions_log'].append(transaction)
             
             # Notificar actualización de estadísticas generales
             if self.ui_broadcaster:
@@ -1065,13 +1050,13 @@ class AdvancedSimulationEngine:
             raise ValueError("ExchangeManager no está inicializado para operaciones reales.")
 
         try:
-            symbol = transaction["symbol"]
-            symbol_dict = transaction["symbol_dict"]
-            ai_data = transaction["ai_input_data"]
-            investment = ai_data["investment_usdt"]
+            symbol = transaction['symbol']
+            symbol_dict = transaction['symbol_dict']
+            ai_data = transaction['ai_input_data']
+            investment = ai_data['investment_usdt']
             
-            buy_exchange_id = symbol_dict["buy_exchange_id"]
-            sell_exchange_id = symbol_dict["sell_exchange_id"]
+            buy_exchange_id = symbol_dict['buy_exchange_id']
+            sell_exchange_id = symbol_dict['sell_exchange_id']
             
             # Paso 1: Retirar USDT del exchange de origen (donde está el balance)
             # Asumimos que el balance inicial está en el exchange de compra (id_exDatamin)
@@ -1089,18 +1074,18 @@ class AdvancedSimulationEngine:
             buy_order_result = await self.exchange_manager.create_order(
                 exchange_id=buy_exchange_id,
                 symbol=symbol,
-                side=\'buy\',
+                side='buy',
                 amount=investment, # Asumimos que es un monto en USDT para una orden de mercado
-                price=ai_data["current_price_buy"], # Precio de referencia, la orden de mercado usará el precio actual
-                order_type=\'market\'
+                price=ai_data['current_price_buy'], # Precio de referencia, la orden de mercado usará el precio actual
+                order_type='market'
             )
             
-            if not buy_order_result or not buy_order_result.get("success"):
-                raise Exception(f"Fallo al comprar {symbol}: {buy_order_result.get("message", "Desconocido")}")
+            if not buy_order_result or not buy_order_result.get('success'):
+                raise Exception(f"Fallo al comprar {symbol}: {buy_order_result.get('message', 'Desconocido')}")
             
-            bought_amount = buy_order_result.get("filled_amount", 0)
-            bought_price = buy_order_result.get("price", ai_data["current_price_buy"])
-            buy_fee = buy_order_result.get("fee", 0)
+            bought_amount = buy_order_result.get('filled_amount', 0)
+            bought_price = buy_order_result.get('price', ai_data['current_price_buy'])
+            buy_fee = buy_order_result.get('fee', 0)
 
             await self._simulate_step(
                 transaction,
@@ -1117,10 +1102,10 @@ class AdvancedSimulationEngine:
                 amount=bought_amount
             )
             
-            if not transfer_result or not transfer_result.get("success"):
-                raise Exception(f"Fallo al transferir {symbol}: {transfer_result.get("message", "Desconocido")}")
+            if not transfer_result or not transfer_result.get('success'):
+                raise Exception(f"Fallo al transferir {symbol}: {transfer_result.get('message', 'Desconocido')}")
             
-            transfer_fee = transfer_result.get("fee", 0)
+            transfer_fee = transfer_result.get('fee', 0)
 
             await self._simulate_step(
                 transaction,
@@ -1129,24 +1114,24 @@ class AdvancedSimulationEngine:
             )
             
             # Simular tiempo de transferencia (puede ser largo en real)
-            await asyncio.sleep(self.simulation_config["time_between_transfers"] * 5) # Mayor delay para real
-            
+            await asyncio.sleep(self.simulation_config['time_between_transfers'] * 5) # Mayor delay para real
+             
             # Paso 4: Vender asset en el exchange de venta
             self.logger.info(f"[REAL] Vendiendo {bought_amount:.4f} {symbol} en {sell_exchange_id}")
             sell_order_result = await self.exchange_manager.create_order(
                 exchange_id=sell_exchange_id,
                 symbol=symbol,
-                side=\'sell\',
+                side='sell',
                 amount=bought_amount,
-                price=ai_data["current_price_sell"], # Precio de referencia
-                order_type=\'market\'
+                price=ai_data['current_price_sell'], # Precio de referencia
+                order_type='market'
             )
+         
+            if not sell_order_result or not sell_order_result.get('success'):
+                raise Exception(f"Fallo al vender {symbol}: {sell_order_result.get('message', 'Desconocido')}")
             
-            if not sell_order_result or not sell_order_result.get("success"):
-                raise Exception(f"Fallo al vender {symbol}: {sell_order_result.get("message", "Desconocido")}")
-            
-            sold_amount_usdt = sell_order_result.get("filled_amount_usdt", 0)
-            sell_fee = sell_order_result.get("fee", 0)
+            sold_amount_usdt = sell_order_result.get('filled_amount_usdt', 0)
+            sell_fee = sell_order_result.get('fee', 0)
 
             await self._simulate_step(
                 transaction,
@@ -1160,14 +1145,14 @@ class AdvancedSimulationEngine:
             # y las fees ya fueron aplicadas por el exchange_manager
             profit_loss = sold_amount_usdt - investment # Esto es una simplificación, la lógica de cálculo de ganancia debe ser más robusta
             
-            transaction["profit_loss"] = profit_loss
-            transaction["success"] = True
-            transaction["step"] = TransactionStep.COMPLETED
-            transaction["end_time"] = get_current_timestamp()
+            transaction['profit_loss'] = profit_loss
+            transaction['success'] = True
+            transaction['step'] = TransactionStep.COMPLETED
+            transaction['end_time'] = get_current_timestamp()
             
-            self.simulation_stats["successful_operations"] += 1
-            self.simulation_stats["total_profit_usdt"] += profit_loss
-            self.simulation_stats["current_balance"] += profit_loss # Actualizar balance simulado para estadísticas
+            self.simulation_stats['successful_operations'] += 1
+            self.simulation_stats['total_profit_usdt'] += profit_loss
+            self.simulation_stats['current_balance'] += profit_loss # Actualizar balance simulado para estadísticas
             
             self.logger.info(f"Transacción REAL {tx_id} completada. Ganancia: {profit_loss:.4f} USDT")
             
@@ -1179,7 +1164,7 @@ class AdvancedSimulationEngine:
                         "transaction_id": tx_id,
                         "symbol": symbol,
                         "profit_loss": profit_loss,
-                        "final_balance": self.simulation_stats["current_balance"],
+                        "final_balance": self.simulation_stats['current_balance'],
                         "mode": self.current_mode.value
                     }
                 })
@@ -1187,12 +1172,12 @@ class AdvancedSimulationEngine:
         except Exception as e:
             error_msg = f"Error procesando transacción REAL {tx_id}: {e}"
             self.logger.error(error_msg)
-            transaction["step"] = TransactionStep.FAILED
-            transaction["end_time"] = get_current_timestamp()
-            transaction["failure_reason"] = str(e)
+            transaction['step'] = TransactionStep.FAILED
+            transaction['end_time'] = get_current_timestamp()
+            transaction['failure_reason'] = str(e)
             
-            self.simulation_stats["failed_operations"] += 1
-            self.simulation_stats["total_loss_usdt"] += transaction["ai_input_data"]["investment_usdt"]
+            self.simulation_stats['failed_operations'] += 1
+            self.simulation_stats['total_loss_usdt'] += transaction['ai_input_data']['investment_usdt']
             
             # Notificar a UI
             if self.ui_broadcaster:
@@ -1206,8 +1191,8 @@ class AdvancedSimulationEngine:
                     }
                 })
         finally:
-            self.simulation_stats["total_operations"] += 1
-            self.simulation_stats["transactions_log"].append(transaction)
+            self.simulation_stats['total_operations'] += 1
+            self.simulation_stats['transactions_log'].append(transaction)
             
             # Notificar actualización de estadísticas generales
             if self.ui_broadcaster:
@@ -1215,6 +1200,3 @@ class AdvancedSimulationEngine:
                     "type": "simulation_stats_update",
                     "payload": self.simulation_stats
                 })
-
-
-
