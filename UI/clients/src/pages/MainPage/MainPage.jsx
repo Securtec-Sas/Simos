@@ -4,15 +4,15 @@ import ExchangeList from '../../components/ExchangeList/ExchangeList';
 import BalanceDisplay from '../../components/BalanceDisplay/BalanceDisplay';
 import styles from './MainPage.module.css';
 
-const MainPage = () => {
+const MainPage = ({ allExchanges, setAllExchanges, balances }) => {
   return (
     <div className={styles.mainPage}>
       <div className={styles.leftColumn}>
-        <ExchangeList />
+        <ExchangeList allExchanges={allExchanges} setAllExchanges={setAllExchanges} />
       </div>
       <div className={styles.rightColumn}>
         <div className={styles.balanceContainer}>
-          <BalanceDisplay />
+          <BalanceDisplay balanceInfo={balances} />
         </div>
         <div className={styles.buttonsContainer}>
           <Link to="/operar" className={styles.button}>Operar</Link>

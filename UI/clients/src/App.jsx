@@ -71,7 +71,7 @@ function App() {
             />
           } />
           <Route path="config-data" element={<ConfigDataPage />} />
-          <Route index element={<MainPage />} />
+          <Route index element={<MainPage allExchanges={allExchanges} setAllExchanges={setAllExchanges} balances={balances} />} />
         </Route>
       </Routes>
     </Router>
