@@ -22,19 +22,21 @@ const fetchHistoricalData = async (data, fecha_inicio, intervalo, cantidad_opera
       return [];
     }
 
-    // const buyIntervalo = getExchangeTimeframe(buyExchange, intervalo);
-    // const sellIntervalo = getExchangeTimeframe(sellExchange, intervalo);
+    // Convertir el intervalo al formato específico de cada exchange
+    const buyIntervalo = getExchangeTimeframe(buyExchange, intervalo);
+    const sellIntervalo = getExchangeTimeframe(sellExchange, intervalo);
 
+    console.log(`Usando intervalos: buy=${buyIntervalo}, sell=${sellIntervalo} para intervalo original=${intervalo}`);
 
     if (!buyExchange.has['fetchOHLCV'] || !sellExchange.has['fetchOHLCV']) {
         console.error(`Uno de los exchanges no soporta fetchOHLCV.`);
         return [];
     }
 
-    // Fetch in parallel
+    // Fetch in parallel usando los intervalos convertidos
     const [buyData, sellData] = await Promise.all([
-        buyExchange.fetchOHLCV(symbol, intervalo, since, limit),
-        sellExchange.fetchOHLCV(symbol, intervalo, since, limit)
+        buyExchange.fetchOHLCV(symbol, buyIntervalo, since, limit),
+        sellExchange.fetchOHLCV(symbol, sellIntervalo, since, limit)
     ]);
 
     // Synchronize data by timestamp
@@ -147,6 +149,7 @@ const createTrainingCSV = async (req, res) => {
     } else if (cantidadSimbolos) {
       // Seleccionar símbolos aleatorios
       // symbols = await getRandomSymbols(cantidadSimbolos);
+      const analysisList = await getRandomAnalysis(cantidadSimbolos);
     } else {
       return res.status(400).json({ error: 'Debe proporcionar cantidadSimbolos o listaSimbolos' });
     }
@@ -155,7 +158,7 @@ const createTrainingCSV = async (req, res) => {
     // const  symbolIds = symbols.map(s => s._id);
 
     // 3. Obtener análisis para los símbolos de forma asíncrona
-    const analysisList = await getRandomAnalysis(cantidadSimbolos);
+    
 
     let balanceConfig = 20;
     const results = [];

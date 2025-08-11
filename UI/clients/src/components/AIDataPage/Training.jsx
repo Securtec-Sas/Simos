@@ -461,6 +461,16 @@ const Training = ({
     );
   };
 
+/*************  ✨ Windsurf Command ⭐  *************/
+  /**
+   * Renderiza una tabla con los primeros N registros del archivo CSV,
+   * donde N es el número de elementos en la lista `csvData`.
+   * La tabla tiene un estilo de tabla de datos sencillo y es
+   * responsive.
+   *
+   * @return {JSX.Element} La tabla con los registros del archivo CSV
+   */
+/*******  1d6d9224-ee30-4fd7-a876-a49fafc7cbbc  *******/
   const renderCsvDataTable = () => {
     if (!showCsvData || !csvData.length) return null;
 
