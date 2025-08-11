@@ -22,8 +22,8 @@ const fetchHistoricalData = async (data, fecha_inicio, intervalo, cantidad_opera
       return [];
     }
 
-    const buyIntervalo = getExchangeTimeframe(buyExchange, intervalo);
-    const sellIntervalo = getExchangeTimeframe(sellExchange, intervalo);
+    // const buyIntervalo = getExchangeTimeframe(buyExchange, intervalo);
+    // const sellIntervalo = getExchangeTimeframe(sellExchange, intervalo);
 
 
     if (!buyExchange.has['fetchOHLCV'] || !sellExchange.has['fetchOHLCV']) {
@@ -33,8 +33,8 @@ const fetchHistoricalData = async (data, fecha_inicio, intervalo, cantidad_opera
 
     // Fetch in parallel
     const [buyData, sellData] = await Promise.all([
-        buyExchange.fetchOHLCV(symbol, buyIntervalo, since, limit),
-        sellExchange.fetchOHLCV(symbol, sellIntervalo, since, limit)
+        buyExchange.fetchOHLCV(symbol, intervalo, since, limit),
+        sellExchange.fetchOHLCV(symbol, intervalo, since, limit)
     ]);
 
     // Synchronize data by timestamp
@@ -60,7 +60,7 @@ const fetchHistoricalData = async (data, fecha_inicio, intervalo, cantidad_opera
   }
 };
 
-const simulateTrade = (dataPoint, balanceConfig, buyFeeRate, sellFeeRate, transferFee, buyExchangeId, sellExchangeId, symbol) => {
+const simulateTrade = async (dataPoint, balanceConfig, buyFeeRate, sellFeeRate, transferFee, buyExchangeId, sellExchangeId, symbol) => {
   const investment_usdt = balanceConfig < 40 ? balanceConfig : balanceConfig * 0.2;
   const current_price_buy = dataPoint.buyPrice;
   const current_price_sell = dataPoint.sellPrice;

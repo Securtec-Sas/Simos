@@ -69,13 +69,13 @@ export const API_URLS = {
     symbols: buildApiUrl('sebo', 'symbols'),
     trainingFiles: '/api/trading/training-files',
     getFilePath: '/api/trading/get-file-path',
+    createTrainingCsv: '/api/trading/create-training-csv',
     health: buildApiUrl('sebo', 'health'),
     balance: buildApiUrl('sebo', 'balance')
   },
   
   // V3 service URLs
   v3: {
-    createTrainingCsv: '/api/trading/create-training-csv',
     createTestCsv: buildApiUrl('v3', 'createTestCsv'),
     health: buildApiUrl('v3', 'health'),
     models: buildApiUrl('v3', 'models')

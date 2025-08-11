@@ -224,7 +224,7 @@ const Training = ({
     setCsvCreationStatus({ status: 'creating', data: null });
     try {
       const payload = { ...formData };
-      const response = await fetch(API_URLS.v3.createTrainingCsv, {
+      const response = await fetch(API_URLS.sebo.createTrainingCsv, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -537,7 +537,7 @@ const Training = ({
     );
   };
 
-  // Función para calcular las operaciones posibles basado en fecha e intervalo
+  // Función para calcular las operaciones posibles basado en fecha, intervalo y símbolos
   const calculatePossibleOperations = () => {
     if (!formData.fecha || !formData.intervalo) return 0;
     
@@ -566,10 +566,29 @@ const Training = ({
     // Calcular operaciones por día (asumiendo 24 horas de trading)
     const operationsPerDay = (24 * 60) / minutesPerInterval;
     
-    // Total de operaciones posibles
-    const totalOperations = Math.floor(operationsPerDay * daysDiff);
+    // Calcular cantidad de símbolos
+    let symbolCount = 1; // Por defecto 1 símbolo
+    
+    if (formData.symbolSelectionType === 'cantidad' && formData.cantidadSimbolos) {
+      symbolCount = parseInt(formData.cantidadSimbolos) || 1;
+    } else if (formData.symbolSelectionType === 'lista' && formData.listaSimbolos.length > 0) {
+      symbolCount = formData.listaSimbolos.length;
+    }
+    
+    // Total de operaciones posibles = operaciones por día × días × cantidad de símbolos
+    const totalOperations = Math.floor(operationsPerDay * daysDiff * symbolCount);
     
     return totalOperations;
+  };
+
+  // Función para obtener información de símbolos para mostrar
+  const getSymbolInfo = () => {
+    if (formData.symbolSelectionType === 'cantidad' && formData.cantidadSimbolos) {
+      return `${formData.cantidadSimbolos} símbolos`;
+    } else if (formData.symbolSelectionType === 'lista' && formData.listaSimbolos.length > 0) {
+      return `${formData.listaSimbolos.length} símbolos seleccionados`;
+    }
+    return '1 símbolo (por defecto)';
   };
 
   const possibleOperations = calculatePossibleOperations();
@@ -652,7 +671,7 @@ const Training = ({
                   marginTop: '3px'
                 }}>
                   Basado en {Math.floor((new Date() - new Date(formData.fecha)) / (1000 * 3600 * 24))} días
-                  con intervalos de {formData.intervalo}
+                  con intervalos de {formData.intervalo} × {getSymbolInfo()}
                 </div>
               </div>
             )}
