@@ -2,7 +2,7 @@
 export const API_CONFIG = {
   // Sebo microservice endpoints (via proxy /api/sebo)
   sebo: {
-    baseURL: '/api/sebo',
+    baseURL: '/api',
     endpoints: {
       health: '/health',
       data: '/api/data',
@@ -67,15 +67,15 @@ export const API_URLS = {
   // SEBO service URLs
   sebo: {
     symbols: buildApiUrl('sebo', 'symbols'),
-    trainingFiles: '/api/sebo/trading/training-files',
-    getFilePath: '/api/sebo/trading/get-file-path',
+    trainingFiles: '/api/trading/training-files',
+    getFilePath: '/api/trading/get-file-path',
     health: buildApiUrl('sebo', 'health'),
     balance: buildApiUrl('sebo', 'balance')
   },
   
   // V3 service URLs
   v3: {
-    createTrainingCsv: '/api/sebo/trading/create-training-csv',
+    createTrainingCsv: '/api/trading/create-training-csv',
     createTestCsv: buildApiUrl('v3', 'createTestCsv'),
     health: buildApiUrl('v3', 'health'),
     models: buildApiUrl('v3', 'models')
@@ -103,7 +103,7 @@ export const proxyConfig = {
     rewrite: (path) => path.replace(/^\/api\/v3/, ''),
   },
   '/api/service3': {
-    target: 'http://localhost:3002',
+    target: 'http://localhost:3001',
     changeOrigin: true,
     secure: false,
     rewrite: (path) => path.replace(/^\/api\/service3/, ''),

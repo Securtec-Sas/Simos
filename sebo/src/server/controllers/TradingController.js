@@ -329,7 +329,7 @@ const serveCSVFile = async (req, res) => {
     }
 
     // Construir la ruta completa del archivo
-    const dataDir = path.join(__dirname, '..', './../../../../docs/data/csv_exports/');
+    const dataDir = path.join(__dirname, '..', './../../../docs/data/csv_exports/');
     const filePath = path.join(dataDir, filename);
     
     // Verificar que el archivo existe

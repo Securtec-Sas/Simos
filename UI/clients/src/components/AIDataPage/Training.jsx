@@ -40,7 +40,6 @@ const Training = ({
   const [csvData, setCsvData] = useState([]);
   const [isLoadingCsv, setIsLoadingCsv] = useState(false);
   const [showCsvData, setShowCsvData] = useState(false);
-  const [fileFullPath, setFileFullPath] = useState('');
 
   // Función para guardar estado en localStorage
   const saveTrainingState = (state) => {
@@ -95,7 +94,6 @@ const Training = ({
           if (files.length > 0) {
             // Usar solo el nombre del archivo
             setSelectedCsv(files[0].filename);
-            setFileFullPath(files[0].value);
           }
         }
       } catch (error) { console.error('Error fetching CSV files:', error); }
@@ -238,7 +236,6 @@ const Training = ({
                 const newFile = files.find(f => f.filename === result.filename);
                 if (newFile) {
                     setSelectedCsv(newFile.filename);
-                    setFileFullPath(newFile.value);
                 }
             }
         }
