@@ -54,18 +54,67 @@ class TrainingHandler:
             self.training_in_progress = True
             self.training_progress = 0
             
-            # Obtener la ruta del archivo del payload
+            # Obtener la ruta del archivo del payload - soportar ambos formatos
             filepath = request_data.get("filepath")
             
+            # Si no hay filepath, construir desde csv_filename y csv_source
             if not filepath:
-                self.training_in_progress = False
-                return {"status": "error", "message": "Se requiere la ruta del archivo de entrenamiento (filepath)"}
+                csv_filename = request_data.get("csv_filename")
+                csv_source = request_data.get("csv_source")
+                
+                if csv_filename and csv_source:
+                    # Construir filepath completo - usar separador correcto para Windows
+                    filepath = os.path.join(csv_source, f"{csv_filename}.csv").replace('/', os.sep)
+                    self.logger.info(f"Construyendo filepath desde csv_filename y csv_source: {filepath}")
+                else:
+                    self.training_in_progress = False
+                    error_msg = "Se requiere filepath o (csv_filename + csv_source)"
+                    self.logger.error(error_msg)
+                    # Enviar error inmediatamente a UI
+                    if self.ui_broadcaster:
+                        await self.ui_broadcaster.broadcast_training_update(
+                            status="FAILED",
+                            progress=0,
+                            filepath=None,
+                            error=error_msg
+                        )
+                    return {"status": "error", "message": error_msg}
             
+            # Verificar que el archivo existe antes de iniciar
             if not os.path.exists(filepath):
                 self.training_in_progress = False
-                return {"status": "error", "message": f"Archivo de entrenamiento no encontrado: {filepath}"}
+                error_msg = f"Archivo de entrenamiento no encontrado: {filepath}"
+                self.logger.error(error_msg)
+                # Enviar error inmediatamente a UI
+                if self.ui_broadcaster:
+                    await self.ui_broadcaster.broadcast_training_update(
+                        status="FAILED",
+                        progress=0,
+                        filepath=filepath,
+                        error=error_msg
+                    )
+                return {"status": "error", "message": error_msg}
+            
+            # Verificar que el archivo se puede leer
+            try:
+                with open(filepath, 'r', encoding='utf-8') as test_file:
+                    test_file.readline()  # Intentar leer la primera línea
+            except Exception as read_error:
+                self.training_in_progress = False
+                error_msg = f"No se puede leer el archivo de entrenamiento: {filepath}. Error: {str(read_error)}"
+                self.logger.error(error_msg)
+                # Enviar error inmediatamente a UI
+                if self.ui_broadcaster:
+                    await self.ui_broadcaster.broadcast_training_update(
+                        status="FAILED",
+                        progress=0,
+                        filepath=filepath,
+                        error=error_msg
+                    )
+                return {"status": "error", "message": error_msg}
             
             self.training_filepath = filepath # Guardar la ruta del archivo
+            self.logger.info(f"Iniciando entrenamiento con archivo: {filepath}")
 
             # Iniciar entrenamiento en background
             asyncio.create_task(self._run_training_process(filepath))
@@ -266,8 +315,9 @@ class TrainingHandler:
             training_data = await self._load_csv_file(filepath)
             
             if not training_data:
-                error_msg = "No se pudieron cargar los datos de entrenamiento"
+                error_msg = f"No se pudieron cargar los datos del archivo: {filepath}"
                 self.logger.error(error_msg)
+                self.training_in_progress = False  # Detener el entrenamiento
                 if self.ui_broadcaster:
                     await self.ui_broadcaster.broadcast_training_update(
                         status="FAILED",
@@ -275,7 +325,6 @@ class TrainingHandler:
                         filepath=self.training_filepath,
                         error=error_msg
                     )
-                self.training_in_progress = False
                 return
             
             # Validar datos
@@ -290,6 +339,7 @@ class TrainingHandler:
             if len(training_data) < 10:
                 error_msg = f"Datos insuficientes para entrenamiento: {len(training_data)} registros (mínimo 10)"
                 self.logger.error(error_msg)
+                self.training_in_progress = False  # Detener el entrenamiento
                 if self.ui_broadcaster:
                     await self.ui_broadcaster.broadcast_training_update(
                         status="FAILED",
@@ -297,7 +347,6 @@ class TrainingHandler:
                         filepath=self.training_filepath,
                         error=error_msg
                     )
-                self.training_in_progress = False
                 return
             
             # Optimizar datos antes del entrenamiento
@@ -313,6 +362,7 @@ class TrainingHandler:
             if not optimized_data:
                 error_msg = "Error en la optimización de datos de entrenamiento"
                 self.logger.error(error_msg)
+                self.training_in_progress = False  # Detener el entrenamiento
                 if self.ui_broadcaster:
                     await self.ui_broadcaster.broadcast_training_update(
                         status="FAILED",
@@ -320,7 +370,6 @@ class TrainingHandler:
                         filepath=self.training_filepath,
                         error=error_msg
                     )
-                self.training_in_progress = False
                 return
 
             # Simular progreso de entrenamiento con pasos más realistas y frecuentes
@@ -343,6 +392,7 @@ class TrainingHandler:
             except Exception as train_error:
                 error_msg = f"Error durante el entrenamiento del modelo: {str(train_error)}"
                 self.logger.error(error_msg)
+                self.training_in_progress = False  # Detener el entrenamiento
                 if self.ui_broadcaster:
                     await self.ui_broadcaster.broadcast_training_update(
                         status="FAILED",
@@ -350,7 +400,6 @@ class TrainingHandler:
                         filepath=self.training_filepath,
                         error=error_msg
                     )
-                self.training_in_progress = False
                 return
             
             # Completar entrenamiento
@@ -371,9 +420,14 @@ class TrainingHandler:
         except Exception as e:
             error_msg = f"Error crítico en proceso de entrenamiento: {str(e)}"
             self.logger.error(error_msg)
-            self.training_in_progress = False
+            self.training_in_progress = False  # Asegurar que se detiene el entrenamiento
             if self.ui_broadcaster:
-                await self.ui_broadcaster.broadcast_training_error(error_msg)
+                await self.ui_broadcaster.broadcast_training_update(
+                    status="FAILED",
+                    progress=self.training_progress,
+                    filepath=self.training_filepath,
+                    error=error_msg
+                )
 
     async def _run_testing_process(self, filepath: str):
         """Ejecuta el proceso de pruebas en background."""
@@ -467,17 +521,45 @@ class TrainingHandler:
         try:
             if isinstance(file_path_or_file, str):
                 # Es una ruta de archivo
+                self.logger.info(f"Intentando cargar archivo CSV: {file_path_or_file}")
+                
+                # Verificar que el archivo existe
+                if not os.path.exists(file_path_or_file):
+                    self.logger.error(f"Archivo no encontrado: {file_path_or_file}")
+                    return []
+                
+                # Verificar que el archivo no está vacío
+                if os.path.getsize(file_path_or_file) == 0:
+                    self.logger.error(f"Archivo está vacío: {file_path_or_file}")
+                    return []
+                
                 with open(file_path_or_file, "r", encoding="utf-8") as file:
                     reader = csv.DictReader(file)
-                    return list(reader)
+                    data = list(reader)
+                    self.logger.info(f"Archivo CSV cargado exitosamente: {len(data)} registros")
+                    return data
             else:
                 # Es un objeto de archivo
                 content = file_path_or_file.read().decode("utf-8")
                 reader = csv.DictReader(StringIO(content))
-                return list(reader)
+                data = list(reader)
+                self.logger.info(f"Datos CSV cargados desde objeto: {len(data)} registros")
+                return data
                 
+        except FileNotFoundError as e:
+            self.logger.error(f"Archivo CSV no encontrado: {file_path_or_file} - {e}")
+            return []
+        except PermissionError as e:
+            self.logger.error(f"Sin permisos para leer archivo CSV: {file_path_or_file} - {e}")
+            return []
+        except UnicodeDecodeError as e:
+            self.logger.error(f"Error de codificación en archivo CSV: {file_path_or_file} - {e}")
+            return []
+        except csv.Error as e:
+            self.logger.error(f"Error de formato CSV en archivo: {file_path_or_file} - {e}")
+            return []
         except Exception as e:
-            self.logger.error(f"Error cargando archivo CSV: {e}")
+            self.logger.error(f"Error inesperado cargando archivo CSV {file_path_or_file}: {e}")
             return []
     
     async def _run_model_tests(self, test_data: List[Dict]) -> Dict:

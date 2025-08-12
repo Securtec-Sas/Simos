@@ -16,6 +16,7 @@ const Training = ({
   const [trainingError, setTrainingError] = useState(null);
   const [trainingStartTime, setTrainingStartTime] = useState(null);
   const [trainingFilename, setTrainingFilename] = useState(null);
+  const [trainingCompleted, setTrainingCompleted] = useState(false);
 
   // Función para guardar estado en localStorage
   const saveTrainingState = (state) => {
@@ -56,19 +57,10 @@ const Training = ({
   };
 
   useEffect(() => {
-    // Cargar estado guardado del entrenamiento
-    const savedState = loadTrainingState();
-    if (savedState) {
-      console.log('Restaurando estado de entrenamiento:', savedState);
-      setTrainingStatus(savedState.status || 'idle');
-      setTrainingProgress(savedState.progress || 0);
-      setTrainingFilename(savedState.filename || null);
-      setTrainingStartTime(savedState.startTime ? new Date(savedState.startTime) : null);
-      setTrainingResults(savedState.results || null);
-      setTrainingError(savedState.error || null);
-    }
-
-    // Solicitar estado actual del entrenamiento desde V3
+    // NO cargar estado guardado - solicitar estado actual desde V3
+    console.log('📱 Página de entrenamiento cargada - solicitando estado actual');
+    
+    // Solicitar estado actual del entrenamiento desde V3 (solo una vez)
     if (sendV3Command) {
       console.log('🔍 Solicitando estado actual del entrenamiento...');
       sendV3Command('get_training_status');
@@ -98,21 +90,22 @@ const Training = ({
       setTrainingResults(null);
       setTrainingError(null);
       setTrainingStartTime(startTime);
-      setTrainingFilename(`training_${startTime.toISOString().split('T')[0]}`);
+      setTrainingFilename('analysis_training_5m');
 
       // Guardar estado inicial en localStorage
       saveTrainingState({
         status: 'STARTING',
         progress: 0,
-        filename: `training_${startTime.toISOString().split('T')[0]}`,
+        filename: 'analysis_training_5m',
         startTime: startTime,
         results: null,
         error: null
       });
 
-      // Enviar comando de entrenamiento con archivos CSV de la carpeta sebo/src/data/csv_exports
+      // Enviar comando de entrenamiento con el archivo específico analysis_training_5m
       const success = sendV3Command('start_ai_training', {
-        csv_source: 'sebo/src/data/csv_exports',
+        csv_filename: 'analysis_training_5m',
+        csv_source: 'D:/\ProyectosTrade/\simos/\sebo/\src/\data/\csv_exports/',
         timestamp: startTime.toISOString()
       });
 
@@ -132,7 +125,7 @@ const Training = ({
   const lastTrainingMessage = useRef(null);
 
   useEffect(() => {
-    if (!v3Data) return;
+    if (!v3Data || trainingCompleted) return;
 
     // Procesar respuesta del estado de entrenamiento
     if (v3Data.training_status) {
@@ -190,11 +183,12 @@ const Training = ({
       if (status === 'COMPLETED') {
         setTrainingResults(results);
         setTrainingError(null);
+        setTrainingCompleted(true); // Marcar como completado para dejar de procesar mensajes
         console.log('✅ Entrenamiento completado exitosamente');
         
         // Mostrar popup de éxito
         alert(`🎉 ¡Entrenamiento Completado Exitosamente!\n\n` +
-              `Configuración: ${filepath || trainingFilename}\n` +
+              `Archivo: ${filepath || trainingFilename}\n` +
               `Progreso: 100%\n` +
               `Estado: Completado\n\n` +
               `El modelo ha sido entrenado correctamente.`);
@@ -207,17 +201,19 @@ const Training = ({
       } else if (status === 'FAILED') {
         setTrainingResults(null);
         setTrainingError(error || 'Ocurrió un error desconocido durante el entrenamiento.');
+        setTrainingCompleted(true); // Marcar como completado para dejar de procesar mensajes
         console.error('❌ Error en entrenamiento:', error);
         
         // Mostrar popup de error
         alert(`❌ Error en el Entrenamiento\n\n` +
-              `Configuración: ${filepath || trainingFilename}\n` +
+              `Archivo: ${filepath || trainingFilename}\n` +
               `Error: ${error || 'Error desconocido'}\n\n` +
               `Por favor, revisa los datos de entrenamiento e intenta nuevamente.`);
         
         // Limpiar estado después de un tiempo
         setTimeout(() => {
           clearTrainingState();
+          setTrainingCompleted(false); // Permitir nuevo entrenamiento
         }, 10000);
       }
     }
@@ -247,11 +243,25 @@ const Training = ({
       if (status === 'COMPLETED') {
         setTrainingResults(results);
         setTrainingError(null);
+        setTrainingCompleted(true); // Marcar como completado para dejar de procesar mensajes
         console.log('✅ Entrenamiento completado exitosamente (formato nuevo)');
       } else if (status === 'FAILED') {
         setTrainingResults(null);
         setTrainingError(error || 'Ocurrió un error desconocido durante el entrenamiento.');
+        setTrainingCompleted(true); // Marcar como completado para dejar de procesar mensajes
         console.error('❌ Error en entrenamiento (formato nuevo):', error);
+        
+        // Mostrar popup de error para formato nuevo también
+        alert(`❌ Error en el Entrenamiento\n\n` +
+              `Archivo: ${filepath || trainingFilename}\n` +
+              `Error: ${error || 'Error desconocido'}\n\n` +
+              `Por favor, revisa los datos de entrenamiento e intenta nuevamente.`);
+        
+        // Limpiar estado después de un tiempo
+        setTimeout(() => {
+          clearTrainingState();
+          setTrainingCompleted(false); // Permitir nuevo entrenamiento
+        }, 10000);
       }
     }
   }, [v3Data, trainingStatus, trainingProgress, trainingFilename, trainingStartTime, trainingResults, trainingError]);
@@ -303,10 +313,10 @@ const Training = ({
           🤖 Entrenamiento con Archivos CSV
         </h4>
         <p style={{ margin: '0', color: '#495057' }}>
-          El entrenamiento se realizará utilizando los archivos CSV disponibles en la carpeta
-          <strong> sebo/src/data/csv_exports</strong>. El modelo procesará automáticamente todos
-          los archivos CSV de entrenamiento encontrados en esta ubicación para optimizar
-          sus predicciones de arbitraje.
+          El entrenamiento se realizará utilizando el archivo <strong>analysis_training_5m</strong>
+          ubicado en la carpeta <strong>sebo/src/data/csv_exports</strong>. El modelo cargará
+          automáticamente este archivo de datos de entrenamiento para optimizar sus predicciones
+          de arbitraje con intervalos de 5 minutos.
         </p>
       </div>
 

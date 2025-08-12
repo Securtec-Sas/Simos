@@ -19,7 +19,7 @@ const fetchAllHistoricalData = async (data, since, intervalo) => {
     const sellExchange = initializeExchange(sellExchangeId);
 
     if (!buyExchange || !sellExchange) {
-      console.error(`Failed to initialize one or both exchanges for fetchAllHistoricalData: ${buyExchangeId}, ${sellExchangeId}`);
+      console.warn(`⚠️  Saltando símbolo ${symbol}: No se pudieron inicializar los exchanges ${buyExchangeId}/${sellExchangeId}`);
       return [];
     }
 
@@ -27,27 +27,93 @@ const fetchAllHistoricalData = async (data, since, intervalo) => {
     const sellIntervalo = getExchangeTimeframe(sellExchange, intervalo);
 
     if (!buyExchange.has['fetchOHLCV'] || !sellExchange.has['fetchOHLCV']) {
-      console.error(`One of the exchanges does not support fetchOHLCV.`);
+      console.warn(`⚠️  Saltando símbolo ${symbol}: Uno de los exchanges no soporta fetchOHLCV`);
+      return [];
+    }
+
+    // Verificar si el símbolo existe en ambos exchanges
+    try {
+      await Promise.all([
+        buyExchange.loadMarkets(),
+        sellExchange.loadMarkets()
+      ]);
+
+      if (!buyExchange.markets[symbol] || !sellExchange.markets[symbol]) {
+        console.warn(`⚠️  Saltando símbolo ${symbol}: No está disponible en uno o ambos exchanges (${buyExchangeId}/${sellExchangeId})`);
+        return [];
+      }
+    } catch (marketError) {
+      console.warn(`⚠️  Saltando símbolo ${symbol}: Error al cargar mercados - ${marketError.message}`);
       return [];
     }
 
     let moreData = true;
-    while (moreData) {
-      const [buyData, sellData] = await Promise.all([
-        buyExchange.fetchOHLCV(symbol, buyIntervalo, lastTimestamp, limit),
-        sellExchange.fetchOHLCV(symbol, sellIntervalo, lastTimestamp, limit)
-      ]);
+    let consecutiveEmptyResponses = 0;
+    const maxEmptyResponses = 3;
 
-      if (buyData.length > 0) {
-        allBuyData = allBuyData.concat(buyData);
-        lastTimestamp = buyData[buyData.length - 1][0] + 1;
-      } else {
-        moreData = false;
-      }
+    while (moreData && consecutiveEmptyResponses < maxEmptyResponses) {
+      try {
+        const [buyData, sellData] = await Promise.all([
+          buyExchange.fetchOHLCV(symbol, buyIntervalo, lastTimestamp, limit),
+          sellExchange.fetchOHLCV(symbol, sellIntervalo, lastTimestamp, limit)
+        ]);
 
-      if (sellData.length > 0) {
-        allSellData = allSellData.concat(sellData);
+        // Validar que los datos no estén vacíos o sean inválidos
+        if (!buyData || !Array.isArray(buyData) || buyData.length === 0) {
+          consecutiveEmptyResponses++;
+          if (consecutiveEmptyResponses >= maxEmptyResponses) {
+            console.warn(`⚠️  Saltando símbolo ${symbol}: No hay más datos históricos disponibles en ${buyExchangeId}`);
+            moreData = false;
+          }
+          continue;
+        }
+
+        if (!sellData || !Array.isArray(sellData) || sellData.length === 0) {
+          console.warn(`⚠️  Saltando símbolo ${symbol}: No hay datos históricos disponibles en ${sellExchangeId}`);
+          moreData = false;
+          continue;
+        }
+
+        // Validar que los datos no contengan valores inválidos
+        const validBuyData = buyData.filter(candle => {
+          return candle && Array.isArray(candle) && candle.length >= 5 &&
+                 candle[0] && !isNaN(candle[0]) && isFinite(candle[0]) && // timestamp
+                 candle[4] && !isNaN(candle[4]) && isFinite(candle[4]) && candle[4] > 0; // close price
+        });
+
+        const validSellData = sellData.filter(candle => {
+          return candle && Array.isArray(candle) && candle.length >= 5 &&
+                 candle[0] && !isNaN(candle[0]) && isFinite(candle[0]) && // timestamp
+                 candle[4] && !isNaN(candle[4]) && isFinite(candle[4]) && candle[4] > 0; // close price
+        });
+
+        if (validBuyData.length === 0 || validSellData.length === 0) {
+          console.warn(`⚠️  Saltando lote de datos para ${symbol}: Datos inválidos o con valores infinity/undefined`);
+          consecutiveEmptyResponses++;
+          continue;
+        }
+
+        // Resetear contador de respuestas vacías si obtuvimos datos válidos
+        consecutiveEmptyResponses = 0;
+
+        allBuyData = allBuyData.concat(validBuyData);
+        allSellData = allSellData.concat(validSellData);
+        
+        lastTimestamp = validBuyData[validBuyData.length - 1][0] + 1;
+
+      } catch (fetchError) {
+        console.warn(`⚠️  Error obteniendo datos para ${symbol}: ${fetchError.message}`);
+        consecutiveEmptyResponses++;
+        if (consecutiveEmptyResponses >= maxEmptyResponses) {
+          moreData = false;
+        }
       }
+    }
+
+    // Verificar que tengamos datos suficientes
+    if (allBuyData.length === 0 || allSellData.length === 0) {
+      console.warn(`⚠️  Saltando símbolo ${symbol}: No se obtuvieron datos históricos válidos`);
+      return [];
     }
 
     // Synchronize data by timestamp
@@ -56,19 +122,33 @@ const fetchAllHistoricalData = async (data, since, intervalo) => {
 
     for (const buyCandle of allBuyData) {
       const timestamp = buyCandle[0];
+      const buyPrice = buyCandle[4];
       const sellPrice = sellDataMap.get(timestamp);
 
-      if (sellPrice) {
+      // Validar que todos los valores sean válidos antes de agregar
+      if (sellPrice &&
+          timestamp && !isNaN(timestamp) && isFinite(timestamp) &&
+          buyPrice && !isNaN(buyPrice) && isFinite(buyPrice) && buyPrice > 0 &&
+          sellPrice && !isNaN(sellPrice) && isFinite(sellPrice) && sellPrice > 0) {
+        
         synchronizedData.push({
           timestamp: timestamp,
-          buyPrice: buyCandle[4], // close price
+          buyPrice: buyPrice,
           sellPrice: sellPrice
         });
       }
     }
+
+    if (synchronizedData.length === 0) {
+      console.warn(`⚠️  Saltando símbolo ${symbol}: No se pudieron sincronizar los datos entre exchanges`);
+      return [];
+    }
+
+    console.log(`✅ Datos obtenidos para ${symbol}: ${synchronizedData.length} puntos sincronizados`);
     return synchronizedData;
+
   } catch (error) {
-    console.error(`Error fetching historical data for ${symbol} on ${buyExchangeId}/${sellExchangeId}:`, error);
+    console.warn(`⚠️  Saltando símbolo ${symbol}: Error general - ${error.message}`);
     return [];
   }
 };
@@ -129,25 +209,76 @@ const fetchHistoricalData = async (data, fecha_inicio, intervalo, cantidad_opera
 };
 
 const simulateTrade = async (dataPoint, balanceConfig, buyFeeRate, sellFeeRate, transferFee, buyExchangeId, sellExchangeId, symbol) => {
-  const investment_usdt = balanceConfig < 40 ? balanceConfig : balanceConfig * 0.2;
-  const current_price_buy = dataPoint.buyPrice;
-  const current_price_sell = dataPoint.sellPrice;
-
-  if (!current_price_buy || !current_price_sell || current_price_buy <= 0) {
+  // Validar que todos los parámetros sean válidos
+  if (!dataPoint || typeof dataPoint !== 'object') {
     return null;
   }
 
-  // Lógica de cálculo de profit basada en porcentajes
+  const current_price_buy = dataPoint.buyPrice;
+  const current_price_sell = dataPoint.sellPrice;
+  const timestamp = dataPoint.timestamp;
+
+  // Validaciones exhaustivas para evitar valores infinity o undefined
+  if (!current_price_buy || !current_price_sell || !timestamp ||
+      !isFinite(current_price_buy) || !isFinite(current_price_sell) || !isFinite(timestamp) ||
+      isNaN(current_price_buy) || isNaN(current_price_sell) || isNaN(timestamp) ||
+      current_price_buy <= 0 || current_price_sell <= 0) {
+    return null;
+  }
+
+  // Validar parámetros de configuración
+  if (!isFinite(balanceConfig) || isNaN(balanceConfig) || balanceConfig <= 0 ||
+      !isFinite(buyFeeRate) || isNaN(buyFeeRate) || buyFeeRate < 0 ||
+      !isFinite(sellFeeRate) || isNaN(sellFeeRate) || sellFeeRate < 0 ||
+      !isFinite(transferFee) || isNaN(transferFee) || transferFee < 0) {
+    return null;
+  }
+
+  const investment_usdt = balanceConfig < 100 ? balanceConfig : 100;
+
+  // Validar que investment_usdt sea válido
+  if (!isFinite(investment_usdt) || isNaN(investment_usdt) || investment_usdt <= 0) {
+    return null;
+  }
+
+  // Lógica de cálculo de profit basada en porcentajes con validaciones
   const gross_profit_percentage = (current_price_sell - current_price_buy) / current_price_buy;
   const transfer_fee_percentage = transferFee / investment_usdt;
   const total_fees_percentage = buyFeeRate + sellFeeRate + transfer_fee_percentage;
 
+  // Validar que los cálculos no produzcan valores inválidos
+  if (!isFinite(gross_profit_percentage) || isNaN(gross_profit_percentage) ||
+      !isFinite(transfer_fee_percentage) || isNaN(transfer_fee_percentage) ||
+      !isFinite(total_fees_percentage) || isNaN(total_fees_percentage)) {
+    return null;
+  }
+
   const net_profit_percentage = gross_profit_percentage - total_fees_percentage;
+
+  // Validar el resultado final
+  if (!isFinite(net_profit_percentage) || isNaN(net_profit_percentage)) {
+    return null;
+  }
 
   // Decisión basada en el umbral de 0.6%
   const decision_outcome = net_profit_percentage > 0.006 ? 'EJECUTADA' : 'NO_EJECUTADA';
-
   const net_profit_usdt = decision_outcome === 'EJECUTADA' ? net_profit_percentage * investment_usdt : 0;
+
+  // Calcular fees con validaciones
+  const estimated_buy_fee = investment_usdt * buyFeeRate;
+  const estimated_sell_fee = (investment_usdt * (1 + gross_profit_percentage)) * sellFeeRate;
+  const total_fees_usdt = estimated_buy_fee + estimated_sell_fee + transferFee;
+  const profit_percentage = net_profit_percentage * 100;
+  const execution_time_seconds = Math.random() * (120 - 30) + 30;
+
+  // Validar todos los valores calculados antes de crear el objeto
+  if (!isFinite(estimated_buy_fee) || isNaN(estimated_buy_fee) ||
+      !isFinite(estimated_sell_fee) || isNaN(estimated_sell_fee) ||
+      !isFinite(total_fees_usdt) || isNaN(total_fees_usdt) ||
+      !isFinite(profit_percentage) || isNaN(profit_percentage) ||
+      !isFinite(execution_time_seconds) || isNaN(execution_time_seconds)) {
+    return null;
+  }
 
   // Estructurar el objeto de retorno para que coincida con lo que espera `ai_model.py`
   return {
@@ -164,12 +295,12 @@ const simulateTrade = async (dataPoint, balanceConfig, buyFeeRate, sellFeeRate, 
     investment_usdt: investment_usdt,
 
     // Fees detallados
-    estimated_buy_fee: investment_usdt * buyFeeRate,
-    estimated_sell_fee: (investment_usdt * (1 + gross_profit_percentage)) * sellFeeRate,
+    estimated_buy_fee: estimated_buy_fee,
+    estimated_sell_fee: estimated_sell_fee,
     estimated_transfer_fee: transferFee,
-    total_fees_usdt: (investment_usdt * buyFeeRate) + ((investment_usdt * (1 + gross_profit_percentage)) * sellFeeRate) + transferFee,
+    total_fees_usdt: total_fees_usdt,
 
-    profit_percentage: net_profit_percentage * 100, // Enviar como porcentaje
+    profit_percentage: profit_percentage, // Enviar como porcentaje
 
     // Datos de mercado en la estructura esperada
     market_data: {
@@ -179,8 +310,8 @@ const simulateTrade = async (dataPoint, balanceConfig, buyFeeRate, sellFeeRate, 
     },
 
     // Campos adicionales con valores por defecto o placeholders
-    execution_time_seconds: Math.random() * (120 - 30) + 30, // Simular tiempo entre 30-120s
-    timestamp: new Date(dataPoint.timestamp).toISOString(),
+    execution_time_seconds: execution_time_seconds,
+    timestamp: new Date(timestamp).toISOString(),
     balance_config: { balance_usdt: balanceConfig },
     id_exch_balance: buyExchangeId, // Campo del esquema anterior
   };
@@ -425,13 +556,17 @@ const serveCSVFile = async (req, res) => {
 
 const createTrainingCSVFromAnalysis = async (req, res) => {
   try {
+    console.log('🚀 Iniciando generación de CSV de entrenamiento desde análisis...');
+    
     const analysisList = await Analysis.find({})
       .sort({ promedio: -1 })
       .limit(30);
 
     if (!analysisList || analysisList.length === 0) {
-      return res.status(404).json({ message: "No analysis documents found." });
+      return res.status(404).json({ message: "No se encontraron documentos de análisis." });
     }
+
+    console.log(`📊 Procesando ${analysisList.length} análisis...`);
 
     const intervalo = '5m';
     const daysBack = 30;
@@ -439,19 +574,36 @@ const createTrainingCSVFromAnalysis = async (req, res) => {
 
     let balanceConfig = 20;
     const results = [];
+    let processedSymbols = 0;
+    let skippedSymbols = 0;
 
     for (const analysis of analysisList) {
       if (!analysis.id_exchsymbol) {
+        console.warn(`⚠️  Saltando análisis: No tiene id_exchsymbol`);
+        skippedSymbols++;
         continue;
       }
 
       const symbolDoc = await ExchangeSymbol.findById(analysis.id_exchsymbol, 'sy_id');
       if (!symbolDoc) {
-        console.warn(`Warning: Symbol with id_exchsymbol ${analysis.id_exchsymbol} not found`);
+        console.warn(`⚠️  Saltando análisis: Símbolo con id_exchsymbol ${analysis.id_exchsymbol} no encontrado`);
+        skippedSymbols++;
         continue;
       }
 
-      const transferFee = analysis.fee || 0.0005;
+      // Validar que los datos del análisis sean válidos
+      if (!analysis.id_exdataMin || !analysis.id_exdataMax ||
+          !isFinite(analysis.taker_fee_exMin) || isNaN(analysis.taker_fee_exMin) ||
+          !isFinite(analysis.taker_fee_exMax) || isNaN(analysis.taker_fee_exMax) ||
+          analysis.taker_fee_exMin < 0 || analysis.taker_fee_exMax < 0) {
+        console.warn(`⚠️  Saltando símbolo ${symbolDoc.sy_id}: Datos de análisis inválidos`);
+        skippedSymbols++;
+        continue;
+      }
+
+      const transferFee = analysis.fee && isFinite(analysis.fee) && !isNaN(analysis.fee) && analysis.fee >= 0
+        ? analysis.fee
+        : 0.0005;
 
       let data = {
         symbol: symbolDoc.sy_id,
@@ -462,17 +614,55 @@ const createTrainingCSVFromAnalysis = async (req, res) => {
         transferFee: transferFee
       };
 
+      console.log(`🔄 Procesando símbolo ${symbolDoc.sy_id} (${processedSymbols + 1}/${analysisList.length})...`);
+
       const historicalData = await fetchAllHistoricalData(data, since, intervalo);
 
+      if (historicalData.length === 0) {
+        console.warn(`⚠️  No se obtuvieron datos históricos para ${symbolDoc.sy_id}`);
+        skippedSymbols++;
+        continue;
+      }
+
+      let validTrades = 0;
       for (const dataPoint of historicalData) {
         const tradeResult = await simulateTrade(dataPoint, balanceConfig, data.buyFees, data.sellFees, data.transferFee, data.buyExchangeId, data.sellExchangeId, data.symbol);
 
         if (tradeResult) {
-          results.push(tradeResult);
-          balanceConfig += tradeResult.net_profit_usdt;
-          if (balanceConfig < 0) balanceConfig = 0;
+          // Validar que el resultado del trade no contenga valores inválidos
+          if (isFinite(tradeResult.net_profit_usdt) && !isNaN(tradeResult.net_profit_usdt) &&
+              isFinite(tradeResult.profit_percentage) && !isNaN(tradeResult.profit_percentage)) {
+            results.push(tradeResult);
+            balanceConfig += tradeResult.net_profit_usdt;
+            if (balanceConfig < 0) balanceConfig = 0;
+            validTrades++;
+          }
         }
       }
+
+      if (validTrades > 0) {
+        console.log(`✅ Símbolo ${symbolDoc.sy_id}: ${validTrades} trades válidos procesados`);
+        processedSymbols++;
+      } else {
+        console.warn(`⚠️  Símbolo ${symbolDoc.sy_id}: No se generaron trades válidos`);
+        skippedSymbols++;
+      }
+    }
+
+    console.log(`📈 Resumen del procesamiento:`);
+    console.log(`   - Símbolos procesados exitosamente: ${processedSymbols}`);
+    console.log(`   - Símbolos saltados: ${skippedSymbols}`);
+    console.log(`   - Total de trades generados: ${results.length}`);
+
+    if (results.length === 0) {
+      return res.status(400).json({
+        error: 'No se pudieron generar datos de entrenamiento válidos',
+        details: {
+          processedSymbols,
+          skippedSymbols,
+          totalTrades: 0
+        }
+      });
     }
 
     const fields = [
@@ -507,16 +697,23 @@ const createTrainingCSVFromAnalysis = async (req, res) => {
 
     await fs.writeFile(filePath, csv, 'utf8');
 
+    console.log(`💾 CSV guardado exitosamente: ${filename}`);
+
     return res.status(201).json({
       message: 'CSV de entrenamiento guardado exitosamente en el servidor.',
       filename: filename,
       path: filePath,
-      records: results.length
+      records: results.length,
+      summary: {
+        processedSymbols,
+        skippedSymbols,
+        totalTrades: results.length
+      }
     });
 
   } catch (error) {
-    console.error('Error in createTrainingCSVFromAnalysis:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('❌ Error en createTrainingCSVFromAnalysis:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
 
