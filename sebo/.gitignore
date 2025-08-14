@@ -45,3 +45,6 @@ migrations/
 V3/data/
 V3/log/
 .log
+V3/log/ # Si este log está en la raíz, este .gitignore no lo afectará
+**/csv_exports/
+*.csv
