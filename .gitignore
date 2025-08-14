@@ -59,3 +59,7 @@ Desktop.ini
 
 #Proyectos
 V1/
+
+V3/log/ # Si este log está en la raíz, este .gitignore no lo afectará
+**/csv_exports/
+*.csv
