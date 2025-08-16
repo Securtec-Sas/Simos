@@ -1,0 +1,19 @@
+/* Styles for Layout.jsx */
+
+.mainHeader {
+  display: flex;
+  justify-content: flex-end; /* Aligns items, including BalanceDisplayWrapper, to the right */
+  align-items: center; /* Vertically align items in the header */
+  padding: 10px 20px; /* Padding for the header area */
+  /* border-bottom: 1px solid #e0e0e0; */ /* Optional: if you want a line under the header */
+  /* background-color: #ffffff; */ /* Optional: background color for the header */
+  height: 60px; /* Example fixed height for the header, adjust as needed */
+}
+
+
+.pageContent {
+  padding: 20px; /* Padding for the actual page content below the header */
+  /* This ensures that if content is short, it still allows .mainHeader to be at top */
+  flex-grow: 1;
+}
+

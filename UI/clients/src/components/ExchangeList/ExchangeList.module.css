@@ -1,0 +1,62 @@
+.exchangeListContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.header {
+  padding: 15px 20px;
+  background-color: #007bff;
+  border-bottom: 1px solid #0056b3;
+  flex-shrink: 0;
+}
+
+.header h3 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 1.2rem;
+}
+
+.scrollableList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  background-color: #f8f9fa;
+}
+
+.exchangeList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.exchangeItem {
+  padding: 12px 15px;
+  border-bottom: 1px solid #dee2e6;
+  display: flex;
+  align-items: center;
+  background-color: #ffffff;
+  transition: background-color 0.2s;
+}
+
+.exchangeItem:hover {
+  background-color: #e9ecef;
+}
+
+.exchangeItem:last-child {
+  border-bottom: none;
+}
+
+.exchangeItem input[type="checkbox"] {
+  margin-right: 10px;
+}
+
+.exchangeItem label {
+  cursor: pointer;
+  flex: 1;
+  font-weight: 500;
+  color: #212529;
+}

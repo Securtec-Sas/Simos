@@ -1,0 +1,6 @@
+# Frontend Environment Variables
+
+UI_PORT=3000
+SEBO_API_PORT=3031
+SEBO_WEBSOCKET_URL=ws://localhost:3031
+V3_WEBSOCKET_URL=ws://localhost:3001/api/spot/ui
